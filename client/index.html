@@ -1,22 +1,15 @@
 <!DOCTYPE html>
-<! http://stackoverflow.com/questions/10019689/modify-twitter-bootstrap-collapse-plugin-to-keep-accordions-open/11658976#11658976 >
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Bootstrap, from Twitter</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
-
-    <!-- Le styles -->
-    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Audit.JS</title>
+    <link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
     <style>
         body {
             padding-top: 60px;
         }
-
         @media (max-width: 979px) {
-
             /* Remove any padding from the body */
             body {
                 padding-top: 0;
@@ -24,21 +17,9 @@
         }
     </style>
     <link href="style/main.css" rel="stylesheet">
-
-    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
-    <!--[if lt IE 9]>
-    <script src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-
-    <!-- Le fav and touch icons -->
-    <link rel="shortcut icon" href="images/favicon.ico">
-    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
 </head>
 
 <body>
-
 <div class="navbar navbar-fixed-top">
     <div class="navbar-inner">
         <div class="container">
@@ -47,13 +28,12 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </a>
-            <a class="brand" href="#">Project name</a>
+            <a class="brand" href="#">Audit.JS</a>
 
             <div class="nav-collapse">
                 <ul class="nav">
                     <li class="active"><a href="#">Home</a></li>
                     <li><a href="#about">About</a></li>
-                    <li><a href="#contact">Contact</a></li>
                 </ul>
             </div>
             <!--/.nav-collapse -->
@@ -62,71 +42,57 @@
 </div>
 
 <div class="container">
-
     <div class="accordion" id="accordion">
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseOne" href="#">
-                    Item #1
+                    library data admin
                 </a>
             </div>
-            <div id="collapseOne" class=" collapse in">
-                <div class="accordion-inner">
-                    Anim pariatur cliche reprehenderit, enim eiusmod high life accusamus terry richardson ad squid. 3
-                    wolf moon officia aute, non cupidatat skateboard dolor brunch. Food truck quinoa nesciunt laborum
-                    eiusmod. Brunch 3 wolf moon tempor, sunt aliqua put a bird on it squid single-origin coffee nulla
-                    assumenda shoreditch et. Nihil anim keffiyeh helvetica, craft beer labore wes anderson cred nesciunt
-                    sapiente ea proident. Ad vegan excepteur butcher vice lomo. Leggings occaecat craft beer
-                    farm-to-table, raw denim aesthetic synth nesciunt you probably haven't heard of them accusamus
-                    labore sustainable VHS.
-                </div>
+            <div id="collapseOne" class=" collapse">
+                <div id="admin" class="accordion-inner"></div>
             </div>
         </div>
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseTwo" href="#">
-                    Item #2
+                    library
                 </a>
             </div>
-            <div id="collapseTwo" class=" collapse">
-                <div class="accordion-inner">
-                    Anim pariatur cliche reprehenderit, enim eiusmod high life accusamus terry richardson ad squid. 3
-                    wolf moon officia aute, non cupidatat skateboard dolor brunch. Food truck quinoa nesciunt laborum
-                    eiusmod. Brunch 3 wolf moon tempor, sunt aliqua put a bird on it squid single-origin coffee nulla
-                    assumenda shoreditch et. Nihil anim keffiyeh helvetica, craft beer labore wes anderson cred nesciunt
-                    sapiente ea proident. Ad vegan excepteur butcher vice lomo. Leggings occaecat craft beer
-                    farm-to-table, raw denim aesthetic synth nesciunt you probably haven't heard of them accusamus
-                    labore sustainable VHS.
-                </div>
-            </div>
-        </div>
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
-                    Item #3
-                </a>
-            </div>
-            <div id="collapseThree" class=" collapse">
-                <div class="accordion-inner">
-                    Anim pariatur cliche reprehenderit, enim eiusmod high life accusamus terry richardson ad squid. 3
-                    wolf moon officia aute, non cupidatat skateboard dolor brunch. Food truck quinoa nesciunt laborum
-                    eiusmod. Brunch 3 wolf moon tempor, sunt aliqua put a bird on it squid single-origin coffee nulla
-                    assumenda shoreditch et. Nihil anim keffiyeh helvetica, craft beer labore wes anderson cred nesciunt
-                    sapiente ea proident. Ad vegan excepteur butcher vice lomo. Leggings occaecat craft beer
-                    farm-to-table, raw denim aesthetic synth nesciunt you probably haven't heard of them accusamus
-                    labore sustainable VHS.
-                </div>
+            <div id="collapseTwo" class=" collapse in">
+                <div id="librarySummary" class="accordion-inner"></div>
             </div>
         </div>
     </div>
-
 </div>
 <!-- /container -->
 
-<!-- Le javascript
-================================================== -->
-<!-- Placed at the end of the document so the pages load faster -->
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
-<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+
+<!-- templates -->
+<script id="adminTemplate" type="text/template">
+    <p>
+        <button id="purge">Purge all books</button>
+        <button id="replay">Replay change log</button>
+    </p>
+    <p>
+        <button id="generate">Generate books</button>
+    </p>
+</script>
+
+<script id="libraryBookCountTemplate" type="text/template">
+    Total number of books:&nbsp;<%- count %>
+</script>
+<!-- /template -->
+
+
+<script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+
+<script src="script/book.js"></script>
+<script src="script/library.js"></script>
+<script src="script/app.js"></script>
+
 </body>
 </html>
