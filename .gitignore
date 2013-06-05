@@ -8,4 +8,5 @@ git.log
 server/start.cmd
 
 #Ignore transient project files
+README.html
 server/node_modules
