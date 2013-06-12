@@ -9,10 +9,10 @@ app.Library = Backbone.Collection.extend({
     url: "/api/books"
 });
 
-app.LibrarySummaryView = Backbone.View.extend({
-    templateEl: "#libraryBookCountTemplate",
+app.LibraryBookCountView = Backbone.View.extend({
+    templateSelector: "#libraryBookCountTemplate",
     initialize: function () {
-        this.listenTo(this.model, "change", this.render);
+        this.model.on("change", this.render, this);
         this.model.fetch({
             error: function (err) {
                 alert(err);
@@ -20,7 +20,15 @@ app.LibrarySummaryView = Backbone.View.extend({
         });
     },
     render: function () {
-        this.$el.html(_.template($(this.templateEl).html(), { count: this.model.get("count") }));
+        this.$el.html(_.template($(this.templateSelector).html(), { count: this.model.get("count") }));
         this.trigger("rendered");
+    }
+});
+
+app.LibraryBookListingView = Backbone.View.extend({
+    templateSelector: "#libraryBookListingTemplate",
+    initialize: function () {
+    },
+    render: function () {
     }
 });

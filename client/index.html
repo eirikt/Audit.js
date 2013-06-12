@@ -9,6 +9,7 @@
         body {
             padding-top: 60px;
         }
+
         @media (max-width: 979px) {
             /* Remove any padding from the body */
             body {
@@ -46,44 +47,87 @@
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseOne" href="#">
-                    library data admin
+                    library: admin
                 </a>
             </div>
             <div id="collapseOne" class=" collapse">
-                <div id="admin" class="accordion-inner"></div>
+                <div id="libraryAdmin" class="accordion-inner"></div>
             </div>
         </div>
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseTwo" href="#">
-                    library
+                    library: book count
                 </a>
             </div>
             <div id="collapseTwo" class=" collapse in">
-                <div id="librarySummary" class="accordion-inner"></div>
+                <div id="libraryBookCount" class="accordion-inner"></div>
             </div>
         </div>
+        <!--
+        <div class="accordion-group">
+            <div class="accordion-heading">
+                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+                    library: book listing
+                </a>
+            </div>
+            <div id="collapseThree" class=" collapse in">
+                <div id="libraryBookListing" class="accordion-inner">
+                    <div>
+                        <span style="display:inline-block; width:20px; font-size:x-small;">#</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small;">Title</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small;">Author</span>
+                        <span style="display:inline-block; width:200px; font-size:x-small;">Release date</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small;">Keywords</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        -->
     </div>
 </div>
 <!-- /container -->
 
-
 <!-- templates -->
 <script id="adminTemplate" type="text/template">
-    <p>
-        <button id="purge">Purge all books</button>
-        <button id="replay">Replay change log</button>
-    </p>
-    <p>
-        <button id="generate">Generate books</button>
-    </p>
+    <div class="input-append">
+        <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
+        <button id="generate" type="button" class="btn btn-info">Generate books</button>
+        <span class="pull-right">
+            <button id="purge" type="button" class="btn btn-danger">Purge books</button>
+            <button id="replay" type="button" class="btn btn-inverse">Replay all state changes</button>
+        </span>
+    </div>
 </script>
 
 <script id="libraryBookCountTemplate" type="text/template">
-    Total number of books:&nbsp;<%- count %>
+    <div style="float:none;margin:0 auto">
+        Total number of books:<span class="pull-right" style="font-size:x-large"><%- count %></span>
+    </div>
 </script>
-<!-- /template -->
 
+<!--
+<script id="libraryBookListingHeadingTemplate" type="text/template">
+    <span style="display:inline-block; width:20px; font-size:x-small;">#</span>
+    <span style="display:inline-block; width:100px; font-size:x-small;">Title</span>
+    <span style="display:inline-block; width:100px; font-size:x-small;">Author</span>
+    <span style="display:inline-block; width:200px; font-size:x-small;">Release date</span>
+    <span style="display:inline-block; width:100px; font-size:x-small;">Keywords</span>
+</script>
+-->
+
+<script id="bookLineTemplate" type="text/template">
+    <span style="display:inline-block; width:20px; font-size:x-small;"><%- seq %></span>
+    <span style="display:inline-block; width:100px; font-size:x-small;"><%- title %></span>
+    <span style="display:inline-block; width:100px; font-size:x-small;"><%- author %></span>
+    <span style="display:inline-block; width:200px; font-size:x-small;">
+        <%= $.format.date(new Date(releaseDate), "MMMM yyyy") %>
+    </span>
+    <span style="display:inline-block; width:100px; font-size:x-small;">
+        <% _.each(keywords, function(keyobj) { %><%- keyobj.keyword %>&nbsp;<% }); %>
+    </span>
+</script>
+<!-- /templates -->
 
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>

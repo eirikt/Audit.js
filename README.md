@@ -8,12 +8,12 @@ Other noble goals this architecture will strive for are _maintainability_ and _s
 ## Core design patterns
 The core design patters this architecture are:
 
- 1. Event sourcing
+ 1. Event Sourcing
  2. CQRS
 
 Both these patterns are originating from the Domain-Driven Design ([DDD] [10]) community.
 
-#### Event sourcing
+#### Event Sourcing
 
 Definitions are taken from Martin Fowler's [bliki][11]:
 
@@ -31,7 +31,7 @@ It simply means that architecture should treat writes (commands) differently (se
 
 ## Design principles for Audit.JS
 
-#### Event store stuff
+#### Event Sourcing stuff
 
 Events should be regarded as a central construct in the application model, not just some infrastructural add-on piece.
 
