@@ -51,22 +51,22 @@ var StateChangeMongooseSchema = new mongoose.Schema({
     changes: {}
 });
 
-var Keyword = new mongoose.Schema({
+var KeywordMongooseSchema = new mongoose.Schema({
     keyword: String
 });
 
-var Book = new mongoose.Schema({
+var BookMongooseSchema = new mongoose.Schema({
     title: String,
     author: String,
     releaseDate: Date,
     coverImage: String,
-    keywords: [ Keyword ],
+    keywords: [ KeywordMongooseSchema ],
     dateAdded: Date
 });
 
 
 // Misc. schema config
-Book.plugin(pureautoinc.plugin, {
+BookMongooseSchema.plugin(pureautoinc.plugin, {
     model: "BookModel",
     field: "seq",
     start: 1
@@ -74,8 +74,8 @@ Book.plugin(pureautoinc.plugin, {
 
 // Models
 var StateChangeMongooseModel = mongoose.model("StateChange", StateChangeMongooseSchema);
-var KeywordModel = mongoose.model("Keyword", Keyword);
-var BookModel = mongoose.model("Book", Book);
+var KeywordModel = mongoose.model("Keyword", KeywordMongooseSchema);
+var BookModel = mongoose.model("Book", BookMongooseSchema);
 
 
 // Helper functions

@@ -68,8 +68,9 @@ On the client side:
 
  1. [jQuery][20]
  2. [Backbone.js][21]
- 3. [Bootstrap][22]
- 4. [Socket.IO][23]
+ 3. [Backbone.Marionette][22]
+ 4. [Bootstrap][23]
+ 5. [Socket.IO][24]
 
 On the server side:
 
@@ -88,8 +89,9 @@ This markdown is written using the excellent [Markdown Live Editor][50]
 
 [20]: http://jquery.com
 [21]: http://backbonejs.org
-[22]: http://twitter.github.io/bootstrap
-[23]: http://socket.io
+[22]: http://marionettejs.com
+[23]: http://twitter.github.io/bootstrap
+[24]: http://socket.io
 [30]: http://www.mongodb.org
 [31]: http://nodejs.org
 

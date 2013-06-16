@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <title>Audit.JS</title>
-    <link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
+    <!-- Ordinary setup -->
+        <link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">
+        <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
+    <!-- Offline development -->
+    <!--
+    <link rel="stylesheet" href="style/normalize.css">
+    <link rel="stylesheet" href="style/bootstrap.css">
+    <link rel="stylesheet" href="style/bootstrap-responsive.css">
+    -->
     <style>
         body {
             padding-top: 60px;
         }
-
         @media (max-width: 979px) {
             /* Remove any padding from the body */
             body {
@@ -50,7 +56,7 @@
                     library: admin
                 </a>
             </div>
-            <div id="collapseOne" class=" collapse">
+            <div id="collapseOne" class="collapse">
                 <div id="libraryAdmin" class="accordion-inner"></div>
             </div>
         </div>
@@ -60,30 +66,37 @@
                     library: book count
                 </a>
             </div>
-            <div id="collapseTwo" class=" collapse in">
+            <div id="collapseTwo" class="collapse in">
                 <div id="libraryBookCount" class="accordion-inner"></div>
             </div>
         </div>
-        <!--
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
                     library: book listing
                 </a>
             </div>
-            <div id="collapseThree" class=" collapse in">
+            <div id="collapseThree" class="collapse">
+                <!--
                 <div id="libraryBookListing" class="accordion-inner">
-                    <div>
-                        <span style="display:inline-block; width:20px; font-size:x-small;">#</span>
-                        <span style="display:inline-block; width:100px; font-size:x-small;">Title</span>
-                        <span style="display:inline-block; width:100px; font-size:x-small;">Author</span>
-                        <span style="display:inline-block; width:200px; font-size:x-small;">Release date</span>
-                        <span style="display:inline-block; width:100px; font-size:x-small;">Keywords</span>
+                    <table class="table table-condensed table-striped table-hover">
+                        <thead><tr><th><span class="detail">#</span></th><th><span class="detail">Title</span></th><th><span class="detail">Author</span></th><th><span class="detail">Release date</span></th><th><span class="detail">Keywords</span></th></tr></thead>
+                        <tbody id="books"></tbody>
+                    </table>
+                </div>
+                -->
+                <div id="libraryBookListing" class="accordion-inner">
+                    <div id="booksHeading">
+                        <span style="display:inline-block; width:30px; font-size:x-small; font-weight: bold">#</span>
+                        <span style="display:inline-block; width:150px; font-size:x-small; font-weight: bold">Title</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Author</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Release date</span>
+                        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Keywords</span>
                     </div>
+                    <div id="books"></div>
                 </div>
             </div>
         </div>
-        -->
     </div>
 </div>
 <!-- /container -->
@@ -94,8 +107,8 @@
         <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
         <button id="generate" type="button" class="btn btn-info">Generate books</button>
         <span class="pull-right">
-            <button id="purge" type="button" class="btn btn-danger">Purge books</button>
-            <button id="replay" type="button" class="btn btn-inverse">Replay all state changes</button>
+            <button id="purge" type="button" class="btn btn-danger">Purge all books</button>
+            <button id="replay" type="button" class="btn btn-inverse">Replay all state change events</button>
         </span>
     </div>
 </script>
@@ -106,34 +119,39 @@
     </div>
 </script>
 
+<script id="tableRowBookTemplate" type="text/template">
+    <span style="display:inline-block; width:30px; font-size:x-small;"><%- seq %></span>
+    <span style="display:inline-block; width:150px; font-size:x-small;"><%- title %></span>
+    <span style="display:inline-block; width:100px; font-size:x-small;"><%- author %></span>
+    <span style="display:inline-block; width:100px; font-size:x-small;"><%- releaseDate %></span>
+    <span style="display:inline-block; width:100px; font-size:x-small;">
+        <% _.each(keywords, function(keyobj) { %><%- keyobj.keyword %><% }); %>
+    </span>
+</script>
 <!--
-<script id="libraryBookListingHeadingTemplate" type="text/template">
-    <span style="display:inline-block; width:20px; font-size:x-small;">#</span>
-    <span style="display:inline-block; width:100px; font-size:x-small;">Title</span>
-    <span style="display:inline-block; width:100px; font-size:x-small;">Author</span>
-    <span style="display:inline-block; width:200px; font-size:x-small;">Release date</span>
-    <span style="display:inline-block; width:100px; font-size:x-small;">Keywords</span>
+<script id="tableRowBookTemplate" type="text/template">
+    <td><span class="detail"><%- seq %></span></td>
+    <td><span class="detail"><%- title %></span></td>
+    <td><span class="detail"><%- author %></span></td>
+    <td><span class="detail"><%- releaseDate %></span></td>
+    <td><span class="detail"><% _.each(keywords, function(keyobj) { %><%- keyobj.keyword %>&nbsp;<% }); %></span></td>
 </script>
 -->
-
-<script id="bookLineTemplate" type="text/template">
-    <span style="display:inline-block; width:20px; font-size:x-small;"><%- seq %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;"><%- title %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;"><%- author %></span>
-    <span style="display:inline-block; width:200px; font-size:x-small;">
-        <%= $.format.date(new Date(releaseDate), "MMMM yyyy") %>
-    </span>
-    <span style="display:inline-block; width:100px; font-size:x-small;">
-        <% _.each(keywords, function(keyobj) { %><%- keyobj.keyword %>&nbsp;<% }); %>
-    </span>
-</script>
 <!-- /templates -->
 
+<!-- Ordinary setup -->
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+<!--<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone.js"></script>-->
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
-
+<!-- Offline development -->
+<!--
+<script src="script/jquery.js"></script>
+<script src="script/underscore.js"></script>
+<script src="script/backbone.js"></script>
+<script src="script/bootstrap.js"></script>
+-->
 <script src="script/book.js"></script>
 <script src="script/library.js"></script>
 <script src="script/app.js"></script>

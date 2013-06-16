@@ -2,6 +2,11 @@
     background: #f90;
     display: none;
 }
+
 .accordion-body.in {
     display: block;
+}
+
+.detail {
+    font-size: x-small;
 }

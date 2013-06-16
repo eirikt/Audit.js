@@ -15,6 +15,9 @@ app.LibraryAdminView = Backbone.View.extend({
     render: function () {
         this.$el.empty().append($(this.templateSelector).html());
     },
+    close: function () {
+        alert("TODO: close");
+    },
     purgeAllBooks: function () {
         alert("TODO: purgeAllBooks");
     },
@@ -31,30 +34,44 @@ app.LibraryAdminView = Backbone.View.extend({
                     alert("Server error!");
                 }
                 xhr.done(function (bookAndCount) {
-                    var librarySummaryViewRendered = false,
-                        libraryViewRendered = false;
+
+                    // Well, as a demo/for fun - doing things in a DOM-abusing extremely slow way ...it's only writes anyway
+                    // Only applicable for > 100 books (causes screen to flicker in Bootstrap setup)
+                    var libraryBookCountViewRendered = false,
+                        libraryBookListingViewRendered = false;
+
+                    //app.libraryBookCountView.close();
                     app.libraryBookCountView = new app.LibraryBookCountView({ el: "#libraryBookCount", model: new app.BookCount() });
 
-                    // Well, as a demo/for fun - doing things the veeery slow way ...
-                    // Only applicable for > 1000 books
-                    //app.libraryView = new app.LibraryView({ el: "#books", collection: new app.Library() });
+                    if (app.libraryBookListingView.isActive()) {
+                        app.libraryBookListingView.close();
+                        //app.libraryBookListingView = new app.LibraryBookListingView({ el: "#libraryBookListing", collection: new app.Library });
+                        app.libraryBookListingView = new app.LibraryBookListingView({ collection: new app.Library() });
+                        //app.libraryBookListingView.isDisabled = false;
+                    } else {
+                        libraryBookListingViewRendered = true;
+                    }
 
-                    // More performant version
+                    // TODO: More performant version
                     //app.library.unshift(bookAndCount.book);
 
                     if (i < numberOfBooksToGenerate) {
                         app.libraryBookCountView.once("rendered", function () {
-                            //librarySummaryViewRendered = true;
-                            //if (libraryViewRendered) {
-                            generateSingleRandomBook(++i);
-                            //}
+                            libraryBookCountViewRendered = true;
+                            if (libraryBookListingViewRendered) {
+                                generateSingleRandomBook(++i);
+                            }
                         });
-                        //app.libraryView.once("rendered", function () {
-                        //    libraryViewRendered = true;
-                        //    if (librarySummaryViewRendered) {
-                        //        generateSingleRandomBook(++i);
-                        //    }
-                        //});
+                        if (app.libraryBookListingView.isActive()) {
+                            app.libraryBookListingView.once("rendered", function () {
+                                window.setTimeout(function () {
+                                    libraryBookListingViewRendered = true;
+                                    if (libraryBookCountViewRendered) {
+                                        generateSingleRandomBook(++i);
+                                    }
+                                }, 200);
+                            });
+                        }
                     }
                 });
                 xhr.fail(function () {
@@ -76,6 +93,28 @@ $(function () {
 
     // Views
     var adminView = app.adminView = new app.LibraryAdminView({ el: "#libraryAdmin" }).render();
-    var libraryBookCountView = app.libraryBookCountView = new app.LibraryBookCountView({ el: "#libraryBookCount", model: bookCount });
-    var libraryBookListingView = app.libraryBookListingView = new app.LibraryBookListingView({ el: "#libraryBookListing", collection: library });
+    var libraryBookCountView = app.libraryBookCountView =
+        new app.LibraryBookCountView({ el: "#libraryBookCount", model: bookCount });
+    //var libraryBookListingView = app.libraryBookListingView = new app.LibraryBookListingView({ el: "#libraryBookListing", collection: library });
+    var libraryBookListingView = app.libraryBookListingView =
+        new app.LibraryBookListingView({ collection: library });
+
+    $("#bookListingAnchor").on("click", function (e) {
+        e.preventDefault();
+        //if (app.libraryBookListingView.isDisabled) {
+        //    app.libraryBookListingView.close();
+        //    app.libraryBookListingView = new app.LibraryBookListingView({ collection: new app.Library() });
+        //    app.libraryBookListingView.isDisabled = false;
+        //} else {
+        //    app.libraryBookListingView.isDisabled = true;
+        //}
+        if (app.libraryBookListingView.isActive()) {
+            //alert("isActive")
+        } else {
+            //alert("isNotActive")
+            app.libraryBookListingView.close();
+            app.libraryBookListingView =
+                new app.LibraryBookListingView({ collection: new app.Library() });
+        }
+    });
 });
