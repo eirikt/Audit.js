@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Audit.JS</title>
-    <!-- Ordinary setup -->
+    <!-- Regular stylesheet resource setup -->
     <link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
-    <!-- Offline development -->
+    <!-- Offline development setup -->
     <!--
     <link rel="stylesheet" href="style/normalize.css">
     <link rel="stylesheet" href="style/bootstrap.css">
@@ -95,10 +95,13 @@
             <button id="replay" type="button" class="btn btn-inverse">Replay all state change events</button>
         </span>
     </div>
+    <div>
+        <span class="pull-right">Total number of state change events:&nbsp;<%- count %></span>
+    </div>
 </script>
 
 <script id="bookCountTemplate" type="text/template">
-    <div style="float:none;margin:0 auto">
+    <div>
         Total number of books:<span class="pull-right" style="font-size:xx-large"><%- count %></span>
     </div>
 </script>
@@ -148,7 +151,7 @@
 </script>
 <!-- /templates and content -->
 
-<!-- Ordinary resource setup -->
+<!-- Regular script resource setup -->
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>

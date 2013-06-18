@@ -4,7 +4,7 @@ var application_root = __dirname,
     _ = require("underscore"),                              // JavaScript utils
     express = require("express"),                           // Node.js web framework
     path = require("path");                                 // Node.js utilities for dealing with file paths
-    mongoose = require("mongoose"),                         // Node.js MongoDB driver
+mongoose = require("mongoose"),                         // Node.js MongoDB driver
     pureautoinc = require("mongoose-pureautoinc"),          // Mongoose autoincrement support
     deferred = require("promised-io/promise").Deferred();   // Node.js deferred implementation
 
@@ -74,8 +74,8 @@ BookMongooseSchema.plugin(pureautoinc.plugin, {
 
 // Models
 var StateChangeMongooseModel = mongoose.model("StateChange", StateChangeMongooseSchema);
-var KeywordModel = mongoose.model("Keyword", KeywordMongooseSchema);
-var BookModel = mongoose.model("Book", BookMongooseSchema);
+var KeywordMongooseModel = mongoose.model("Keyword", KeywordMongooseSchema);
+var BookMongooseModel = mongoose.model("Book", BookMongooseSchema);
 
 
 // Helper functions
@@ -99,13 +99,13 @@ function insertBook(attrs) {
     var dfd = new Deferred();
 
     // TODO: Consider splitting inserts into pure model creation/meta-data init, and then an ordinary statechange that is immediately replayed into model
-    var book = new BookModel();
+    var book = new BookMongooseModel();
     book.set({ title: attrs.title });
     book.set({ author: attrs.author });
     book.set({ releaseDate: attrs.releaseDate });
     var keywords = [];
     _.each(attrs.keywords, function (keyword) {
-        keywords.push(new KeywordModel({ keyword: keyword }));
+        keywords.push(new KeywordMongooseModel({ keyword: keyword }));
     });
     book.set({ keywords: keywords });
     book.set({ dateAdded: new Date() });
@@ -141,6 +141,18 @@ function insertBook(attrs) {
     return dfd.promise;
 }
 
+
+// Route: Admin: Get total number of state changes
+app.get("/api/statechangecount", function (request, response) {
+    return StateChangeMongooseModel.count(function (err, count) {
+        if (!err) {
+            return response.send({ count: count });
+        } else {
+            return console.log(err);
+        }
+    });
+});
+
 // Route: Admin: generating a single random book
 app.post("/api/admin/generate-single-random", function (request, response) {
     return insertBook({
@@ -148,13 +160,20 @@ app.post("/api/admin/generate-single-random", function (request, response) {
         author: pickRandomElementFromArray(firstNames) + " " + pickRandomElementFromArray(lastNames),
         keywords: [pickRandomElementFromArray(keywords), pickRandomElementFromArray(keywords)]
     }).then(function (book) {
-            return BookModel.count(function (err, count) {
+            return BookMongooseModel.count(function (err, count) {
                 if (err) {
                     return console.log(err);
                 } else {
-                    return response.send({
-                        book: book,
-                        count: count
+                    return StateChangeMongooseModel.count(function (err, stateChangeCount) {
+                        if (err) {
+                            return console.log(err);
+                        } else {
+                            return response.send({
+                                book: book,
+                                count: count,
+                                stateChangeCount: stateChangeCount
+                            });
+                        }
                     });
                 }
             });
@@ -163,7 +182,7 @@ app.post("/api/admin/generate-single-random", function (request, response) {
 
 // Route: Get total number of books
 app.get("/api/bookcount", function (request, response) {
-    return BookModel.count(function (err, count) {
+    return BookMongooseModel.count(function (err, count) {
         if (!err) {
             return response.send({ count: count });
         } else {
@@ -174,7 +193,7 @@ app.get("/api/bookcount", function (request, response) {
 
 // Route: Get all books
 app.get("/api/books", function (request, response) {
-    return BookModel.find().sort({ dateAdded: "desc" }).execFind(function (err, books) {
+    return BookMongooseModel.find().sort({ dateAdded: "desc" }).execFind(function (err, books) {
         if (!err) {
             return response.send(books);
         } else {

@@ -1,18 +1,34 @@
 var app = app || {};
 
+app.StateChangeCount = Backbone.Model.extend({
+    default: { count: 0 },
+    url: "/api/statechangecount"
+});
+
 app.GenerateRandomBookCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/generate-single-random"
 });
 
 app.AdminView = Backbone.View.extend({
     templateSelector: "#adminTemplate",
+    template: null,
     events: {
         "click #purge": "purgeAllBooks",
         "click #replay": "replayChangeLog",
         "click #generate": "generateRandomBooks"
     },
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+        this.model.on("change", this.render, this);
+        this.model.fetch({
+            error: function (err) {
+                alert(err);
+            }
+        });
+    },
     render: function () {
-        this.$el.empty().append($(this.templateSelector).html());
+        this.$el.html(this.template({ count: this.model.get("count") }));
+        this.trigger("rendered");
     },
     close: function () {
         alert("TODO: close");
@@ -58,6 +74,7 @@ app.AdminView = Backbone.View.extend({
                         }
                     }
 
+                    app.stateChangeCount.set("count", bookAndCount.stateChangeCount);
                     app.bookCount.set("count", bookAndCount.count);
                     app.library.push(bookAndCount.book);
                 });
@@ -75,12 +92,16 @@ $(function () {
     // When DOM is ready ...
 
     // Models
+    var stateChangeCount = app.stateChangeCount = new app.StateChangeCount();
     var library = app.library = new app.Library();
     var bookCount = app.bookCount = new app.BookCount();
 
     // Views
     var adminView = app.adminView =
-        new app.AdminView({ el: "#libraryAdmin" }).render();
+        new app.AdminView({
+            el: "#libraryAdmin",
+            model: stateChangeCount
+        });
 
     var bookCountView = app.bookCountView =
         new app.BookCountView({

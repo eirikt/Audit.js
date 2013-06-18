@@ -25,7 +25,7 @@ Definitions are taken from Martin Fowler's [bliki][11]:
 
 #### CQRS
 
-A rather ominously-looking abbreviation that stands for _Command and Query Responsibility Segregation_.
+A rather ominously-looking abbreviation meaning _Command and Query Responsibility Segregation_.
 
 It simply means that architecture should treat writes (commands) differently (segregated) than reads (queries). The main motivation for this is that reads most often constitute the larger portion of the application traffic, so why not optimize for that.
 
@@ -37,7 +37,7 @@ Events should be regarded as a central construct in the application model, not j
 
 _Events are immutable objects_ - they are written and read, but never updated nor deleted. 
 
-When a state change occurs (creating, updating, or deleting an object) it is treated as an event. These events contain the _state change only_ (a.k.a. the "diffs"). Meta data like object type, object ID, user, and timestamp are also included in these (state change) events.
+When a state change occurs (creating, updating, or deleting an object) it is treated as an event. These events contain the _state change only_ (a.k.a. the "diffs"/"deltas"). Meta data like object type, object ID, user, and timestamp are also included in these (state change) events.
 
 Events are immediately stored (in the event store). When it is stored, the control is immediately given/response is sent back to the client. 
  

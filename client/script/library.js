@@ -1,9 +1,7 @@
 var app = app || {};
 
 app.BookCount = Backbone.Model.extend({
-    default: {
-        count: 0
-    },
+    default: { count: 0 },
     url: "/api/bookcount"
 });
 
@@ -18,7 +16,9 @@ app.Library = Backbone.Collection.extend({
 
 app.BookCountView = Backbone.View.extend({
     templateSelector: "#bookCountTemplate",
+    template: null,
     initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
         this.model.on("change", this.render, this);
         this.model.fetch({
             error: function (err) {
@@ -27,7 +27,7 @@ app.BookCountView = Backbone.View.extend({
         });
     },
     render: function () {
-        this.$el.html(_.template($(this.templateSelector).html(), { count: this.model.get("count") }));
+        this.$el.html(this.template({ count: this.model.get("count") }));
         this.trigger("rendered");
     },
     close: function () {
