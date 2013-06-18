@@ -1,16 +1,23 @@
 var app = app || {};
 
 app.BookCount = Backbone.Model.extend({
+    default: {
+        count: 0
+    },
     url: "/api/bookcount"
 });
 
 app.Library = Backbone.Collection.extend({
     model: app.Book,
-    url: "/api/books"
+    url: "/api/books",
+    comparator: function (book) {
+        //return - book.get("dateAdded").getTime();
+        return book.get("seq");
+    }
 });
 
-app.LibraryBookCountView = Backbone.View.extend({
-    templateSelector: "#libraryBookCountTemplate",
+app.BookCountView = Backbone.View.extend({
+    templateSelector: "#bookCountTemplate",
     initialize: function () {
         this.model.on("change", this.render, this);
         this.model.fetch({
@@ -28,28 +35,28 @@ app.LibraryBookCountView = Backbone.View.extend({
     }
 });
 
-// TODO: move all knowledge of index.html out into 'AppView' or 'MainView' plain JS class
-app.LibraryBookListingView = Backbone.View.extend({
-    //isDisabled: true,
-    tableRowBookViews: [],
+app.BookListingView = Backbone.View.extend({
     initialize: function () {
-        //console.log("Initializing new LibraryBookListingView ... with full data fetch!");
-        this.isDisabled = true;
-        this.collection.on("reset add", this.render, this);
-        this.collection.fetch({ reset: true });
+        this.listenTo(this.collection, "reset", this.render);
+        this.listenTo(this.collection, "add", this.renderBook);
+        if (this.isActive()) {
+            this.collection.fetch({ reset: true });
+        }
     },
     // Render a book by creating a BookView and appending the element it renders to the library's element
-    renderBook: function (model, options) {
-        var bookView = new app.TableRowBookView({
+    renderBook: function (model) {
+        var bookView = new app.BookInfoLineView({
             model: model
         });
-        //this.tableRowBookViews.push(bookView);
-        $("#books").append(bookView.render().el);
+        this.$("#books").prepend(bookView.render().el);
+        this.trigger("bookRendered");
     },
     // Render library by rendering each book in its collection
-    render: function (options) {
+    render: function () {
+        this.$el.html($("#bookListingLineTemplate").html());
+
         this.collection.each(function (model) {
-            this.renderBook(model, options);
+            this.renderBook(model);
         }, this);
 
         // TODO: Bootstrap equivalent ...
@@ -58,17 +65,41 @@ app.LibraryBookListingView = Backbone.View.extend({
         this.trigger("rendered");
     },
     close: function () {
-        this.collection.off();
-
-        //_.each(this.tableRowBookViews, function (view) {
-        //    view.close();
-        //}, this);
-
-        $("#books").find("> div").remove();
-
-        //this.tableRowBookViews = [];
+        this.$("div").remove();
     },
     isActive: function () {
-        return $("#collapseThree").hasClass("in");
+        return this.$el.parent("div").hasClass("in");
+    }
+});
+
+app.BookListingTableView = Backbone.View.extend({
+    initialize: function () {
+        this.listenTo(this.collection, "reset", this.render);
+        this.listenTo(this.collection, "add", this.renderBook);
+        if (this.isActive()) {
+            this.collection.fetch({ reset: true });
+        }
+    },
+    renderBook: function (model) {
+        var bookView = new app.BookInfoTableRowView({
+            model: model
+        });
+        this.$("tbody").prepend(bookView.render().el);
+        this.trigger("bookRendered");
+    },
+    render: function () {
+        this.$el.html($("#bookListingTableTemplate").html());
+
+        this.collection.each(function (model) {
+            this.renderBook(model);
+        }, this);
+
+        this.trigger("rendered");
+    },
+    close: function () {
+        this.$("tr").remove();
+    },
+    isActive: function () {
+        return this.$el.parent("div").hasClass("in");
     }
 });

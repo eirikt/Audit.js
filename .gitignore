@@ -1,12 +1,14 @@
-#Ignore WebStorm stuff
-.idea/
 
 #Ignore (personal) Git log
 git.log
 
-#Ignore project helpers
-server/start.cmd
-
-#Ignore transient project files
+#Ignore transient project resources
 README.html
+server/data
 server/node_modules
+
+#Ignore project helpers for now ...
+server/bin
+
+#Ignore WebStorm stuff
+.idea/

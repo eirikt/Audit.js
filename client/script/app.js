@@ -1,11 +1,10 @@
 var app = app || {};
 
-
 app.GenerateRandomBookCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/generate-single-random"
 });
 
-app.LibraryAdminView = Backbone.View.extend({
+app.AdminView = Backbone.View.extend({
     templateSelector: "#adminTemplate",
     events: {
         "click #purge": "purgeAllBooks",
@@ -27,52 +26,40 @@ app.LibraryAdminView = Backbone.View.extend({
     generateRandomBooks: function () {
         var numberOfBooksToGenerate = parseInt(this.$("#numberOfBooksToGenerate").val());
         if (numberOfBooksToGenerate) {
-            var i = 1;
+            var i = 0;
             var generateSingleRandomBook = function () {
+                i += 1;
                 var xhr = new app.GenerateRandomBookCommand().save();
                 if (xhr === false) {
                     alert("Server error!");
                 }
                 xhr.done(function (bookAndCount) {
-
-                    // Well, as a demo/for fun - doing things in a DOM-abusing extremely slow way ...it's only writes anyway
-                    // Only applicable for > 100 books (causes screen to flicker in Bootstrap setup)
                     var libraryBookCountViewRendered = false,
                         libraryBookListingViewRendered = false;
 
-                    //app.libraryBookCountView.close();
-                    app.libraryBookCountView = new app.LibraryBookCountView({ el: "#libraryBookCount", model: new app.BookCount() });
-
-                    if (app.libraryBookListingView.isActive()) {
-                        app.libraryBookListingView.close();
-                        //app.libraryBookListingView = new app.LibraryBookListingView({ el: "#libraryBookListing", collection: new app.Library });
-                        app.libraryBookListingView = new app.LibraryBookListingView({ collection: new app.Library() });
-                        //app.libraryBookListingView.isDisabled = false;
-                    } else {
-                        libraryBookListingViewRendered = true;
-                    }
-
-                    // TODO: More performant version
-                    //app.library.unshift(bookAndCount.book);
-
                     if (i < numberOfBooksToGenerate) {
-                        app.libraryBookCountView.once("rendered", function () {
+                        app.bookCountView.once("rendered", function () {
                             libraryBookCountViewRendered = true;
-                            if (libraryBookListingViewRendered) {
-                                generateSingleRandomBook(++i);
+                            if (app.bookListingView.isActive()) {
+                                if (libraryBookListingViewRendered) {
+                                    generateSingleRandomBook();
+                                }
+                            } else {
+                                generateSingleRandomBook();
                             }
                         });
-                        if (app.libraryBookListingView.isActive()) {
-                            app.libraryBookListingView.once("rendered", function () {
-                                window.setTimeout(function () {
-                                    libraryBookListingViewRendered = true;
-                                    if (libraryBookCountViewRendered) {
-                                        generateSingleRandomBook(++i);
-                                    }
-                                }, 200);
+                        if (app.bookListingView.isActive()) {
+                            app.bookListingView.once("bookRendered", function () {
+                                libraryBookListingViewRendered = true;
+                                if (libraryBookCountViewRendered) {
+                                    generateSingleRandomBook();
+                                }
                             });
                         }
                     }
+
+                    app.bookCount.set("count", bookAndCount.count);
+                    app.library.push(bookAndCount.book);
                 });
                 xhr.fail(function () {
                     alert("FAIL!")
@@ -89,32 +76,32 @@ $(function () {
 
     // Models
     var library = app.library = new app.Library();
-    var bookCount = app.library = new app.BookCount();
+    var bookCount = app.bookCount = new app.BookCount();
 
     // Views
-    var adminView = app.adminView = new app.LibraryAdminView({ el: "#libraryAdmin" }).render();
-    var libraryBookCountView = app.libraryBookCountView =
-        new app.LibraryBookCountView({ el: "#libraryBookCount", model: bookCount });
-    //var libraryBookListingView = app.libraryBookListingView = new app.LibraryBookListingView({ el: "#libraryBookListing", collection: library });
-    var libraryBookListingView = app.libraryBookListingView =
-        new app.LibraryBookListingView({ collection: library });
+    var adminView = app.adminView =
+        new app.AdminView({ el: "#libraryAdmin" }).render();
 
+    var bookCountView = app.bookCountView =
+        new app.BookCountView({
+            el: "#libraryBookCount",
+            model: bookCount
+        });
+
+    var bookListingView = app.bookListingView =
+        //new app.BookListingView({
+        new app.BookListingTableView({
+            el: "#libraryBookListing",
+            collection: library
+        });
+
+    // DOM events: Toggle book listing
     $("#bookListingAnchor").on("click", function (e) {
         e.preventDefault();
-        //if (app.libraryBookListingView.isDisabled) {
-        //    app.libraryBookListingView.close();
-        //    app.libraryBookListingView = new app.LibraryBookListingView({ collection: new app.Library() });
-        //    app.libraryBookListingView.isDisabled = false;
-        //} else {
-        //    app.libraryBookListingView.isDisabled = true;
-        //}
-        if (app.libraryBookListingView.isActive()) {
-            //alert("isActive")
+        if (bookListingView.isActive()) {
+            bookListingView.close();
         } else {
-            //alert("isNotActive")
-            app.libraryBookListingView.close();
-            app.libraryBookListingView =
-                new app.LibraryBookListingView({ collection: new app.Library() });
+            library.fetch({ reset: true });
         }
     });
 });

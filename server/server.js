@@ -5,7 +5,7 @@ var application_root = __dirname,
     express = require("express"),                           // Node.js web framework
     path = require("path");                                 // Node.js utilities for dealing with file paths
     mongoose = require("mongoose"),                         // Node.js MongoDB driver
-    pureautoinc = require('mongoose-pureautoinc'),          // Mongoose autoincrement support
+    pureautoinc = require("mongoose-pureautoinc"),          // Mongoose autoincrement support
     deferred = require("promised-io/promise").Deferred();   // Node.js deferred implementation
 
 // Create server
@@ -108,7 +108,7 @@ function insertBook(attrs) {
         keywords.push(new KeywordModel({ keyword: keyword }));
     });
     book.set({ keywords: keywords });
-    book.set({ dateAdded: new Date().getTime() });
+    book.set({ dateAdded: new Date() });
     //console.log('Book MongoDB BookModel object created ...');
 
     book.save(function (err) {
@@ -188,7 +188,7 @@ app.post("/api/books", function (request, response) {
     if (!request.body) {
         return console.log("request.body is missing");
     }
-    insertBook({
+    return insertBook({
         title: request.body.title,
         author: request.body.author,
         releaseDate: request.body.releaseDate,
