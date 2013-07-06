@@ -1,17 +1,17 @@
 var app = app || {};
 
-app.BookCount = Backbone.Model.extend({
+app.BookCountQuery = Backbone.Model.extend({
     default: { count: 0 },
     url: "/api/bookcount"
 });
 
 app.Library = Backbone.Collection.extend({
     model: app.Book,
-    url: "/api/books",
-    comparator: function (book) {
-        //return - book.get("dateAdded").getTime();
-        return book.get("seq");
-    }
+    url: "/api/books"//,
+    //comparator: function (book) {
+    //    //return - book.get("dateAdded").getTime();
+    //    return book.get("seq");
+    //}
 });
 
 app.BookCountView = Backbone.View.extend({

@@ -14,7 +14,6 @@ app.Book = Backbone.Model.extend({
 });
 
 app.BookInfoLineView = Backbone.View.extend({
-    tagName: "tr",
     templateSelector: "#bookInfoLineTemplate",
     template: null,
     model: null,

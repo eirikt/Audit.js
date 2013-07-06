@@ -133,13 +133,11 @@
 </script>
 
 <script id="bookInfoLineTemplate" type="text/template">
-    <span style="display:inline-block; width:30px; font-size:x-small;"><%- seq %></span>
+    <span style="display:inline-block; width:30px;" class="detail"><%- seq %></span>
     <span style="display:inline-block; width:150px; font-size:x-small;"><%- title %></span>
     <span style="display:inline-block; width:100px; font-size:x-small;"><%- author %></span>
     <span style="display:inline-block; width:100px; font-size:x-small;"><%- releaseDate %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;">
-        <% _.each(keywords, function(keyobj) { %>&nbsp;<%- keyobj.keyword %><% }); %>
-    </span>
+    <span style="display:inline-block; width:100px; font-size:x-small;"><% _.each(keywords, function(keyobj) { %>&nbsp;<%- keyobj.keyword %><% }); %></span>
 </script>
 
 <script id="bookInfoTableRowTemplate" type="text/template">
@@ -152,14 +150,17 @@
 <!-- /templates and content -->
 
 <!-- Regular script resource setup -->
+<script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
 <!--<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone.js"></script>-->
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
 
+
 <!-- Offline development setup -->
 <!--
+<script src="script/moment.js"></script>
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>

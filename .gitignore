@@ -1,8 +1,7 @@
-
 #Ignore (personal) Git log
 git.log
 
-#Ignore transient project resources
+#Ignore derived/transient project resources
 README.html
 server/data
 server/node_modules
