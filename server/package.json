@@ -1,7 +1,7 @@
 {
     "name": "Audit.JS",
     "version": "0.0.1",
-    "description": "A simple/demo library application using event sourcing and CQRS",
+    "description": "A simple/demo library application using Event Sourcing and CQRS",
     "dependencies": {
         "express": "~3.1.0",
         "path": "~0.4.9",

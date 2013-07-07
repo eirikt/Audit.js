@@ -1,15 +1,13 @@
 // Module dependencies
 var application_root = __dirname,
-    _ = require("underscore"),                              // Node.js version (JavaScript utilities)
-    deferred = require("promised-io/promise").Deferred(),   // Node.js 'promise' implementation
-    express = require("express"),                           // Node.js web server
-    path = require("path"),                                 // Node.js utilities for dealing with file paths
-    mongoose = require("mongoose");                         // Node.js MongoDB driver
-
+    _ = require("underscore"),                 // Node.js Underscore version (JavaScript utilities)
+    deferred = require("promised-io/promise"), // Node.js 'promise' implementation
+    express = require("express"),              // Node.js web server
+    path = require("path"),                    // Node.js utilities for dealing with file paths
+    mongoose = require("mongoose");            // Node.js MongoDB driver
 
 // Mongoose schemas
 var SequenceNumberSchema = new mongoose.Schema({
-    _id: String,
     seq: { type: Number, default: 1 }
 });
 
@@ -37,12 +35,10 @@ var BookMongooseSchema = new mongoose.Schema({
 });
 
 // Mongoose models (design rule: lowercase collection names)
+var Uuid = mongoose.model("uuid", mongoose.Schema({}));
 var Sequence = mongoose.model("sequence", SequenceNumberSchema);
-
 var StateChange = mongoose.model("statechange", StateChangeMongooseSchema);
-
 var Keyword = mongoose.model("keyword", KeywordMongooseSchema);
-
 var Book = mongoose.model("book", BookMongooseSchema);
 Book.collectionName = function () {
     return Book.modelName + "s".toLowerCase();
@@ -50,6 +46,10 @@ Book.collectionName = function () {
 
 
 // Helper functions
+function createUuid() {
+    return new Uuid()._id;
+}
+
 function incrementSequenceNumber(schemaName, callback) {
     Sequence.collection.findAndModify(
         { _id: schemaName },
@@ -84,66 +84,80 @@ function pickRandomElementFrom(array) {
     return array[_.random(array.length - 1)];
 }
 
-function createBook(bookAttributes) {
-    var Deferred = require("promised-io/promise").Deferred;
-    var dfd = new Deferred();
+function count(model) {
+    var dfd = new deferred.Deferred();
+    model.count(function (error, count) {
+        if (error) {
+            dfd.reject();
+        }
+        dfd.resolve(count)
+    });
+    return dfd.promise;
+}
 
-    // TODO: Consider splitting inserts into pure model creation/meta-data init, and then an ordinary statechange that is immediately replayed into model
-    // TODO: Well, what about creating the statechange INCLUDING obtaining an id, and then replaying it into the model
-    //       => Extract the book-creating part of the 'app.post("/api/admin/replay") method below, and use for the replying part
-    incrementSequenceNumber(Book.collectionName(), function (err, nextSeq) {
+function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicationObjectFunction) {
+    // Create state change event
+    var change = new StateChange();
+
+    // Create state change event: Meta data
+    change.user = pickRandomElementFrom(users);
+    change.timestamp = new Date().getTime();
+    change.method = "CREATE";
+    change.type = model.modelName;
+    change.entityId = createUuid();
+
+    // Create state change event: "The diff"
+    change.changes = delta;
+
+    change.save(function (err) {
         if (err) {
-            console.warn(err);
-            dfd.reject(err);
+            console.log(err);
+            deferred.reject();
+            return null;
+        }
+        console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
+        return createAndSaveApplicationObjectFunction(deferred, change);
+    });
+    return deferred.promise;
+}
+
+function createAndSaveBook(deferred, bookAttributes) {
+    var book = new Book({ _id: bookAttributes.entityId });
+
+    // Special treatment: Embedded models: Keyword
+    var keywords = _.map(bookAttributes.changes.keywords, function (keyword) {
+        return new Keyword({ keyword: keyword });
+    });
+    book.set({ keywords: keywords });
+    delete bookAttributes.changes.keywords;
+
+    // Add the rest of the properties
+    book.set(bookAttributes.changes);
+
+    book.save(function (err) {
+        if (err) {
+            console.log(err);
+            deferred.reject();
             return;
         }
-        var book = new Book();
-        book.set({ seq: nextSeq });
-        book.set({ title: bookAttributes.title });
-        book.set({ author: bookAttributes.author });
-        book.set({ releaseDate: bookAttributes.releaseDate });
-        var keywords = [];
-        _.each(bookAttributes.keywords, function (keyword) {
-            keywords.push(new Keyword({ keyword: keyword }));
-        });
-        book.set({ keywords: keywords });
-        book.set({ dateAdded: new Date() });
+        console.log("Book '" + book.title + "' saved ...OK [_id=" + book._id + "]");
+        deferred.resolve(book);
+    });
+    return deferred.promise;
+}
 
-        console.log('Book (MongoDB Mongoose model) object created ...');
-
-        book.save(function (err) {
-            if (err) {
-                console.log(err);
-                dfd.reject();
-                return;
-            }
-            console.log("Book '" + book.title + "' saved ...OK [_id=" + book._id + "]");
-
-            var change = new StateChange();
-
-            // State change: Meta data
-            change.user = pickRandomElementFrom(users);
-            change.timestamp = new Date().getTime();
-            change.method = "CREATE";
-            change.type = Book.modelName;
-            change.entityId = book._id;
-
-            // State change: "The diff"
-            change.changes = bookAttributes;
-            change.changes.seq = book.seq;
-            change.changes.dateAdded = book.dateAdded;
-
-            change.save(function (err) {
-                if (err) {
-                    console.log(err);
-                    // TODO: delete book saved just now?
-                    dfd.reject();
-                    return;
-                }
-                console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
-                dfd.resolve(book);
-            });
-        });
+function createBook(bookAttributes) {
+    var dfd = new deferred.Deferred();
+    incrementSequenceNumber(Book.collectionName(), function (error, nextSequence) {
+        if (error) {
+            console.warn(error);
+            dfd.reject(error);
+            return null;
+        }
+        bookAttributes.seq = nextSequence;
+        bookAttributes.dateAdded = new Date();
+        // TODO: Consider promise instead of 'createAndSaveBook' callback here
+        return createAndSaveStateChange(dfd, Book, bookAttributes, createAndSaveBook);
     });
     return dfd.promise;
 }
@@ -189,14 +203,9 @@ mongoose.connect("mongodb://localhost/library", {}, function (error, db) {
 
 // Route: Admin API: Get total number of state changes
 app.get("/api/admin/statechangecount", function (request, response) {
-    // TODO: create a deferred function for this
-    return StateChange.count(function (err, count) {
-        if (!err) {
-            return response.send({ count: count });
-        } else {
-            return console.log(err);
-        }
-    });
+    return count(StateChange).then(function (count) {
+        return response.send({ count: count });
+    })
 });
 
 
@@ -208,14 +217,14 @@ app.post("/api/admin/generate-single-random", function (request, response) {
         keywords: [pickRandomElementFrom(keywords), pickRandomElementFrom(keywords)]
     }).then(function (book) {
             // TODO: create a deferred function for this
-            return Book.count(function (err, count) {
-                if (err) {
-                    return console.log(err);
+            return Book.count(function (error, count) {
+                if (error) {
+                    return console.warn(error);
                 } else {
                     // TODO: create a deferred function for this
-                    return StateChange.count(function (err, stateChangeCount) {
-                        if (err) {
-                            return console.log(err);
+                    return StateChange.count(function (error, stateChangeCount) {
+                        if (error) {
+                            return console.warn(err);
                         } else {
                             return response.send({
                                 book: book,
@@ -236,10 +245,10 @@ app.post("/api/admin/generate-single-random", function (request, response) {
 
 // Routes: Admin API: purge all Book models in MongoDB store
 app.post("/api/admin/purge", function (request, response) {
-    return mongoose.connection.collections[Book.collectionName()].drop(function (err) {
-        if (err) {
+    return mongoose.connection.collections[Book.collectionName()].drop(function (error) {
+        if (error) {
             // TODO: ...
-            console.error(err);
+            console.warn(error);
             return response.send("Book collection dropped!");
         } else {
             console.log("Book collection dropped!");
@@ -252,9 +261,9 @@ app.post("/api/admin/purge", function (request, response) {
 // Routes: Admin API: replaying of change log
 app.post("/api/admin/replay", function (request, response) {
     console.log("Replaying entire change log ...");
-    return StateChange.find().sort({ timestamp: "asc"}).execFind(function (err, stateChanges) {
-        if (err) {
-            return console.log(err);
+    return StateChange.find().sort({ timestamp: "asc"}).execFind(function (error, stateChanges) {
+        if (error) {
+            return console.warn(error);
         }
         var replay = function (stateChanges, index) {
             var stateChange = stateChanges[index];
@@ -274,25 +283,7 @@ app.post("/api/admin/replay", function (request, response) {
                                         return response.send("Replaying books DONE!" + ++index + " books recreated");
                                     }
                                 } else {
-                                    var newBook = new Book({ _id: stateChange.entityId });
-
-                                    // Special treatment: Embedded models: Keyword
-                                    var keywords = _.map(stateChange.changes.keywords, function (keyword) {
-                                        return new Keyword({ keyword: keyword });
-                                    });
-                                    newBook.set({ keywords: keywords });
-                                    delete stateChange.changes.keywords;
-
-                                    // Add the rest of the properties
-                                    newBook.set(stateChange.changes);
-
-                                    // Save the re-created model
-                                    return newBook.save(function (err, book) {
-                                        if (err) {
-                                            console.log(err);
-                                        } else {
-                                            console.log("Replaying books CREATE [" + index + "]: Saved new Book #" + book.seq + " \"" + book.title + "\"");
-                                        }
+                                    return createAndSaveBook(new deferred.Deferred, stateChange).then(function () {
                                         // Replay next state change event ...
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
@@ -330,41 +321,18 @@ app.post("/api/admin/replay", function (request, response) {
 
 // Route: Library API: Get total number of books
 app.get("/api/bookcount", function (request, response) {
-    // TODO: create a deferred function for this
-    return Book.count(function (err, count) {
-        if (err) {
-            return console.warn(err);
-        }
+    return count(Book).then(function (count) {
         return response.send({ count: count });
-    });
+    })
 });
 
 
 // Route: Library API: Get all books
 app.get("/api/books", function (request, response) {
-    return Book.find().sort({ seq: "asc" }).execFind(function (err, books) {
-        if (err) {
-            return console.warn(err);
+    return Book.find().sort({ seq: "asc" }).execFind(function (error, books) {
+        if (error) {
+            return console.warn(error);
         }
         return response.send(books);
     });
 });
-
-
-// Route: Library API: Insert a new book
-/*
- app.post("/api/books", function (request, response) {
- if (!request.body) {
- return console.log("request.body is missing");
- }
- return createBook({
- title: request.body.title,
- author: request.body.author,
- releaseDate: request.body.releaseDate,
- coverImage: request.body.coverImage,
- keywords: request.body.keywords
- }).then(function (book) {
- response.send(book);
- });
- });
- */
