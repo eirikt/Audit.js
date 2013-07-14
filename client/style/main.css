@@ -1,12 +1,48 @@
+/*****************************
+ * Twitter Bootstrap overrides
+ *****************************/
+.lead {
+    font-size: xx-large;
+}
+
+/*****************************
+ * Twitter Bootstrap accordion
+ *****************************/
+body {
+    padding-top: 60px;
+}
+
+/*
+@media (max-width: 979px) {
+    // Remove any padding from the body
+    body {
+        padding-top: 0;
+    }
+}
+*/
+
+/*
 .accordion-body {
     background: #f90;
     display: none;
 }
+*/
 
+/*
 .accordion-body.in {
     display: block;
+}
+*/
+
+/*****************************
+ * Other stuff ...
+ *****************************/
+/*
+.heading {
+    font-size: xx-large;
 }
 
 .detail {
     font-size: x-small;
 }
+*/

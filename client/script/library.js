@@ -19,7 +19,7 @@ app.BookCountView = Backbone.View.extend({
     template: null,
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
-        this.model.on("change", this.render, this);
+        this.listenTo(this.model, "change", this.render);
         this.model.fetch({
             error: function (err) {
                 alert(err);
@@ -27,7 +27,7 @@ app.BookCountView = Backbone.View.extend({
         });
     },
     render: function () {
-        this.$el.html(this.template({ count: this.model.get("count") }));
+        this.$el.html(this.template(this.model.toJSON()));
         this.trigger("rendered");
     },
     close: function () {
@@ -38,13 +38,13 @@ app.BookCountView = Backbone.View.extend({
 app.BookListingView = Backbone.View.extend({
     initialize: function () {
         this.listenTo(this.collection, "reset", this.render);
-        this.listenTo(this.collection, "add", this.renderBook);
+        this.listenTo(this.collection, "add", this._renderBook);
         if (this.isActive()) {
             this.collection.fetch({ reset: true });
         }
     },
     // Render a book by creating a BookView and appending the element it renders to the library's element
-    renderBook: function (model) {
+    _renderBook: function (model) {
         var bookView = new app.BookInfoLineView({
             model: model
         });
@@ -56,7 +56,7 @@ app.BookListingView = Backbone.View.extend({
         this.$el.html($("#bookListingLineTemplate").html());
 
         this.collection.each(function (model) {
-            this.renderBook(model);
+            this._renderBook(model);
         }, this);
 
         // TODO: Bootstrap equivalent ...
@@ -75,31 +75,31 @@ app.BookListingView = Backbone.View.extend({
 app.BookListingTableView = Backbone.View.extend({
     initialize: function () {
         this.listenTo(this.collection, "reset", this.render);
-        this.listenTo(this.collection, "add", this.renderBook);
+        this.listenTo(this.collection, "add", this._renderBook);
         if (this.isActive()) {
             this.collection.fetch({ reset: true });
         }
     },
-    renderBook: function (model) {
-        var bookView = new app.BookInfoTableRowView({
-            model: model
-        });
-        this.$("tbody").prepend(bookView.render().el);
-        this.trigger("bookRendered");
+    isActive: function () {
+        return this.$el.parent("div").hasClass("in");
+    },
+    _renderBook: function (model) {
+        if (this.isActive()) {
+            var bookView = new app.BookInfoTableRowView({ model: model });
+            this.$("tbody").prepend(bookView.render().el);
+            this.trigger("bookRendered");
+        }
     },
     render: function () {
         this.$el.html($("#bookListingTableTemplate").html());
 
         this.collection.each(function (model) {
-            this.renderBook(model);
+            this._renderBook(model);
         }, this);
 
         this.trigger("rendered");
     },
     close: function () {
         this.$("tr").remove();
-    },
-    isActive: function () {
-        return this.$el.parent("div").hasClass("in");
     }
 });

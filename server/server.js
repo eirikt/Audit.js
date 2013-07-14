@@ -30,11 +30,10 @@ var BookMongooseSchema = new mongoose.Schema({
     author: String,
     releaseDate: Date,
     coverImage: String,
-    keywords: [ KeywordMongooseSchema ],
-    dateAdded: Date
+    keywords: [ KeywordMongooseSchema ]
 });
 
-// Mongoose models (design rule: lowercase collection names)
+// Mongoose models (design rule: lower-case collection names)
 var Uuid = mongoose.model("uuid", mongoose.Schema({}));
 var Sequence = mongoose.model("sequence", SequenceNumberSchema);
 var StateChange = mongoose.model("statechange", StateChangeMongooseSchema);
@@ -46,6 +45,24 @@ Book.collectionName = function () {
 
 
 // Helper functions
+function getRandomAlphanumericStringOfLength(length) {
+    return Math.random().toString(36).substr(2, length);
+}
+
+// Data elements to be randomly picked
+var users = ["eric", "ann", "tim", "jeff", "liz", "paul"];
+
+var firstNames = ["Jon", "Asle", "Stig", "Jens-Kåre", "Konrad", "Torstein", "Anne", "Dag", "Jostein"];
+var lastNames = ["Pedersen", "Olsen", "Jensen", "Snøfuglien", "Gaarder", "Holt", "Solstad"];
+var titleElement1 = ["Dawn", "Night", "Sunset", "Nightfall", "Party", "Winter", "Summertime", "Apocalypse", "Journey"];
+var titleElement2 = ["in", "of", "on", "under", "to"];
+var titleElement3 = ["Earth", "Mars", "Andromeda", "Utopia", "Antarctica", "America", "Europe", "Africa", "Asia", "Oceania"];
+var keywords = ["#scifi", "#thriller", "#fantasy", "#debut", "#novel", "#shortstories", "#pageturner", "#blockbuster", "#rollercoaster"];
+
+function pickRandomElementFrom(array) {
+    return array[_.random(array.length - 1)];
+}
+
 function createUuid() {
     return new Uuid()._id;
 }
@@ -66,24 +83,6 @@ function incrementSequenceNumber(schemaName, callback) {
     );
 }
 
-function getRandomAlphanumericStringOfLength(length) {
-    return Math.random().toString(36).substr(2, length);
-}
-
-// Data elements to be randomly picked
-var users = ["eric", "ann", "tim", "jeff", "liz", "paul"];
-
-var firstNames = ["Jon", "Asle", "Stig", "Jens-Kåre", "Konrad", "Torstein", "Anne", "Dag", "Jostein"];
-var lastNames = ["Pedersen", "Olsen", "Jensen", "Snøfuglien", "Gaarder", "Holt", "Solstad"];
-var titleElement1 = ["Dawn", "Night", "Sunset", "Nightfall", "Party", "Winter", "Summertime", "Apocalypse", "Journey"];
-var titleElement2 = ["in", "of", "on", "under", "to"];
-var titleElement3 = ["Earth", "Mars", "Andromeda", "Utopia", "Antarctica", "America", "Europe", "Africa", "Asia", "Oceania"];
-var keywords = ["#scifi", "#thriller", "#fantasy", "#debut", "#novel", "#shortstories", "#pageturner", "#blockbuster", "#rollercoaster"];
-
-function pickRandomElementFrom(array) {
-    return array[_.random(array.length - 1)];
-}
-
 function count(model) {
     var dfd = new deferred.Deferred();
     model.count(function (error, count) {
@@ -95,16 +94,28 @@ function count(model) {
     return dfd.promise;
 }
 
-function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicationObjectFunction) {
+function createStateChange(method, model, entityId) {
     // Create state change event
     var change = new StateChange();
 
     // Create state change event: Meta data
     change.user = pickRandomElementFrom(users);
     change.timestamp = new Date().getTime();
-    change.method = "CREATE";
+
+    change.method = method;
     change.type = model.modelName;
-    change.entityId = createUuid();
+
+    if (change.method === "CREATE") {
+        change.entityId = createUuid();
+    } else {
+        change.entityId = entityId;
+    }
+    return change;
+}
+
+function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicationObjectFunction) {
+    // Create state change event: Meta data
+    var change = createStateChange("CREATE", model);
 
     // Create state change event: "The diff"
     change.changes = delta;
@@ -140,7 +151,7 @@ function createAndSaveBook(deferred, bookAttributes) {
             deferred.reject();
             return;
         }
-        console.log("Book '" + book.title + "' saved ...OK [_id=" + book._id + "]");
+        console.log("Book #" + book.seq + " '" + book.title + "' saved ...OK (ID=" + book._id + ")");
         deferred.resolve(book);
     });
     return deferred.promise;
@@ -155,7 +166,6 @@ function createBook(bookAttributes) {
             return null;
         }
         bookAttributes.seq = nextSequence;
-        bookAttributes.dateAdded = new Date();
         // TODO: Consider promise instead of 'createAndSaveBook' callback here
         return createAndSaveStateChange(dfd, Book, bookAttributes, createAndSaveBook);
     });
@@ -203,9 +213,23 @@ mongoose.connect("mongodb://localhost/library", {}, function (error, db) {
 
 // Route: Admin API: Get total number of state changes
 app.get("/api/admin/statechangecount", function (request, response) {
-    return count(StateChange).then(function (count) {
-        return response.send({ count: count });
+    return StateChange.count({ method: "CREATE"}, function (error, createCount) {
+        return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
+            return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
+                return response.send({
+                    createCount: createCount,
+                    updateCount: updateCount,
+                    deleteCount: deleteCount,
+                    totalCount: createCount + updateCount + deleteCount
+                });
+            })
+        })
     })
+});
+
+
+app.get("/api/admin/statechanges/:id", function (request, response) {
+    throw new Error("not implemented yet!");
 });
 
 
@@ -221,18 +245,20 @@ app.post("/api/admin/generate-single-random", function (request, response) {
                 if (error) {
                     return console.warn(error);
                 } else {
-                    // TODO: create a deferred function for this
-                    return StateChange.count(function (error, stateChangeCount) {
-                        if (error) {
-                            return console.warn(err);
-                        } else {
-                            return response.send({
-                                book: book,
-                                count: count,
-                                stateChangeCount: stateChangeCount
-                            });
-                        }
-                    });
+                    return StateChange.count({ method: "CREATE"}, function (error, createCount) {
+                        return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
+                            return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
+                                return response.send({
+                                    book: book,
+                                    count: count,
+                                    stateChangeCreateCount: createCount,
+                                    stateChangeUpdateCount: updateCount,
+                                    stateChangeDeleteCount: deleteCount,
+                                    stateChangeCount: createCount + updateCount + deleteCount
+                                });
+                            })
+                        })
+                    })
                 }
             });
         }, function (error) {
@@ -275,12 +301,12 @@ app.post("/api/admin/replay", function (request, response) {
                         case "CREATE":
                             return Book.findById(stateChange.entityId, { /*slim: true*/ }, function (err, book) {
                                 if (book) {
-                                    console.log("Replaying books CREATE [" + index + "]: Book #" + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
+                                    console.log("Replaying books: CREATE [" + index + "]: Book #" + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
                                     if (index < stateChanges.length - 1) {
                                         return replay(stateChanges, ++index);
                                     } else {
-                                        console.log("Replaying books CREATE: DONE!");
-                                        return response.send("Replaying books DONE!" + ++index + " books recreated");
+                                        console.log("Replaying books DONE!");
+                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
                                     }
                                 } else {
                                     return createAndSaveBook(new deferred.Deferred, stateChange).then(function () {
@@ -288,8 +314,8 @@ app.post("/api/admin/replay", function (request, response) {
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
                                         } else {
-                                            console.log("Replaying books CREATE: DONE!");
-                                            return response.send("Replaying books DONE!" + ++index + " books recreated");
+                                            console.log("Replaying books DONE!");
+                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
                                         }
                                     });
                                 }
@@ -297,11 +323,59 @@ app.post("/api/admin/replay", function (request, response) {
                             break;
 
                         case "UPDATE":
-                            throw new Error("Replaying: Not implemented yet ...");
+                            return Book.findById(stateChange.entityId, function (error, book) {
+                                if (!book) {
+                                    console.log("Replaying UPDATE [" + index + "]: Book {_id:" + stateChange.entityId + "} does not exist!");
+                                    if (index < stateChanges.length - 1) {
+                                        return replay(stateChanges, ++index);
+                                    } else {
+                                        console.log("Replaying books DONE!");
+                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                    }
+                                } else {
+                                    return book.update(stateChange.changes, function (error, numberAffected) {
+                                        if (error) {
+                                            console.warn(error);
+                                        } else {
+                                            console.log("Replaying UPDATE [" + index + "]: Book \"" + book.title + "\" updated ...OK {_id:" + book._id + "} #changes:" + numberAffected);
+                                        }
+                                        if (index < stateChanges.length - 1) {
+                                            return replay(stateChanges, ++index);
+                                        } else {
+                                            console.log("Replaying books DONE!");
+                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                        }
+                                    });
+                                }
+                            });
                             break;
 
                         case "DELETE":
-                            throw new Error("Replaying: Not implemented yet ...");
+                            return Book.findById(stateChange.entityId, function (error, book) {
+                                if (!book) {
+                                    console.log("Replaying DELETE [" + index + "]: Book {_id:" + stateChange.entityId + "} does not exist!");
+                                    if (index < stateChanges.length - 1) {
+                                        return replay(stateChanges, ++index);
+                                    } else {
+                                        console.log("Replaying books DONE!");
+                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                    }
+                                } else {
+                                    return book.remove(function (error) {
+                                        if (error) {
+                                            console.warn(error);
+                                        } else {
+                                            console.log("Replaying DELETE [" + index + "]: Book \"" + book.title + "\" deleted ...OK {_id:" + book._id + "}");
+                                        }
+                                        if (index < stateChanges.length - 1) {
+                                            return replay(stateChanges, ++index);
+                                        } else {
+                                            console.log("Replaying books DONE!");
+                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                        }
+                                    });
+                                }
+                            });
                             break;
 
                         default:
@@ -334,5 +408,69 @@ app.get("/api/books", function (request, response) {
             return console.warn(error);
         }
         return response.send(books);
+    });
+});
+
+// Route: Library API: Update a book
+app.put("/api/books/:id", function (request, response) {
+    return Book.findById(request.params.id, function (error, book) {
+        if (!book) {
+            console.log("Book [id=" + request.params.id + "] not found ...aborting update");
+            return response.send("");
+        }
+        delete request.body._id;
+        var changes = request.body;
+
+        if (_.isEmpty(changes)) {
+            console.log("No changes in request ...aborting update");
+            return response.send("");
+        }
+
+        var change = createStateChange("UPDATE", Book, request.params.id);
+        change.changes = changes;
+
+        return change.save(function (error, change) {
+            if (error) {
+                return console.log(error);
+            }
+            console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
+            // TODO: Replace by findByIdAndUpdate
+            return Book.findById(change.entityId, function (error, book) {
+                console.log("Updating book '" + book.title + "' [id=" + book._id + "] ...");
+                _.extend(book, change.changes);
+                return book.save(function (error) {
+                    if (error) {
+                        // TODO: Roll back state change
+                        return console.log(error);
+                    }
+                    console.log("Book '" + change.changes.title + "' [id=" + change.entityId + "] updated ...OK");
+                    return response.send(book);
+                });
+            });
+        });
+    });
+});
+
+// Route: Library API: Delete a book
+app.delete("/api/books/:id", function (request, response) {
+    return Book.findById(request.params.id, function (error, book) {
+        if (!book) {
+            console.log("Book [id=" + request.params.id + "] not found ...aborting deletion");
+            return response.send("");
+        }
+        return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
+            if (error) {
+                return console.log(error);
+            }
+            console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
+            return Book.findByIdAndRemove(change.entityId, function (error) {
+                if (error) {
+                    // TODO: Roll back state change
+                    return console.log(error);
+                }
+                console.log("Book [id=" + change.entityId + "] deleted ...OK");
+                return response.send("");
+            });
+        });
     });
 });

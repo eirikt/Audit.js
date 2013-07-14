@@ -1,13 +1,21 @@
 #Ignore (personal) Git log
 git.log
 
+#MongoDB db
+server/data
+
 #Ignore derived/transient project resources
 README.html
-server/data
 server/node_modules
 
-#Ignore project helpers for now ...
+#Ignore project script helpers for now ...
 server/bin
 
-#Ignore WebStorm stuff
+#Ignore local third-party JS libs for now ...
+client/script/backbone.js
+client/script/backbone.marionette.js
+client/script/jquery.js
+client/script/underscore.js
+
+#Ignore IDE stuff
 .idea/

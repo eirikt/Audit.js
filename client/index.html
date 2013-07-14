@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Audit.JS</title>
     <!-- Regular stylesheet resource setup -->
-    <link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">
+    <!--<link rel="stylesheet" href="//normalize-css.googlecode.com/svn/trunk/normalize.css">-->
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
     <!-- Offline development setup -->
     <!--
@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="style/bootstrap.css">
     <link rel="stylesheet" href="style/bootstrap-responsive.css">
     -->
+    <!--
     <style>
         body {
             padding-top: 60px;
@@ -23,6 +24,7 @@
             }
         }
     </style>
+    -->
     <link href="style/main.css" rel="stylesheet">
 </head>
 
@@ -72,12 +74,22 @@
         </div>
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree"
+                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+                    library: book details
+                </a>
+            </div>
+            <div id="collapseThree" class="collapse">
+                <div id="book" class="accordion-inner"></div>
+            </div>
+        </div>
+        <div class="accordion-group">
+            <div class="accordion-heading">
+                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour"
                    href="#">
                     library: book listing
                 </a>
             </div>
-            <div id="collapseThree" class="collapse">
+            <div id="collapseFour" class="collapse">
                 <div id="libraryBookListing" class="accordion-inner"></div>
             </div>
         </div>
@@ -85,34 +97,40 @@
 </div>
 <!-- /container -->
 
-<!-- templates and content -->
+<!-- Underscore templates -->
 <script id="adminTemplate" type="text/template">
-    <div class="input-append">
-        <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
-        <button id="generate" type="button" class="btn btn-info">Generate books</button>
+    <div>
+        <span class="input-append">
+            <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
+            <button id="generate" class="btn btn-success">Generate books</button>
+        </span>
         <span class="pull-right">
-            <button id="purge" type="button" class="btn btn-danger">Purge all books</button>
-            <button id="replay" type="button" class="btn btn-inverse">Replay all state change events</button>
+            <button id="purge" class="btn btn-danger">Purge all books</button>
+            <button id="replay" class="btn btn-inverse">Replay all state change events</button>
         </span>
     </div>
     <div>
-        <span class="pull-right">Total number of state change events:&nbsp;<%- count %></span>
+        <span class="pull-right">
+            <small><em>
+            Total number of state change events:&nbsp;<strong><%= totalCount %></strong>
+            (CREATE: <%= createCount %>, UPDATE: <%= updateCount %>, DELETE: <%= deleteCount %>)
+            </em></small>
+        </span>
     </div>
 </script>
 
 <script id="bookCountTemplate" type="text/template">
-    <div>
-        Total number of books:<span class="pull-right" style="font-size:xx-large"><%- count %></span>
-    </div>
+    <span>Total number of books:</span>
+    <span class="pull-right lead"><%= count %></span>
 </script>
 
-<script id="bookListingLineTemplate" type="text/template">
+<script id="bookListingTemplate" type="text/template">
     <div id="booksHeading">
-        <span style="display:inline-block; width:30px; font-size:x-small; font-weight: bold">#</span>
-        <span style="display:inline-block; width:150px; font-size:x-small; font-weight: bold">Title</span>
-        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Author</span>
-        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Release date</span>
-        <span style="display:inline-block; width:100px; font-size:x-small; font-weight: bold">Keywords</span>
+        <span style="display:inline-block; width:30px;"><small><strong>#</strong></small></span>
+        <span style="display:inline-block; width:150px;"><small><strong>Title</strong></small></span>
+        <span style="display:inline-block; width:100px;"><small><strong>Author</strong></small></span>
+        <!--<span style="display:inline-block; width:100px;"><small><strong>Release date</strong></small></span>-->
+        <span style="display:inline-block; width:100px;"><small><strong>Keywords<strong/></small></span>
     </div>
     <div id="books"></div>
 </script>
@@ -121,11 +139,11 @@
     <table class="table table-condensed table-striped table-hover">
         <thead>
         <tr>
-            <th><span class="detail">#</span></th>
-            <th><span class="detail">Title</span></th>
-            <th><span class="detail">Author</span></th>
-            <th><span class="detail">Release date</span></th>
-            <th><span class="detail">Keywords</span></th>
+            <th><small>#</small></th>
+            <th><small>Title</small></th>
+            <th><small>Author</small></th>
+            <!--<th><small>Release date</small></th>-->
+            <th><small>Keywords</small></th>
         </tr>
         </thead>
         <tbody></tbody>
@@ -133,21 +151,57 @@
 </script>
 
 <script id="bookInfoLineTemplate" type="text/template">
-    <span style="display:inline-block; width:30px;" class="detail"><%- seq %></span>
-    <span style="display:inline-block; width:150px; font-size:x-small;"><%- title %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;"><%- author %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;"><%- releaseDate %></span>
-    <span style="display:inline-block; width:100px; font-size:x-small;"><% _.each(keywords, function(keyobj) { %>&nbsp;<%- keyobj.keyword %><% }); %></span>
+    <span style="display:inline-block; width:30px;"><small><%= seq %></small></span>
+    <span style="display:inline-block; width:150px;"><small><%- title %></small></span>
+    <span style="display:inline-block; width:100px;"><small><%- author %></small></span>
+    <!--<span style="display:inline-block; width:100px;"><small><%= releaseDate %></small></span>-->
+    <span style="display:inline-block; width:100px;"><small><% _.each(keywords, function(keyobj) { %>&nbsp;<%= keyobj.keyword %><% }); %></small></span>
 </script>
 
 <script id="bookInfoTableRowTemplate" type="text/template">
-    <td><span class="detail"><%- seq %></span></td>
-    <td><span class="detail"><%- title %></span></td>
-    <td><span class="detail"><%- author %></span></td>
-    <td><span class="detail"><%- releaseDate %></span></td>
-    <td><span class="detail"><% _.each(keywords, function(keyobj) { %><%- keyobj.keyword %>&nbsp;<% }); %></span></td>
+    <td><small><%= seq %></small></td>
+    <td><small><a href="#/book/<%= _id %>"><%- title %></a></small></td>
+    <td><small><%- author %></small></td>
+    <!--<td><small><%= releaseDate %></small></td>-->
+    <td><small><% _.each(keywords, function(keyobj) { %><%= keyobj.keyword %>&nbsp;<% }); %></small></td>
 </script>
-<!-- /templates and content -->
+
+<script id="bookTemplate" type="text/template">
+    <form id="editBook" action="#"><!-- data-id="<%= _id %>">-->
+        <fieldset>
+            <div style="float:left;padding-left:15px;">
+                <label class="muted">Book No</label>
+                <input class="input-mini uneditable-input" type="text" value="<%= seq %>"</input>
+            </div>
+
+            <div style="float:left;padding-left:15px;">
+                <label class="muted">Title</label>
+                <input id="title" type="text" value="<%- title %>"></input>
+            </div>
+
+            <div style="float:left;padding-left:15px;">
+                <label class="muted">Author</label>
+                <input id="author" type="text" value="<%- author %>"></input>
+            </div>
+
+            <!--
+            <label class="muted">Release date</label>
+            <input id="releaseDate" type="text" value="<%= releaseDate %>"></input>
+            -->
+
+            <div style="float:left;padding-left:15px;">
+                <label class="muted">Tags</label>
+                <% _.each(keywords, function(keywordobject) { %><span class="label label-success"><%= keywordobject.keyword %></span>&nbsp;<% }); %>
+            </div>
+
+            <div class="pull-right">
+                <button id="updateBook" class="btn">Update</button>
+                <button id="deleteBook" class="btn btn-danger">Delete</button>
+            </div>
+        </fieldset>
+    </form>
+</script>
+<!-- /Underscore templates -->
 
 <!-- Regular script resource setup -->
 <script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
