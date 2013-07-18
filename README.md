@@ -59,10 +59,12 @@ The application store can be brought to all past points in time with great ease.
 But the ability to read through the entire history of the application state not only opens for a full audit experience. 
 It also opens the possibility to compare and merge application stores. 
 It is not the application stores which are compared of course, it is the event stores. 
-Complete or partial event stores can be iterated, compared, and merged, also relatively easely. Then the different application stores involved are updated.
+Complete or partial event stores can be iterated, compared, and merged - rather easily.
+Then the different application stores involved are updated.
 Cloned data stores are often needed, e.g. for applications supporting offline usage.
 
-And, not to forget, the application store is read-only (from the client's point of view), so some form of clever caching mechanism may be applied.
+And, not to forget, the application store is read-only (from the client's point of view), so some form of clever caching mechanism should be applied.
+It is straightforward to pin-point necessary cache invalidation of the application store as we have full control over the state changes.
 
 
 ## The application
@@ -77,9 +79,10 @@ On the client side:
  * [jQuery][20]
  * [Backbone.js][21]
  * [Backbone.Marionette][22]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
- * [Bootstrap][23]
+ * [RequireJS][23]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
  * [Socket.IO][24]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
  * [AmplifyJS][25]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
+ * [Bootstrap][26]
 
 On the server side:
 
@@ -133,9 +136,11 @@ This markdown is written using the [Markdown Live Editor][50]
 [20]: http://jquery.com
 [21]: http://backbonejs.org
 [22]: http://marionettejs.com
-[23]: http://twitter.github.io/bootstrap
+[23]: http://requirejs.org
 [24]: http://socket.io
 [25]: http://amplifyjs.com
+[26]: http://twitter.github.io/bootstrap
+
 [30]: http://www.mongodb.org
 [31]: http://nodejs.org
 

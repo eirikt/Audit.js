@@ -75,7 +75,6 @@ app.BookListingView = Backbone.View.extend({
 app.BookListingTableView = Backbone.View.extend({
     initialize: function () {
         this.listenTo(this.collection, "reset", this.render);
-        this.listenTo(this.collection, "add", this._renderBook);
         if (this.isActive()) {
             this.collection.fetch({ reset: true });
         }

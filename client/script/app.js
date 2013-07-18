@@ -1,10 +1,15 @@
-var app = app || {};
-
 // http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
 function resetFormInputFields($form) {
     $form.find("input:text, input:password, input:file, select, textarea").val("");
     $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
 }
+
+
+var app = app || {};
+
+//app.StateChange = Backbone.Model.extend({
+//    idAttribute: '_id'
+//});
 
 app.StateChangeCountQuery = Backbone.Model.extend({
     default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0},
@@ -24,8 +29,6 @@ app.GenerateRandomBookCommand = Backbone.Model.extend({
 });
 
 app.AdminView = Backbone.View.extend({
-    //tagName:"div",
-    //className:"clearfix",
     templateSelector: "#adminTemplate",
     template: null,
     events: {
@@ -131,9 +134,12 @@ app.AdminView = Backbone.View.extend({
     }
 });
 
-var AppRouter = Backbone.Router.extend({
+app.AppRouter = Backbone.Router.extend({
     routes: { "book/:query": "showBook" },
     showBook: function (id) {
+        if (app.bookView.model) {
+            app.bookView.model.stopListening();
+        }
         var book = app.library.get(id);
         if (book) {
             app.bookView.model = book;
@@ -146,36 +152,36 @@ $(function () {
     // When DOM is ready ...
 
     // Models
-    var stateChangeCount = app.stateChangeCount = new app.StateChangeCountQuery();
-    var library = app.library = new app.Library();
-    var bookCount = app.bookCount = new app.BookCountQuery();
+    app.stateChangeCount = new app.StateChangeCountQuery();
+    app.library = new app.Library();
+    app.bookCount = new app.BookCountQuery();
 
     // Views
-    var adminView = app.adminView = new app.AdminView({ el: "#libraryAdmin", model: stateChangeCount });
-    var bookCountView = app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: bookCount });
-    var bookView = app.bookView = new app.BookView({ el: "#book" });
-    var bookListingView = app.bookListingView =
-        //new app.BookListingView({ el: "#libraryBookListing", collection: library });
-        new app.BookListingTableView({ el: "#libraryBookListing", collection: library });
+    app.adminView = new app.AdminView({ el: "#libraryAdmin", model: app.stateChangeCount });
+    app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
+    app.bookView = new app.BookCompositeView({ el: "#book" });
+    app.bookListingView =
+        //new app.BookListingView({ el: "#libraryBookListing", collection: app.library });
+        new app.BookListingTableView({ el: "#libraryBookListing", collection: app.library });
 
     // Update state change count and book count, book collection is up-to-date and only needs re-rendering
-    var refresh = app.refresh = function () {
-        stateChangeCount.fetch();
-        bookCount.fetch();
-        bookListingView.render();
+    app.refresh = function () {
+        app.stateChangeCount.fetch();
+        app.bookCount.fetch();
+        app.bookListingView.render();
     };
 
     // DOM events: Toggle book listing
     $("#bookListingAnchor").on("click", function (event) {
         event.preventDefault();
-        if (bookListingView.isActive()) {
-            bookListingView.close();
+        if (app.bookListingView.isActive()) {
+            app.bookListingView.close();
         } else {
-            library.fetch({ reset: true });
+            app.library.fetch({ reset: true });
         }
     });
 
     // Router listening for hash changes
-    var appRouter = app.appRouter = new AppRouter();
+    app.appRouter = new app.AppRouter();
     Backbone.history.start();
 });

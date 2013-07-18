@@ -6,6 +6,7 @@ var application_root = __dirname,
     path = require("path"),                    // Node.js utilities for dealing with file paths
     mongoose = require("mongoose");            // Node.js MongoDB driver
 
+
 // Mongoose schemas
 var SequenceNumberSchema = new mongoose.Schema({
     seq: { type: Number, default: 1 }
@@ -32,6 +33,7 @@ var BookMongooseSchema = new mongoose.Schema({
     coverImage: String,
     keywords: [ KeywordMongooseSchema ]
 });
+
 
 // Mongoose models (design rule: lower-case collection names)
 var Uuid = mongoose.model("uuid", mongoose.Schema({}));
@@ -228,8 +230,14 @@ app.get("/api/admin/statechangecount", function (request, response) {
 });
 
 
-app.get("/api/admin/statechanges/:id", function (request, response) {
-    throw new Error("not implemented yet!");
+// Route: Admin API: Get all state changes for a particular entity
+app.get("/api/admin/statechanges/:entityId", function (request, response) {
+    return StateChange
+        .find({ entityId: request.params.entityId })
+        .sort({ timestamp: "asc"})
+        .execFind(function (error, stateChanges) {
+            return response.send(stateChanges);
+        })
 });
 
 
@@ -438,18 +446,19 @@ app.put("/api/books/:id", function (request, response) {
             return Book.findById(change.entityId, function (error, book) {
                 console.log("Updating book '" + book.title + "' [id=" + book._id + "] ...");
                 _.extend(book, change.changes);
-                return book.save(function (error) {
+                return book.save(function (error, book) {
                     if (error) {
                         // TODO: Roll back state change
                         return console.log(error);
                     }
-                    console.log("Book '" + change.changes.title + "' [id=" + change.entityId + "] updated ...OK");
+                    console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
                     return response.send(book);
                 });
             });
         });
     });
 });
+
 
 // Route: Library API: Delete a book
 app.delete("/api/books/:id", function (request, response) {
@@ -469,7 +478,7 @@ app.delete("/api/books/:id", function (request, response) {
                     return console.log(error);
                 }
                 console.log("Book [id=" + change.entityId + "] deleted ...OK");
-                return response.send("");
+                return response.send(book);
             });
         });
     });
