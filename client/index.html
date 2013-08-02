@@ -72,7 +72,7 @@
         </div>
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+                <a id="bookDetails" class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
                     library: book details
                 </a>
             </div>
@@ -122,25 +122,25 @@
     <span class="pull-right lead"><%= count %></span>
 </script>
 
+<!--
 <script id="bookListingTemplate" type="text/template">
     <div id="booksHeading">
-        <span style="display:inline-block; width:30px;"><small><strong>#</strong></small></span>
+        <span style="display:inline-block; width:30px;"><small><strong>No</strong></small></span>
         <span style="display:inline-block; width:150px;"><small><strong>Title</strong></small></span>
         <span style="display:inline-block; width:100px;"><small><strong>Author</strong></small></span>
-        <!--<span style="display:inline-block; width:100px;"><small><strong>Release date</strong></small></span>-->
         <span style="display:inline-block; width:100px;"><small><strong>Keywords<strong/></small></span>
     </div>
     <div id="books"></div>
 </script>
+-->
 
 <script id="bookListingTableTemplate" type="text/template">
     <table class="table table-condensed table-striped table-hover">
         <thead>
         <tr>
-            <th><small>#</small></th>
+            <th><small>No</small></th>
             <th><small>Title</small></th>
             <th><small>Author</small></th>
-            <!--<th><small>Release date</small></th>-->
             <th><small>Keywords</small></th>
         </tr>
         </thead>
@@ -148,19 +148,19 @@
     </table>
 </script>
 
+<!--
 <script id="bookInfoLineTemplate" type="text/template">
     <span style="display:inline-block; width:30px;"><small><%= seq %></small></span>
     <span style="display:inline-block; width:150px;"><small><%- title %></small></span>
     <span style="display:inline-block; width:100px;"><small><%- author %></small></span>
-    <!--<span style="display:inline-block; width:100px;"><small><%= releaseDate %></small></span>-->
     <span style="display:inline-block; width:100px;"><small><% _.each(keywords, function(keyobj) { %>&nbsp;<%= keyobj.keyword %><% }); %></small></span>
 </script>
+-->
 
 <script id="bookInfoTableRowTemplate" type="text/template">
     <td><small><%= seq %></small></td>
     <td><small><a href="#/book/<%= _id %>"><%- title %></a></small></td>
     <td><small><%- author %></small></td>
-    <!--<td><small><%= releaseDate %></small></td>-->
     <td><small><% _.each(keywords, function(keyobj) { %><%= keyobj.keyword %>&nbsp;<% }); %></small></td>
 </script>
 
@@ -179,10 +179,6 @@
                 <label class="muted">Author</label>
                 <input id="author" type="text" value="<%- author %>"></input>
             </div>
-            <!--
-            <label class="muted">Release date</label>
-            <input id="releaseDate" type="text" value="<%= releaseDate %>"></input>
-            -->
             <div style="float:left;padding-left:15px;">
                 <label class="muted">Tags</label>
                 <% _.each(keywords, function(keywordobject) { %><span class="label label-success"><%= keywordobject.keyword %></span>&nbsp;<% }); %>
@@ -200,6 +196,7 @@
     <table class="table table-condensed table-striped table-hover">
         <thead>
         <tr>
+            <th><span class="tiny">No</th>
             <th><span class="tiny">Time</span></th>
             <th><span class="tiny">User</span></th>
             <th><span class="tiny">Method</span></th>
@@ -211,7 +208,16 @@
 </script>
 
 <script id="bookHistoryEventTemplate" type="text/template">
-    <td><span class="tiny"><%= timestamp %></span></td>
+    <td><span class="tiny"><%= seq %></span></td>
+    <td>
+        <span class="tiny">
+            <% if (!currentState) { %>
+            <a href="#" class="state" data-seq="<%= seq %>"><%= timestamp %></a>
+            <% } else { %>
+            <%= timestamp %>
+            <% } %>
+        </span>
+    </td>
     <td><span class="tiny"><%= user %></span></td>
     <td><span class="tiny"><%= method %></span></td>
     <td><span class="tiny"><%- changes %></span></td>
@@ -222,11 +228,10 @@
 <script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.1/underscore-min.js"></script>
-<!--<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.1/underscore.js"></script>-->
+<!--<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.0/underscore.js"></script>-->
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
 <!--<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone.js"></script>-->
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
-
 
 <!-- Offline development setup -->
 <!--
@@ -237,6 +242,10 @@
 <script src="script/bootstrap.js"></script>
 -->
 
+<!-- Audit.js: generic stuff -->
+<script src="script/backbone.audit.js"></script>
+
+<!-- Audit.JS: demo project -->
 <script src="script/book.js"></script>
 <script src="script/library.js"></script>
 <script src="script/app.js"></script>

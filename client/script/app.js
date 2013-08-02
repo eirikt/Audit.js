@@ -1,18 +1,7 @@
-// http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
-function resetFormInputFields($form) {
-    $form.find("input:text, input:password, input:file, select, textarea").val("");
-    $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
-}
-
-
 var app = app || {};
 
-//app.StateChange = Backbone.Model.extend({
-//    idAttribute: '_id'
-//});
-
 app.StateChangeCountQuery = Backbone.Model.extend({
-    default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0},
+    default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0 },
     url: "/api/admin/statechangecount"
 });
 
@@ -39,18 +28,11 @@ app.AdminView = Backbone.View.extend({
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
         this.listenTo(this.model, "change", this.render);
-        this.model.fetch({
-            error: function (err) {
-                alert(err);
-            }
-        });
+        this.model.fetch();
     },
     render: function () {
         this.$el.html(this.template(this.model.toJSON()));
         this.trigger("rendered");
-    },
-    close: function () {
-        alert("TODO: close");
     },
     purgeAllBooks: function () {
         var purgeAllBooksCommand = new app.PurgeAllBooksCommand();
@@ -58,6 +40,7 @@ app.AdminView = Backbone.View.extend({
         if (xhr === false) {
             alert("Server error!");
         }
+        // TODO: Get .done working and us it
         //xhr.done(function () {
         //    alert("DONE!")
         //});
@@ -98,7 +81,7 @@ app.AdminView = Backbone.View.extend({
                     if (i < numberOfBooksToGenerate) {
                         app.bookCountView.once("rendered", function () {
                             libraryBookCountViewRendered = true;
-                            if (app.bookListingView.isActive()) {
+                            if (app.bookListingView.isVisible()) {
                                 if (libraryBookListingViewRendered) {
                                     generateSingleRandomBook();
                                 }
@@ -106,7 +89,7 @@ app.AdminView = Backbone.View.extend({
                                 generateSingleRandomBook();
                             }
                         });
-                        if (app.bookListingView.isActive()) {
+                        if (app.bookListingView.isVisible()) {
                             app.bookListingView.once("bookRendered", function () {
                                 libraryBookListingViewRendered = true;
                                 if (libraryBookCountViewRendered) {
@@ -138,12 +121,23 @@ app.AppRouter = Backbone.Router.extend({
     routes: { "book/:query": "showBook" },
     showBook: function (id) {
         if (app.bookView.model) {
-            app.bookView.model.stopListening();
+            Backbone.stopListening(app.bookView.model.history);
+            Backbone.stopListening(app.bookView.model);
         }
         var book = app.library.get(id);
         if (book) {
+            // TODO: Consider moving this init logic into 'Backbone.Audit.History' mix-in
+            if (!book.history) {
+                book.history = new app.BookHistory({ target: book });
+            }
             app.bookView.model = book;
+            Backbone.listenTo(app.bookView.model, "change destroy", app.refreshCounts);
+            Backbone.listenTo(app.bookView.model, "change", _.bind(app.bookListingView.render, app.bookListingView));
             app.bookView.render();
+
+        } else {
+            // Direct URL
+            throw new Error("Direct URL access is not yet implemented");
         }
     }
 });
@@ -153,28 +147,27 @@ $(function () {
 
     // Models
     app.stateChangeCount = new app.StateChangeCountQuery();
-    app.library = new app.Library();
     app.bookCount = new app.BookCountQuery();
+    app.library = new app.Library();
 
     // Views
     app.adminView = new app.AdminView({ el: "#libraryAdmin", model: app.stateChangeCount });
     app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
     app.bookView = new app.BookCompositeView({ el: "#book" });
     app.bookListingView =
-        //new app.BookListingView({ el: "#libraryBookListing", collection: app.library });
+        //new app.BookListingSimpleView({ el: "#libraryBookListing", collection: app.library });
         new app.BookListingTableView({ el: "#libraryBookListing", collection: app.library });
 
-    // Update state change count and book count, book collection is up-to-date and only needs re-rendering
-    app.refresh = function () {
+    // Update state change count and book count
+    app.refreshCounts = function () {
         app.stateChangeCount.fetch();
         app.bookCount.fetch();
-        app.bookListingView.render();
     };
 
     // DOM events: Toggle book listing
     $("#bookListingAnchor").on("click", function (event) {
         event.preventDefault();
-        if (app.bookListingView.isActive()) {
+        if (app.bookListingView.isVisible()) {
             app.bookListingView.close();
         } else {
             app.library.fetch({ reset: true });

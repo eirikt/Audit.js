@@ -14,10 +14,11 @@ var SequenceNumberSchema = new mongoose.Schema({
 
 var StateChangeMongooseSchema = new mongoose.Schema({
     user: String,
-    timestamp: { type: Date, default: Date.now },
+    //timestamp: { type: Date, default: Date.now }, // Possible, yes, but less maintainable code
+    timestamp: Date,
     method: String,
     type: String,
-    entityId: String,
+    entityId: { type: String, index: 1 }, // Indexed entity ID for quick grouping
     changes: {}
 });
 
@@ -44,6 +45,17 @@ var Book = mongoose.model("book", BookMongooseSchema);
 Book.collectionName = function () {
     return Book.modelName + "s".toLowerCase();
 };
+
+
+// Connect to database
+/*var db = */
+mongoose.connect("mongodb://localhost/library", {}, function (error, db) {
+    if (error) {
+        console.warn(error);
+        throw new Error(error);
+    }
+    //this.db = db;
+});
 
 
 // Helper functions
@@ -103,15 +115,10 @@ function createStateChange(method, model, entityId) {
     // Create state change event: Meta data
     change.user = pickRandomElementFrom(users);
     change.timestamp = new Date().getTime();
-
     change.method = method;
     change.type = model.modelName;
+    change.entityId = change.method === "CREATE" ? createUuid() : entityId;
 
-    if (change.method === "CREATE") {
-        change.entityId = createUuid();
-    } else {
-        change.entityId = entityId;
-    }
     return change;
 }
 
@@ -137,17 +144,8 @@ function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicati
 function createAndSaveBook(deferred, bookAttributes) {
     var book = new Book({ _id: bookAttributes.entityId });
 
-    // Special treatment: Embedded models: Keyword
-    var keywords = _.map(bookAttributes.changes.keywords, function (keyword) {
-        return new Keyword({ keyword: keyword });
-    });
-    book.set({ keywords: keywords });
-    delete bookAttributes.changes.keywords;
-
-    // Add the rest of the properties
-    book.set(bookAttributes.changes);
-
-    book.save(function (err) {
+    // Add the rest of the properties, and save the book
+    book.set(bookAttributes.changes).save(function (err) {
         if (err) {
             console.log(err);
             deferred.reject();
@@ -157,6 +155,10 @@ function createAndSaveBook(deferred, bookAttributes) {
         deferred.resolve(book);
     });
     return deferred.promise;
+}
+
+function createKeyword(keyword) {
+    return new Keyword({ keyword: keyword });
 }
 
 function createBook(bookAttributes) {
@@ -170,6 +172,19 @@ function createBook(bookAttributes) {
         bookAttributes.seq = nextSequence;
         // TODO: Consider promise instead of 'createAndSaveBook' callback here
         return createAndSaveStateChange(dfd, Book, bookAttributes, createAndSaveBook);
+    });
+    return dfd.promise;
+}
+
+function removeBook(id) {
+    var dfd = new deferred.Deferred();
+    Book.findByIdAndRemove(id, function (error) {
+        if (error) {
+            console.warn(error);
+            dfd.reject(error);
+        }
+        console.log("Book [id=" + id + "] deleted ...OK");
+        dfd.resolve(id);
     });
     return dfd.promise;
 }
@@ -200,16 +215,6 @@ app.configure(function () {
 var port = 4711;
 app.listen(port, function () {
     console.log('Express server listening on port %d in %s mode', port, app.settings.env);
-});
-
-// Connect to database
-/*var db = */
-mongoose.connect("mongodb://localhost/library", {}, function (error, db) {
-    if (error) {
-        console.warn(error);
-        throw new Error(error);
-    }
-    //this.db = db;
 });
 
 
@@ -246,7 +251,7 @@ app.post("/api/admin/generate-single-random", function (request, response) {
     return createBook({
         title: pickRandomElementFrom(titleElement1) + " " + pickRandomElementFrom(titleElement2) + " " + pickRandomElementFrom(titleElement3),
         author: pickRandomElementFrom(firstNames) + " " + pickRandomElementFrom(lastNames),
-        keywords: [pickRandomElementFrom(keywords), pickRandomElementFrom(keywords)]
+        keywords: [createKeyword(pickRandomElementFrom(keywords)), createKeyword(pickRandomElementFrom(keywords))]
     }).then(function (book) {
             // TODO: create a deferred function for this
             return Book.count(function (error, count) {
@@ -421,6 +426,7 @@ app.get("/api/books", function (request, response) {
 
 // Route: Library API: Update a book
 app.put("/api/books/:id", function (request, response) {
+    // TODO: The correct thing to do is to search the event store for book existence, like delete method below
     return Book.findById(request.params.id, function (error, book) {
         if (!book) {
             console.log("Book [id=" + request.params.id + "] not found ...aborting update");
@@ -442,7 +448,7 @@ app.put("/api/books/:id", function (request, response) {
                 return console.log(error);
             }
             console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
-            // TODO: Replace by findByIdAndUpdate
+            // TODO: Replace by findByIdAndUpdate ...
             return Book.findById(change.entityId, function (error, book) {
                 console.log("Updating book '" + book.title + "' [id=" + book._id + "] ...");
                 _.extend(book, change.changes);
@@ -462,24 +468,22 @@ app.put("/api/books/:id", function (request, response) {
 
 // Route: Library API: Delete a book
 app.delete("/api/books/:id", function (request, response) {
-    return Book.findById(request.params.id, function (error, book) {
-        if (!book) {
-            console.log("Book [id=" + request.params.id + "] not found ...aborting deletion");
-            return response.send("");
-        }
-        return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
-            if (error) {
-                return console.log(error);
+    // TODO: Extract out a deferred-based generic StateChange function, and leave application logic here
+    return StateChange
+        .find({ entityId: request.params.id })
+        .sort({ timestamp: "asc"})
+        .execFind(function (error, stateChanges) {
+            if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
+                return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
+                    if (error) {
+                        return console.warn(error);
+                    }
+                    // Dispatching of asynchronous message to application store
+                    return removeBook(change.entityId).then(function (entityId) {
+                        return response.send({ entityId: entityId });
+                    })
+                });
             }
-            console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
-            return Book.findByIdAndRemove(change.entityId, function (error) {
-                if (error) {
-                    // TODO: Roll back state change
-                    return console.log(error);
-                }
-                console.log("Book [id=" + change.entityId + "] deleted ...OK");
-                return response.send(book);
-            });
+            return response.send();
         });
-    });
 });

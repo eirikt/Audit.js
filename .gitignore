@@ -11,11 +11,18 @@ server/node_modules
 #Ignore project script helpers for now ...
 server/bin
 
-#Ignore local third-party JS libs for now ...
+#Ignore local/offline third-party JS libs for now ...
+client/img/
 client/script/backbone.js
 client/script/backbone.marionette.js
+client/script/bootstrap.js
 client/script/jquery.js
+client/script/moment.js
 client/script/underscore.js
+client/style/bootstrap-responsive.css
+client/style/bootstrap-responsive.min.css
+client/style/bootstrap.css
+client/style/bootstrap.min.css
 
 #Ignore IDE stuff
 .idea/
