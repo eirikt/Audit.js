@@ -32,7 +32,7 @@ The main motivation for this is that reads most often constitute the larger port
 
 #### Event Sourcing stuff
 
- * _Application events are regarded as a first class construct_ in the application model, not just some infrastructural add-on piece.
+ * _Application events are regarded as first class constructs_ in the application model, not just some "infrastructural" add-on piece.
 
  * _Application events are immutable and forever_ - they are created and read, but never updated nor deleted.
 
@@ -54,18 +54,18 @@ The main motivation for this is that reads most often constitute the larger port
 
 By querying the event store, we can look up the complete history of all application objects.
 
-The entire application store are derived, and can re-created on demand by iterating through the event store.
+The entire application store are derived, and can be re-created on demand by iterating through the events in the event store.
 The application store can be brought to all past points in time with great ease.
 
 But the ability to read through the entire history of the application state not only opens for a full audit experience. 
-It also opens the possibility to compare and merge application stores. 
-It is not the application stores which are compared of course, it is the event stores. 
+It also opens the possibility to compare and merge different application stores.
+It is not the application stores which are compared of course, it is the event stores.
 Complete or partial event stores can be iterated, compared, and merged - rather easily.
 The different application stores involved may then be updated accordingly.
 Cloned data stores are often needed, e.g. for applications supporting offline usage.
 
 And, not to forget, the application store is read-only (from the client's point of view that is), so some form of clever caching mechanism should be applied.
-It is straightforward to pin-point necessary cache invalidation of the application store as we have full control over the state changes.
+It is straightforward to pin-point necessary cache invalidation in the application store as we have full control over all state changes.
 
 
 ## The application
@@ -95,7 +95,7 @@ On the server side:
 
 #### Setup
 
- 1. Install [MongoDB][30] (Make sure it's running on the default port 27017)
+ 1. Install [MongoDB][30] <sub><sup>(make sure it's running on the default port 27017)</sup></sub>
 
  1. Install [Node.js][31]
 
@@ -112,7 +112,7 @@ On the server side:
     npm install
     ```
 
- 1. Start MongoDB deamon process (in the background), with local data directory
+ 1. Start MongoDB deamon process (with a local data directory)
 
     ```
     mongod --dbpath data/db
