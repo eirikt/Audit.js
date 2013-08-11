@@ -72,8 +72,12 @@ app.BookCompositeView = Backbone.View.extend({
         this.model.history.fetch({ reset: true });
     },
     reset: function () {
-        this.bookView.reset();
-        this.bookHistoryView.reset();
+        if (this.bookView) {
+            this.bookView.reset();
+        }
+        if (this.bookHistoryView) {
+            this.bookHistoryView.reset();
+        }
     }
 });
 
@@ -107,33 +111,13 @@ app.BookView = Backbone.View.extend({
         var isFieldEligibleForEditing = filterFunc || function () {
             return true;
         };
-        // Create a Chained function of all form input elements (wrapped as jQuery objects)
-        var chain = _.chain(this.$("div").children("input"))
-
-            // Create an array of arrays consisting of input element id and input element value
-            // If input field is of interest/eligible ...
-            .map(function ($inputEl) {
-                return (isFieldEligibleForEditing($inputEl)) ? [$inputEl.id, $inputEl.value] : null;
-            })
-
-            // Remove all empty array elements
-            .compact()
-
-            // Convert all array elements: [id,value] arrays => {id: value} objects
-            .object();
-
-        // And then return the result
-        return chain.value();
-
-        /* TODO: On the next commit
         return  _.chain(this.$("div").children("input"))
             .map(function ($inputEl) {
                 return (isFieldEligibleForEditing($inputEl)) ? [$inputEl.id, $inputEl.value] : null;
             })
-            .compact()
-            .object()
+            .compact()  // Remove nulls
+            .object()   // Arrays to object properties
             .value();
-        */
     },
     _updateBook: function (event) {
         event.preventDefault();
@@ -165,6 +149,7 @@ app.BookHistoryView = Backbone.View.extend({
         return this;
     },
     reset: function () {
+        this.model.history.fetch({ reset: true });
     },
     replayToState: function (event) {
         event.preventDefault();
@@ -213,19 +198,6 @@ app.BookHistoryEventView = Backbone.View.extend({
         return this;
     }
 });
-
-/*
- app.BookInfoLineView = Backbone.View.extend({
- templateSelector: "#bookInfoLineTemplate",
- initialize: function () {
- this.template = _.template($(this.templateSelector).html());
- },
- render: function () {
- this.$el.html(this.template(this.model.toJSON()));
- return this;
- }
- });
- */
 
 app.BookInfoTableRowView = Backbone.View.extend({
     tagName: "tr",

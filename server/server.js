@@ -1,10 +1,12 @@
 // Module dependencies
 var application_root = __dirname,
-    _ = require("underscore"),                 // Node.js Underscore version (JavaScript utilities)
-    deferred = require("promised-io/promise"), // Node.js 'promise' implementation
-    express = require("express"),              // Node.js web server
-    path = require("path"),                    // Node.js utilities for dealing with file paths
-    mongoose = require("mongoose");            // Node.js MongoDB driver
+    _ = require("underscore"),
+    promise = require("promised-io/promise"),
+    path = require("path"),
+    socketio = require('socket.io'),
+    http = require("http"),
+    express = require("express"),
+    mongoose = require("mongoose");
 
 
 // Mongoose schemas
@@ -58,7 +60,7 @@ mongoose.connect("mongodb://localhost/library", {}, function (error, db) {
 });
 
 
-// Helper functions
+// Generic helper functions
 function getRandomAlphanumericStringOfLength(length) {
     return Math.random().toString(36).substr(2, length);
 }
@@ -76,7 +78,10 @@ var keywords = ["#scifi", "#thriller", "#fantasy", "#debut", "#novel", "#shortst
 function pickRandomElementFrom(array) {
     return array[_.random(array.length - 1)];
 }
+// Generic helper functions
 
+
+// Generic Mongoose helper functions
 function createUuid() {
     return new Uuid()._id;
 }
@@ -98,7 +103,7 @@ function incrementSequenceNumber(schemaName, callback) {
 }
 
 function count(model) {
-    var dfd = new deferred.Deferred();
+    var dfd = new promise.Deferred();
     model.count(function (error, count) {
         if (error) {
             dfd.reject();
@@ -107,8 +112,11 @@ function count(model) {
     });
     return dfd.promise;
 }
+// /Generic Mongoose helper functions
 
-function createStateChange(method, model, entityId) {
+
+// Generic state versioning stuff
+function createStateChange(method, model, entityId, options) {
     // Create state change event
     var change = new StateChange();
 
@@ -119,15 +127,21 @@ function createStateChange(method, model, entityId) {
     change.type = model.modelName;
     change.entityId = change.method === "CREATE" ? createUuid() : entityId;
 
+    // If an UPDATE, add the changes if given
+    if (options && options.changes && change.method === "UPDATE") {
+        change.changes = options.changes;
+    }
+
+    console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
     return change;
 }
 
-function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicationObjectFunction) {
+function createAndSaveStateChange(deferred, model, changes, createAndSaveApplicationObjectFunction) {
     // Create state change event: Meta data
     var change = createStateChange("CREATE", model);
 
-    // Create state change event: "The diff"
-    change.changes = delta;
+    // Create state change event: The domain object changes a.k.a. "the diff"/"the delta"
+    change.changes = changes;
 
     change.save(function (err) {
         if (err) {
@@ -141,13 +155,33 @@ function createAndSaveStateChange(deferred, model, delta, createAndSaveApplicati
     return deferred.promise;
 }
 
-function createAndSaveBook(deferred, bookAttributes) {
+function getStateChangesByEntityId(entityId) {
+    var dfd = new promise.Deferred();
+    StateChange.find({ entityId: entityId })
+        .sort({ timestamp: "asc"})
+        .execFind(function (error, stateChanges) {
+            if (error) {
+                return dfd.reject(error);
+            }
+            return dfd.resolve(stateChanges);
+        });
+    return dfd.promise;
+}
+// /Generic state versioning stuff
+
+
+// Application-specific helper functions
+function createKeyword(keyword) {
+    return new Keyword({ keyword: keyword });
+}
+
+function _createAndSaveBook(deferred, bookAttributes) {
     var book = new Book({ _id: bookAttributes.entityId });
 
     // Add the rest of the properties, and save the book
-    book.set(bookAttributes.changes).save(function (err) {
-        if (err) {
-            console.log(err);
+    book.set(bookAttributes.changes).save(function (error) {
+        if (error) {
+            console.warn(error);
             deferred.reject();
             return;
         }
@@ -157,12 +191,8 @@ function createAndSaveBook(deferred, bookAttributes) {
     return deferred.promise;
 }
 
-function createKeyword(keyword) {
-    return new Keyword({ keyword: keyword });
-}
-
 function createBook(bookAttributes) {
-    var dfd = new deferred.Deferred();
+    var dfd = new promise.Deferred();
     incrementSequenceNumber(Book.collectionName(), function (error, nextSequence) {
         if (error) {
             console.warn(error);
@@ -171,13 +201,26 @@ function createBook(bookAttributes) {
         }
         bookAttributes.seq = nextSequence;
         // TODO: Consider promise instead of 'createAndSaveBook' callback here
-        return createAndSaveStateChange(dfd, Book, bookAttributes, createAndSaveBook);
+        return createAndSaveStateChange(dfd, Book, bookAttributes, _createAndSaveBook);
+    });
+    return dfd.promise;
+}
+
+function updateBook(id, changes) {
+    var dfd = new promise.Deferred();
+    Book.findByIdAndUpdate(id, changes, function (error, book) {
+        if (error) {
+            console.warn(error);
+            dfd.reject(error);
+        }
+        console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
+        dfd.resolve(book);
     });
     return dfd.promise;
 }
 
 function removeBook(id) {
-    var dfd = new deferred.Deferred();
+    var dfd = new promise.Deferred();
     Book.findByIdAndRemove(id, function (error) {
         if (error) {
             console.warn(error);
@@ -188,12 +231,10 @@ function removeBook(id) {
     });
     return dfd.promise;
 }
+// /Application-specific helper functions
 
 
-// Create server
 var app = express();
-
-// Configure server
 app.configure(function () {
     // Parses request body and populates request.body
     app.use(express.bodyParser());
@@ -211,10 +252,16 @@ app.configure(function () {
     app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 });
 
-// Start server
+var server = http.createServer(app);
+
 var port = 4711;
-app.listen(port, function () {
-    console.log('Express server listening on port %d in %s mode', port, app.settings.env);
+server.listen(port, function () {
+    console.log("Express server listening on port %d in %s mode", port, app.settings.env);
+});
+
+var io = socketio.listen(server);
+io.sockets.on("connection", function (socket) {
+    console.log("Socket.IO: server connection caught ...");
 });
 
 
@@ -237,12 +284,9 @@ app.get("/api/admin/statechangecount", function (request, response) {
 
 // Route: Admin API: Get all state changes for a particular entity
 app.get("/api/admin/statechanges/:entityId", function (request, response) {
-    return StateChange
-        .find({ entityId: request.params.entityId })
-        .sort({ timestamp: "asc"})
-        .execFind(function (error, stateChanges) {
-            return response.send(stateChanges);
-        })
+    return getStateChangesByEntityId(request.params.entityId).then(function (stateChanges) {
+        return response.send(stateChanges);
+    });
 });
 
 
@@ -254,21 +298,25 @@ app.post("/api/admin/generate-single-random", function (request, response) {
         keywords: [createKeyword(pickRandomElementFrom(keywords)), createKeyword(pickRandomElementFrom(keywords))]
     }).then(function (book) {
             // TODO: create a deferred function for this
-            return Book.count(function (error, count) {
+            return Book.count(function (error, bookCount) {
                 if (error) {
                     return console.warn(error);
                 } else {
                     return StateChange.count({ method: "CREATE"}, function (error, createCount) {
                         return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
                             return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
-                                return response.send({
+                                var responseObj = {
                                     book: book,
-                                    count: count,
+                                    bookCount: bookCount,
                                     stateChangeCreateCount: createCount,
                                     stateChangeUpdateCount: updateCount,
                                     stateChangeDeleteCount: deleteCount,
                                     stateChangeCount: createCount + updateCount + deleteCount
-                                });
+                                };
+                                response.send(responseObj);
+
+                                // Inform all clients
+                                return io.sockets.emit("book-added", responseObj);
                             })
                         })
                     })
@@ -282,13 +330,12 @@ app.post("/api/admin/generate-single-random", function (request, response) {
 });
 
 
-// Routes: Admin API: purge all Book models in MongoDB store
+// Routes: Admin API: purge the entire application store
 app.post("/api/admin/purge", function (request, response) {
     return mongoose.connection.collections[Book.collectionName()].drop(function (error) {
         if (error) {
-            // TODO: ...
             console.warn(error);
-            return response.send("Book collection dropped!");
+            return response.send({ error: error });
         } else {
             console.log("Book collection dropped!");
             return response.send("Book collection dropped!");
@@ -297,7 +344,7 @@ app.post("/api/admin/purge", function (request, response) {
 });
 
 
-// Routes: Admin API: replaying of change log
+// Routes: Admin API: replay the entire event store into the application store
 app.post("/api/admin/replay", function (request, response) {
     console.log("Replaying entire change log ...");
     return StateChange.find().sort({ timestamp: "asc"}).execFind(function (error, stateChanges) {
@@ -312,7 +359,7 @@ app.post("/api/admin/replay", function (request, response) {
                     switch (stateChange.method) {
 
                         case "CREATE":
-                            return Book.findById(stateChange.entityId, { /*slim: true*/ }, function (err, book) {
+                            return Book.findById(stateChange.entityId, { /*slim: true*/ }, function (error, book) {
                                 if (book) {
                                     console.log("Replaying books: CREATE [" + index + "]: Book #" + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
                                     if (index < stateChanges.length - 1) {
@@ -322,7 +369,7 @@ app.post("/api/admin/replay", function (request, response) {
                                         return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
                                     }
                                 } else {
-                                    return createAndSaveBook(new deferred.Deferred, stateChange).then(function () {
+                                    return _createAndSaveBook(new promise.Deferred, stateChange).then(function () {
                                         // Replay next state change event ...
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
@@ -426,64 +473,57 @@ app.get("/api/books", function (request, response) {
 
 // Route: Library API: Update a book
 app.put("/api/books/:id", function (request, response) {
-    // TODO: The correct thing to do is to search the event store for book existence, like delete method below
-    return Book.findById(request.params.id, function (error, book) {
-        if (!book) {
-            console.log("Book [id=" + request.params.id + "] not found ...aborting update");
-            return response.send("");
-        }
-        delete request.body._id;
-        var changes = request.body;
-
-        if (_.isEmpty(changes)) {
-            console.log("No changes in request ...aborting update");
-            return response.send("");
-        }
-
-        var change = createStateChange("UPDATE", Book, request.params.id);
-        change.changes = changes;
-
-        return change.save(function (error, change) {
-            if (error) {
-                return console.log(error);
+    return getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
+        if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
+            delete request.body._id;
+            var changes = request.body;
+            if (_.isEmpty(changes)) {
+                console.log("No changes in request ...aborting update");
+                return response.send();
             }
-            console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
-            // TODO: Replace by findByIdAndUpdate ...
-            return Book.findById(change.entityId, function (error, book) {
-                console.log("Updating book '" + book.title + "' [id=" + book._id + "] ...");
-                _.extend(book, change.changes);
-                return book.save(function (error, book) {
-                    if (error) {
-                        // TODO: Roll back state change
-                        return console.log(error);
-                    }
-                    console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
-                    return response.send(book);
+            return createStateChange("UPDATE", Book, request.params.id, { changes: changes }).save(function (error, change) {
+                if (error) {
+                    return console.warn(error);
+                }
+                // Ordinary HTTP response to originating client
+                response.send({ entityId: change.entityId });
+
+                // Dispatching of asynchronous message to application store
+                return updateBook(change.entityId, change.changes).then(function (book) {
+                    // Broadcast message to all other participating clients when application store is updated
+                    return io.sockets.emit("book-updated", book);
                 });
+                // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
             });
-        });
+
+        } else {
+            return response.send();
+        }
     });
 });
 
 
 // Route: Library API: Delete a book
 app.delete("/api/books/:id", function (request, response) {
-    // TODO: Extract out a deferred-based generic StateChange function, and leave application logic here
-    return StateChange
-        .find({ entityId: request.params.id })
-        .sort({ timestamp: "asc"})
-        .execFind(function (error, stateChanges) {
-            if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
-                return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
-                    if (error) {
-                        return console.warn(error);
-                    }
-                    // Dispatching of asynchronous message to application store
-                    return removeBook(change.entityId).then(function (entityId) {
-                        return response.send({ entityId: entityId });
-                    })
-                });
-            }
+    return getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
+        if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
+            return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
+                if (error) {
+                    return console.warn(error);
+                }
+                // Ordinary HTTP response to originating client
+                response.send({ entityId: change.entityId });
+
+                // Dispatching of asynchronous message to application store
+                return removeBook(change.entityId).then(function (entityId) {
+                    // Broadcast message to all other participating clients when application store is updated
+                    return io.sockets.emit("book-removed", entityId);
+                })
+                // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
+            });
+
+        } else {
             return response.send();
-        });
+        }
+    });
 });

@@ -82,8 +82,7 @@
         </div>
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour"
-                   href="#">
+                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour" href="#">
                     library: book listing
                 </a>
             </div>
@@ -122,18 +121,6 @@
     <span class="pull-right lead"><%= count %></span>
 </script>
 
-<!--
-<script id="bookListingTemplate" type="text/template">
-    <div id="booksHeading">
-        <span style="display:inline-block; width:30px;"><small><strong>No</strong></small></span>
-        <span style="display:inline-block; width:150px;"><small><strong>Title</strong></small></span>
-        <span style="display:inline-block; width:100px;"><small><strong>Author</strong></small></span>
-        <span style="display:inline-block; width:100px;"><small><strong>Keywords<strong/></small></span>
-    </div>
-    <div id="books"></div>
-</script>
--->
-
 <script id="bookListingTableTemplate" type="text/template">
     <table class="table table-condensed table-striped table-hover">
         <thead>
@@ -147,15 +134,6 @@
         <tbody></tbody>
     </table>
 </script>
-
-<!--
-<script id="bookInfoLineTemplate" type="text/template">
-    <span style="display:inline-block; width:30px;"><small><%= seq %></small></span>
-    <span style="display:inline-block; width:150px;"><small><%- title %></small></span>
-    <span style="display:inline-block; width:100px;"><small><%- author %></small></span>
-    <span style="display:inline-block; width:100px;"><small><% _.each(keywords, function(keyobj) { %>&nbsp;<%= keyobj.keyword %><% }); %></small></span>
-</script>
--->
 
 <script id="bookInfoTableRowTemplate" type="text/template">
     <td><small><%= seq %></small></td>
@@ -225,24 +203,24 @@
 <!-- /Underscore templates -->
 
 <!-- Regular script resource setup -->
-<script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
 <script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.1/underscore-min.js"></script>
-<!--<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.0/underscore.js"></script>-->
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
-<!--<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone.js"></script>-->
+<script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+<script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
 
 <!-- Offline development setup -->
 <!--
-<script src="script/moment.js"></script>
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>
+<script src="script/socket.io.js"></script>
+<script src="script/moment.js"></script>
 <script src="script/bootstrap.js"></script>
 -->
 
-<!-- Audit.js: generic stuff -->
+<!-- Audit.js: generic state versioning stuff -->
 <script src="script/backbone.audit.js"></script>
 
 <!-- Audit.JS: demo project -->

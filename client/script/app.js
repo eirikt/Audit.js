@@ -5,6 +5,10 @@ app.StateChangeCountQuery = Backbone.Model.extend({
     url: "/api/admin/statechangecount"
 });
 
+app.GenerateRandomBookCommand = Backbone.Model.extend({
+    urlRoot: "/api/admin/generate-single-random"
+});
+
 app.PurgeAllBooksCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/purge"
 });
@@ -13,17 +17,13 @@ app.ReplayChangeLogCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/replay"
 });
 
-app.GenerateRandomBookCommand = Backbone.Model.extend({
-    urlRoot: "/api/admin/generate-single-random"
-});
-
 app.AdminView = Backbone.View.extend({
     templateSelector: "#adminTemplate",
     template: null,
     events: {
+        "click #generate": "generateRandomBooks",
         "click #purge": "purgeAllBooks",
-        "click #replay": "replayChangeLog",
-        "click #generate": "generateRandomBooks"
+        "click #replay": "replayChangeLog"
     },
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
@@ -34,38 +34,8 @@ app.AdminView = Backbone.View.extend({
         this.$el.html(this.template(this.model.toJSON()));
         this.trigger("rendered");
     },
-    purgeAllBooks: function () {
-        var purgeAllBooksCommand = new app.PurgeAllBooksCommand();
-        var xhr = purgeAllBooksCommand.save();
-        if (xhr === false) {
-            alert("Server error!");
-        }
-        // TODO: Get .done working and us it
-        //xhr.done(function () {
-        //    alert("DONE!")
-        //});
-        //xhr.fail(function () {
-        //    alert("FAIL!")
-        //});
-        xhr.always(function (data_or_jqXHR, textStatus, jqXHR_or_errorThrown) {
-            app.bookCount.set("count", 0);
-            app.library.reset();
-        });
-    },
-    replayChangeLog: function () {
-        var replayChangeLogCommand = new app.ReplayChangeLogCommand();
-        var xhr = replayChangeLogCommand.save();
-        if (xhr === false) {
-            alert("Server error!");
-        }
-        xhr.always(function () {
-            app.bookCount.fetch();
-            app.library.fetch();
-        });
-    },
     generateRandomBooks: function () {
         var numberOfBooksToGenerate = parseInt(this.$("#numberOfBooksToGenerate").val());
-        // TODO: replace this with server-push
         if (numberOfBooksToGenerate) {
             var i = 0;
             var generateSingleRandomBook = function () {
@@ -104,7 +74,7 @@ app.AdminView = Backbone.View.extend({
                         "updateCount": bookAndCount.stateChangeUpdateCount,
                         "deleteCount": bookAndCount.stateChangeDeleteCount
                     });
-                    app.bookCount.set("count", bookAndCount.count);
+                    app.bookCount.set("count", bookAndCount.bookCount);
                     app.library.push(bookAndCount.book);
                 });
                 xhr.fail(function (error) {
@@ -114,8 +84,38 @@ app.AdminView = Backbone.View.extend({
             // Instigate!
             generateSingleRandomBook();
         }
+    },
+    purgeAllBooks: function () {
+        var purgeAllBooksCommand = new app.PurgeAllBooksCommand();
+        var xhr = purgeAllBooksCommand.save();
+        if (xhr === false) {
+            alert("Server error!");
+        }
+        // TODO: Get .done working and us it
+        //xhr.done(function () {
+        //    alert("DONE!")
+        //});
+        //xhr.fail(function () {
+        //    alert("FAIL!")
+        //});
+        xhr.always(function (data_or_jqXHR, textStatus, jqXHR_or_errorThrown) {
+            app.bookCount.set("count", 0);
+            app.library.reset();
+        });
+    },
+    replayChangeLog: function () {
+        var replayChangeLogCommand = new app.ReplayChangeLogCommand();
+        var xhr = replayChangeLogCommand.save();
+        if (xhr === false) {
+            alert("Server error!");
+        }
+        xhr.always(function () {
+            app.bookCount.fetch();
+            app.library.fetch();
+        });
     }
 });
+
 
 app.AppRouter = Backbone.Router.extend({
     routes: { "book/:query": "showBook" },
@@ -126,7 +126,7 @@ app.AppRouter = Backbone.Router.extend({
         }
         var book = app.library.get(id);
         if (book) {
-            // TODO: Consider moving this init logic into 'Backbone.Audit.History' mix-in
+            // TODO: How to include this in a more ... integrated way
             if (!book.history) {
                 book.history = new app.BookHistory({ target: book });
             }
@@ -142,27 +142,27 @@ app.AppRouter = Backbone.Router.extend({
     }
 });
 
+
+// When DOM is ready ...
 $(function () {
-    // When DOM is ready ...
 
     // Models
     app.stateChangeCount = new app.StateChangeCountQuery();
     app.bookCount = new app.BookCountQuery();
     app.library = new app.Library();
 
-    // Views
-    app.adminView = new app.AdminView({ el: "#libraryAdmin", model: app.stateChangeCount });
-    app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
-    app.bookView = new app.BookCompositeView({ el: "#book" });
-    app.bookListingView =
-        //new app.BookListingSimpleView({ el: "#libraryBookListing", collection: app.library });
-        new app.BookListingTableView({ el: "#libraryBookListing", collection: app.library });
-
-    // Update state change count and book count
+    // On demand: Update state change count and book count
     app.refreshCounts = function () {
         app.stateChangeCount.fetch();
         app.bookCount.fetch();
     };
+
+
+    // Views
+    app.adminView = new app.AdminView({ el: "#libraryAdmin", model: app.stateChangeCount });
+    app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
+    app.bookView = new app.BookCompositeView({ el: "#book" });
+    app.bookListingView = new app.BookListingTableView({ el: "#libraryBookListing", collection: app.library });
 
     // DOM events: Toggle book listing
     $("#bookListingAnchor").on("click", function (event) {
@@ -174,7 +174,46 @@ $(function () {
         }
     });
 
-    // Router listening for hash changes
+
+    // Start listening for URI hash changes
     app.appRouter = new app.AppRouter();
     Backbone.history.start();
+
+
+    // HTTP server push events
+    var socket = io.connect('http://localhost:4711');
+
+    // Push event: Book added
+    socket.on("book-added", function (bookAndCounts) {
+        app.stateChangeCount.set({
+            "totalCount": bookAndCounts.stateChangeCount,
+            "createCount": bookAndCounts.stateChangeCreateCount,
+            "updateCount": bookAndCounts.stateChangeUpdateCount,
+            "deleteCount": bookAndCounts.stateChangeDeleteCount
+        });
+        app.bookCount.set("count", bookAndCounts.bookCount);
+        app.library.push(bookAndCounts.book);
+    });
+
+    // Push event: Book updated
+    socket.on("book-updated", function (updatedBook) {
+        app.library.set(updatedBook, { add: false, remove: false, merge: true });
+
+        if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
+            app.bookView.bookView.render();
+        }
+
+        app.refreshCounts();
+    });
+
+    // Push event: Book removed
+    socket.on("book-removed", function (entityIdOfRemovedBook) {
+        app.library.remove(app.library.get(entityIdOfRemovedBook));
+
+        if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
+            app.bookView.reset();
+        }
+
+        app.refreshCounts();
+    });
 });

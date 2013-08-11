@@ -29,46 +29,6 @@ app.BookCountView = Backbone.View.extend({
     }
 });
 
-/*
- app.BookListingSimpleView = Backbone.View.extend({
- initialize: function () {
- this.listenTo(this.collection, "reset", this.render);
- this.listenTo(this.collection, "remove", this.render);
- this.listenTo(this.collection, "add", this._renderBook);
- if (this.isActive()) {
- this.collection.fetch({ reset: true });
- }
- },
- // Render a book by creating a BookView and appending the element it renders to the library's element
- _renderBook: function (model) {
- var bookView = new app.BookInfoLineView({
- model: model
- });
- this.$("#books").prepend(bookView.render().el);
- this.trigger("bookRendered");
- },
- // Render library by rendering each book in it's collection
- render: function () {
- this.$el.html($("#bookListingLineTemplate").html());
-
- this.collection.each(function (model) {
- this._renderBook(model);
- }, this);
-
- // TODO: Bootstrap equivalent ...
- //this.$("#releaseDate").datepicker();
-
- this.trigger("rendered");
- },
- close: function () {
- this.$("div").remove();
- },
- isActive: function () {
- return this.$el.parent("div").hasClass("in");
- }
- });
- */
-
 app.BookListingTableView = Backbone.View.extend({
     initialize: function () {
         // TODO: The goal?

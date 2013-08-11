@@ -95,6 +95,10 @@ Backbone.Audit.History = {
     /** Overriding parse to make sure a server-side state snapshot is at hand. */
     parse: function (resp, options) {
         this._serverSideModel = this.clone();
+        // Nope, application specific url is missing ...
+        //if (!this.history) {
+        //    this.history = new Backbone.Audit.StateChangeCollection({ target: this });
+        //}
         return this.constructor.__super__.parse.apply(this, arguments);
     },
 
@@ -121,7 +125,6 @@ Backbone.Audit.History = {
         var targetStateChangeSequenceNumber = parseInt(stateChangeSeqNumber),
             i = 0;
 
-        // Clear all attributes
         this._reset();
 
         // Silently update model state with all state changes up till given state change sequence number
@@ -131,8 +134,6 @@ Backbone.Audit.History = {
         }
 
         this.history.stateIndex = targetStateChangeSequenceNumber - this.history.length;
-
-        // ...
         this.history.each(function (stateChange, zeroBasedIndex) {
             stateChange.set("seq", zeroBasedIndex += 1);
             if (this.isDeleted()) {
@@ -150,13 +151,13 @@ Backbone.Audit.History = {
         }, this);
 
         // Finally, trigger a model state history "change"
-        // Triggering change in history collection to preserve last persistent model state
+        // Triggering change _in history collection_ to preserve last persistent model state
+        // TODO: Yes, it's a bit strange ... Can we trigger a change on this model instead and get away with it?
         this.history.trigger("change");
     },
 
     update: function (allPossibleEditableAttributes) {
         var changedAttributes;
-
         if (this.isRewound()) {
             // If rewound (client side model is altered and cannot be used), use the server-side snapshot
             this._serverSideModel.set(allPossibleEditableAttributes);
@@ -168,7 +169,7 @@ Backbone.Audit.History = {
         }
 
         // If model has state changes, save the state changes/"diff" (server-side),
-        // and then trigger a "change" event for the model (client-side)
+        // and then trigger a "change" event (client-side)
         if (changedAttributes) {
             var self = this,
                 diffModel = new this.constructor();
