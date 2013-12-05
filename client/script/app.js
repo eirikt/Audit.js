@@ -9,6 +9,10 @@ app.GenerateRandomBookCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/generate-single-random"
 });
 
+app.GenerateRandomBooksCommand = Backbone.Model.extend({
+    urlRoot: "/api/admin/generate-random-books"
+});
+
 app.PurgeAllBooksCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/purge"
 });
@@ -17,12 +21,11 @@ app.ReplayChangeLogCommand = Backbone.Model.extend({
     urlRoot: "/api/admin/replay"
 });
 
-app.AdminView = Backbone.View.extend({
-    templateSelector: "#adminTemplate",
+
+app.StateChangeAdminView = Backbone.View.extend({
+    templateSelector: "#stateChangeAdminTemplate",
     template: null,
     events: {
-        "click #generate": "generateRandomBooks",
-        "click #purge": "purgeAllBooks",
         "click #replay": "replayChangeLog"
     },
     initialize: function () {
@@ -34,91 +37,94 @@ app.AdminView = Backbone.View.extend({
         this.$el.html(this.template(this.model.toJSON()));
         this.trigger("rendered");
     },
+    replayChangeLog: function () {
+        new app.ReplayChangeLogCommand().save();
+    }
+});
+
+app.LibraryAdminView = Backbone.View.extend({
+    templateSelector: "#libraryAdminTemplate",
+    template: null,
+    events: {
+        "click #generate": "generateRandomBooks",
+        "click #purge": "purgeAllBooks"
+    },
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+        //this.listenTo(this.model, "change", this.render);
+        //this.model.fetch();
+        this.render();
+    },
+    render: function () {
+        this.$el.html(this.template({}));//this.model.toJSON()));
+        this.trigger("rendered");
+    },
     generateRandomBooks: function () {
         var numberOfBooksToGenerate = parseInt(this.$("#numberOfBooksToGenerate").val());
+        console.log("generateRandomBooks: " + numberOfBooksToGenerate + " books");
         if (numberOfBooksToGenerate) {
-            var i = 0;
-            var generateSingleRandomBook = function () {
-                i += 1;
-                var xhr = new app.GenerateRandomBookCommand().save();
-                if (xhr === false) {
-                    alert("Unspecified server error!");
-                }
-                xhr.done(function (bookAndCount) {
-                    var libraryBookCountViewRendered = false,
-                        libraryBookListingViewRendered = false;
+            new app.GenerateRandomBooksCommand().save({ numberOfBooks: numberOfBooksToGenerate });
 
-                    if (i < numberOfBooksToGenerate) {
-                        app.bookCountView.once("rendered", function () {
-                            libraryBookCountViewRendered = true;
-                            if (app.bookListingView.isVisible()) {
-                                if (libraryBookListingViewRendered) {
-                                    generateSingleRandomBook();
-                                }
-                            } else {
-                                generateSingleRandomBook();
-                            }
-                        });
-                        if (app.bookListingView.isVisible()) {
-                            app.bookListingView.once("bookRendered", function () {
-                                libraryBookListingViewRendered = true;
-                                if (libraryBookCountViewRendered) {
-                                    generateSingleRandomBook();
-                                }
-                            });
-                        }
-                    }
-                    app.stateChangeCount.set({
-                        "totalCount": bookAndCount.stateChangeCount,
-                        "createCount": bookAndCount.stateChangeCreateCount,
-                        "updateCount": bookAndCount.stateChangeUpdateCount,
-                        "deleteCount": bookAndCount.stateChangeDeleteCount
-                    });
-                    app.bookCount.set("count", bookAndCount.bookCount);
-                    app.library.push(bookAndCount.book);
-                });
-                xhr.fail(function (error) {
-                    alert("Server failure: " + error);
-                });
-            };
-            // Instigate!
-            generateSingleRandomBook();
+            /* Silly chatty book generation with cool real-time counting effect
+             var i = 0;
+             var generateSingleRandomBook = function () {
+             i += 1;
+             var xhr = new app.GenerateRandomBookCommand().save();
+             if (xhr === false) {
+             alert("Unspecified server error!");
+             }
+             xhr.done(function (bookAndCount) {
+             var libraryBookCountViewRendered = false,
+             libraryBookListingViewRendered = false;
+
+             if (i < numberOfBooksToGenerate) {
+             app.bookCountView.once("rendered", function () {
+             libraryBookCountViewRendered = true;
+             if (app.bookListingView.isVisible()) {
+             if (libraryBookListingViewRendered) {
+             generateSingleRandomBook();
+             }
+             } else {
+             generateSingleRandomBook();
+             }
+             });
+             if (app.bookListingView.isVisible()) {
+             app.bookListingView.once("bookRendered", function () {
+             libraryBookListingViewRendered = true;
+             if (libraryBookCountViewRendered) {
+             generateSingleRandomBook();
+             }
+             });
+             }
+             }
+             app.stateChangeCount.set({
+             "totalCount": bookAndCount.stateChangeCount,
+             "createCount": bookAndCount.stateChangeCreateCount,
+             "updateCount": bookAndCount.stateChangeUpdateCount,
+             "deleteCount": bookAndCount.stateChangeDeleteCount
+             });
+             app.bookCount.set("count", bookAndCount.bookCount);
+             app.library.push(bookAndCount.book);
+             });
+             xhr.fail(function (error) {
+             alert("Server failure: " + error);
+             });
+             };
+             // Instigate!
+             generateSingleRandomBook();
+             */
         }
     },
     purgeAllBooks: function () {
-        var purgeAllBooksCommand = new app.PurgeAllBooksCommand();
-        var xhr = purgeAllBooksCommand.save();
-        if (xhr === false) {
-            alert("Server error!");
-        }
-        // TODO: Get .done working and us it
-        //xhr.done(function () {
-        //    alert("DONE!")
-        //});
-        //xhr.fail(function () {
-        //    alert("FAIL!")
-        //});
-        xhr.always(function (data_or_jqXHR, textStatus, jqXHR_or_errorThrown) {
-            app.bookCount.set("count", 0);
-            app.library.reset();
-        });
-    },
-    replayChangeLog: function () {
-        var replayChangeLogCommand = new app.ReplayChangeLogCommand();
-        var xhr = replayChangeLogCommand.save();
-        if (xhr === false) {
-            alert("Server error!");
-        }
-        xhr.always(function () {
-            app.bookCount.fetch();
-            app.library.fetch();
-        });
+        new app.PurgeAllBooksCommand().save();
     }
 });
 
 
 app.AppRouter = Backbone.Router.extend({
+
     routes: { "book/:query": "showBook" },
+
     showBook: function (id) {
         if (app.bookView.model) {
             Backbone.stopListening(app.bookView.model.history);
@@ -149,23 +155,26 @@ $(function () {
     // Models
     app.stateChangeCount = new app.StateChangeCountQuery();
     app.bookCount = new app.BookCountQuery();
+    app.bookSearchAndCount = new app.BookCountQuery();
     app.library = new app.Library();
 
     // On demand: Update state change count and book count
     app.refreshCounts = function () {
         app.stateChangeCount.fetch();
-        app.bookCount.fetch();
+        app.bookCount.save();
+        app.bookSearchAndCount.save();
     };
 
-
     // Views
-    app.adminView = new app.AdminView({ el: "#libraryAdmin", model: app.stateChangeCount });
+    app.stateChangeAdminView = new app.StateChangeAdminView({ el: "#stateChangeAdmin", model: app.stateChangeCount });
+    app.libraryAdminView = new app.LibraryAdminView({ el: "#libraryAdmin" });
     app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
     app.bookView = new app.BookCompositeView({ el: "#book" });
-    app.bookListingView = new app.BookListingTableView({ el: "#libraryBookListing", collection: app.library });
+    app.bookSearchView = new app.BookSearchView({ el: "#bookSearchAndCount", model: app.bookSearchAndCount });
+    app.bookListingView = new app.BookListingTableView({ el: "#bookListing", collection: app.library });
 
-    // DOM events: Toggle book listing
-    $("#bookListingAnchor").on("click", function (event) {
+    // "Out-of-view" DOM events: Toggle book listing
+    $("#bookListingLink").on("click", function (event) {
         event.preventDefault();
         if (app.bookListingView.isVisible()) {
             app.bookListingView.close();
@@ -174,13 +183,15 @@ $(function () {
         }
     });
 
-
     // Start listening for URI hash changes
     app.appRouter = new app.AppRouter();
     Backbone.history.start();
 
+    // Initial view rendering
+    app.refreshCounts();
 
-    // HTTP server push events
+
+    // HTTP server push events config
     var socket = io.connect('http://localhost:4711');
 
     // Push event: Book added
@@ -191,29 +202,41 @@ $(function () {
             "updateCount": bookAndCounts.stateChangeUpdateCount,
             "deleteCount": bookAndCounts.stateChangeDeleteCount
         });
-        app.bookCount.set("count", bookAndCounts.bookCount);
         app.library.push(bookAndCounts.book);
+        app.bookCount.set("count", bookAndCounts.bookCount);
     });
 
     // Push event: Book updated
     socket.on("book-updated", function (updatedBook) {
         app.library.set(updatedBook, { add: false, remove: false, merge: true });
-
+        app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
             app.bookView.bookView.render();
         }
-
-        app.refreshCounts();
     });
 
     // Push event: Book removed
     socket.on("book-removed", function (entityIdOfRemovedBook) {
         app.library.remove(app.library.get(entityIdOfRemovedBook));
-
+        app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
             app.bookView.reset();
         }
+    });
 
+    // Push event: Library removed/All books removed
+    socket.on("books-removed", function () {
+        app.library.reset();
+        app.refreshCounts();
+        // TODO: reset form fields
+        //app.bookView.clear();
+        // TODO: collapse view (if expanded))
+        //app.bookView.collapse();
+    });
+
+    // Push event: Event store completely replayed
+    socket.on("eventstore-replayed", function () {
+        app.library.fetch({ reset: true });
         app.refreshCounts();
     });
 });

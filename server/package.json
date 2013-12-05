@@ -1,6 +1,6 @@
 {
     "name": "Audit.JS",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "A simple prototype/demo library web app using Event Sourcing and CQRS",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "dependencies": {
@@ -9,7 +9,8 @@
         "path": "latest",
         "socket.io": "latest",
         "express": "latest",
-        "mongoose": "latest"
+        "mongoose": "latest",
+        "mongoose-regexp": "latest"
     },
-    "engine": "node 0.10.15"
+    "engine": "node 0.10.22"
 }

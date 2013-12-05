@@ -1,7 +1,7 @@
 var app = app || {};
 
 app.BookCountQuery = Backbone.Model.extend({
-    default: { count: 0 },
+    defaults: { titleSubstring: "", authorSubstring: "", keywords: null, count: 0 },
     url: "/api/bookcount"
 });
 
@@ -15,17 +15,58 @@ app.Library = Backbone.Collection.extend({
     }
 });
 
+
 app.BookCountView = Backbone.View.extend({
     templateSelector: "#bookCountTemplate",
-    template: null,
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
-        this.listenTo(this.model, "change", this.render);
-        this.model.fetch();
+        this.listenTo(this.model, "sync change", this.render);
+        //this.model.fetch();
     },
     render: function () {
         this.$el.html(this.template(this.model.toJSON()));
         this.trigger("rendered");
+    }
+});
+
+
+app.BookSearchView = Backbone.View.extend({
+    templateSelector: "#bookSearchTemplate",
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+        this.listenTo(this.model, "change", this.render);
+    },
+    render: function () {
+        var self = this;
+        this.$el.html(this.template(this.model.toJSON()));
+        this.trigger("rendered");
+
+        this.$("#titleSubstring").off().bindWithDelay("keyup", function () {
+            self.model.save("titleSubstring", self.$("#titleSubstring").val()).done(function () {
+                var $titleSearch = self.$("#titleSubstring");
+                $titleSearch.focus().val($titleSearch.val());
+            });
+        }, 400);
+
+        this.$("#authorSubstring").off().bindWithDelay("keyup", function () {
+            self.model.save("authorSubstring", self.$("#authorSubstring").val()).done(function () {
+                var $authorSearch = self.$("#authorSubstring");
+                $authorSearch.focus().val($authorSearch.val());
+            });
+        }, 400);
+    }
+});
+
+
+app.BookInfoTableRowView = Backbone.View.extend({
+    tagName: "tr",
+    templateSelector: "#bookInfoTableRowTemplate",
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+    },
+    render: function () {
+        this.$el.html(this.template(this.model.toJSON()));
+        return this;
     }
 });
 

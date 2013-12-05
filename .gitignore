@@ -1,7 +1,7 @@
 #Ignore (personal) Git log
 git.log
 
-#MongoDB db
+#Ignore MongoDB db
 server/data
 
 #Ignore derived/transient project resources
@@ -11,14 +11,18 @@ server/node_modules
 #Ignore project script helpers for now ...
 server/bin
 
-#Ignore local/offline third-party JS libs for now ...
+#Ignore images for now ...
 client/img/
+
+#Ignore local/offline third-party JS libs for now ...
 client/script/backbone.js
 client/script/backbone.marionette.js
 client/script/bootstrap.js
 client/script/jquery.js
 client/script/moment.js
 client/script/underscore.js
+
+#Ignore local/offline third-party CSS libs for now ...
 client/style/bootstrap-responsive.css
 client/style/bootstrap-responsive.min.css
 client/style/bootstrap.css

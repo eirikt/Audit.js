@@ -135,7 +135,7 @@ app.BookHistoryView = Backbone.View.extend({
     template: null,
     model: null,
     events: {
-        'click .state': 'replayToState'
+        "click .state": "replayToState"
     },
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
@@ -195,18 +195,6 @@ app.BookHistoryEventView = Backbone.View.extend({
         clonedAttributes.changes = JSON.stringify(clonedAttributes.changes);
 
         this.$el.html(this.template(clonedAttributes));
-        return this;
-    }
-});
-
-app.BookInfoTableRowView = Backbone.View.extend({
-    tagName: "tr",
-    templateSelector: "#bookInfoTableRowTemplate",
-    initialize: function () {
-        this.template = _.template($(this.templateSelector).html());
-    },
-    render: function () {
-        this.$el.html(this.template(this.model.toJSON()));
         return this;
     }
 });

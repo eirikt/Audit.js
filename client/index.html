@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Audit.JS</title>
+
     <!-- Regular stylesheet resource setup -->
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">
+    <!--<link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">-->
+
     <!-- Offline development setup -->
-    <!--
     <link rel="stylesheet" href="style/bootstrap.css">
     <link rel="stylesheet" href="style/bootstrap-responsive.css">
-    -->
-    <!--
+
     <style>
         body {
             padding-top: 60px;
@@ -22,7 +22,6 @@
             }
         }
     </style>
-    -->
     <link href="style/main.css" rel="stylesheet">
 </head>
 
@@ -36,14 +35,13 @@
                 <span class="icon-bar"></span>
             </a>
             <a class="brand" href="#">Audit.JS</a>
-            <!--
+
             <div class="nav-collapse">
                 <ul class="nav">
                     <li class="active"><a href="#">Home</a></li>
                     <li><a href="#about">About</a></li>
                 </ul>
             </div>
-            -->
         </div>
     </div>
 </div>
@@ -53,41 +51,66 @@
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseOne" href="#">
-                    library: admin
+                    state changes :: admin
                 </a>
             </div>
             <div id="collapseOne" class="collapse">
-                <div id="libraryAdmin" class="accordion-inner"></div>
+                <div id="stateChangeAdmin" class="accordion-inner"></div>
             </div>
         </div>
+
         <div class="accordion-group">
             <div class="accordion-heading">
                 <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseTwo" href="#">
-                    library: book count
+                    library :: admin
                 </a>
             </div>
-            <div id="collapseTwo" class="collapse in">
+            <div id="collapseTwo" class="collapse">
+                <div id="libraryAdmin" class="accordion-inner"></div>
+            </div>
+        </div>
+
+        <div class="accordion-group">
+            <div class="accordion-heading">
+                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+                    library :: book count
+                </a>
+            </div>
+            <div id="collapseThree" class="collapse in">
                 <div id="libraryBookCount" class="accordion-inner"></div>
             </div>
         </div>
-        <div class="accordion-group">
+
+         <div class="accordion-group">
             <div class="accordion-heading">
-                <a id="bookDetails" class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
-                    library: book details
-                </a>
-            </div>
-            <div id="collapseThree" class="collapse">
-                <div id="book" class="accordion-inner"></div>
-            </div>
-        </div>
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a id="bookListingAnchor" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour" href="#">
-                    library: book listing
+                <a id="bookDetails" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour" href="#">
+                    book :: details
                 </a>
             </div>
             <div id="collapseFour" class="collapse">
-                <div id="libraryBookListing" class="accordion-inner"></div>
+                <div id="book" class="accordion-inner"></div>
+            </div>
+        </div>
+
+        <div class="accordion-group">
+            <div class="accordion-heading">
+                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseFive" href="#">
+                    library :: book search and count
+                </a>
+            </div>
+            <div id="collapseFive" class="collapse">
+                <div id="bookSearchAndCount" class="accordion-inner"></div>
+            </div>
+        </div>
+
+        <div class="accordion-group">
+            <div class="accordion-heading">
+                <a id="bookListingLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseSix" href="#">
+                    library :: book listing
+                </a>
+            </div>
+            <div id="collapseSix" class="collapse">
+                <div id="bookListing" class="accordion-inner"></div>
             </div>
         </div>
     </div>
@@ -95,23 +118,27 @@
 <!-- /container -->
 
 <!-- Underscore templates -->
-<script id="adminTemplate" type="text/template">
+<script id="stateChangeAdminTemplate" type="text/template">
+    <div>
+        <span class="pull-left">
+            Total number of state change events:&nbsp;<strong><%= totalCount %></strong>&nbsp;&nbsp;&nbsp;
+            <small>CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;UPDATE:&nbsp;<%= updateCount %>&nbsp;&nbsp;&nbsp;DELETE:&nbsp;<%= deleteCount %></small>
+            <br><br>
+        </span>
+        <span>
+            <button id="replay" class="btn btn-inverse pull-right">Replay all state change events</button>
+        </span>
+    </div>
+</script>
+
+<script id="libraryAdminTemplate" type="text/template">
     <div>
         <span class="input-append">
             <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
             <button id="generate" class="btn btn-success">Generate books</button>
         </span>
-        <span class="pull-right">
-            <button id="purge" class="btn btn-danger">Purge all books</button>
-            <button id="replay" class="btn btn-inverse">Replay all state change events</button>
-        </span>
-    </div>
-    <div>
-        <span class="pull-right">
-            <small><em>
-            Total number of state change events:&nbsp;<strong><%= totalCount %></strong>
-            (CREATE: <%= createCount %>, UPDATE: <%= updateCount %>, DELETE: <%= deleteCount %>)
-            </em></small>
+        <span>
+            <button id="purge" class="btn btn-danger pull-right">Purge all books</button>
         </span>
     </div>
 </script>
@@ -119,6 +146,15 @@
 <script id="bookCountTemplate" type="text/template">
     <span>Total number of books:</span>
     <span class="pull-right lead"><%= count %></span>
+</script>
+
+<script id="bookSearchTemplate" type="text/template">
+    <form>
+        <input id="titleSubstring" type="text" class="span2 search-query right-margin" placeholder="search for title" value="<%= titleSubstring %>" />
+        <input id="authorSubstring" type="text" class="span2 search-query right-margin" placeholder="search for author" value="<%= authorSubstring %>" />
+        <input id="keywords" type="text" class="span2 search-query right-margin" placeholder="search for keyword" disabled />
+        &nbsp;&nbsp;&nbsp;Number of books found:&nbsp;<span style="font-size: larger;font-weight: bold">&nbsp;<%= count %></span>
+    </form>
 </script>
 
 <script id="bookListingTableTemplate" type="text/template">
@@ -203,22 +239,23 @@
 <!-- /Underscore templates -->
 
 <!-- Regular script resource setup -->
-<script src="//code.jquery.com/jquery-2.0.2.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.1/underscore-min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
-<script src="//cdn.jsdelivr.net/momentjs/2.0.0/moment.min.js"></script>
+<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
+<script src="//cdn.jsdelivr.net/momentjs/2.4.0/moment.min.js"></script>
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
 
-<!-- Offline development setup -->
-<!--
+<!-- Offline development setup
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>
-<script src="script/socket.io.js"></script>
 <script src="script/moment.js"></script>
 <script src="script/bootstrap.js"></script>
 -->
+
+<!-- Non-CDN resources -->
+<script src="script/jquery.bind-with-delay.js"></script>
 
 <!-- Audit.js: generic state versioning stuff -->
 <script src="script/backbone.audit.js"></script>

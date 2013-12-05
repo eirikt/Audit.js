@@ -159,7 +159,7 @@ function getStateChangesByEntityId(entityId) {
     var dfd = new promise.Deferred();
     StateChange.find({ entityId: entityId })
         .sort({ timestamp: "asc"})
-        .execFind(function (error, stateChanges) {
+        .find(function (error, stateChanges) {
             if (error) {
                 return dfd.reject(error);
             }
@@ -254,10 +254,12 @@ app.configure(function () {
 
 var server = http.createServer(app);
 
+
 var port = 4711;
 server.listen(port, function () {
     console.log("Express server listening on port %d in %s mode", port, app.settings.env);
 });
+
 
 var io = socketio.listen(server);
 io.sockets.on("connection", function (socket) {
@@ -290,6 +292,7 @@ app.get("/api/admin/statechanges/:entityId", function (request, response) {
 });
 
 
+// TODO: No-no, create all books server-side - use server push to update clients!!
 // Route: Admin API: generating a single random book
 app.post("/api/admin/generate-single-random", function (request, response) {
     return createBook({
@@ -330,6 +333,53 @@ app.post("/api/admin/generate-single-random", function (request, response) {
 });
 
 
+// Route: Admin API: generate random books
+app.post("/api/admin/generate-random-books", function (request, response) {
+    if (!request.body.numberOfBooks) {
+        return response.send([]);
+    }
+    var i;
+    for (i = 0; i < parseInt(request.body.numberOfBooks); i += 1) {
+        createBook({
+            title: pickRandomElementFrom(titleElement1) + " " + pickRandomElementFrom(titleElement2) + " " + pickRandomElementFrom(titleElement3),
+            author: pickRandomElementFrom(firstNames) + " " + pickRandomElementFrom(lastNames),
+            keywords: [createKeyword(pickRandomElementFrom(keywords)), createKeyword(pickRandomElementFrom(keywords))]
+        }).then(function (book) {
+                // TODO: create a deferred function for this
+                return Book.count(function (error, bookCount) {
+                    if (error) {
+                        return console.warn(error);
+                    } else {
+                        return StateChange.count({ method: "CREATE"}, function (error, createCount) {
+                            return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
+                                return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
+                                    var responseObj = {
+                                        book: book,
+                                        bookCount: bookCount,
+                                        stateChangeCreateCount: createCount,
+                                        stateChangeUpdateCount: updateCount,
+                                        stateChangeDeleteCount: deleteCount,
+                                        stateChangeCount: createCount + updateCount + deleteCount
+                                    };
+                                    response.send(responseObj);
+
+                                    // Inform all clients
+                                    return io.sockets.emit("book-added", responseObj);
+                                })
+                            })
+                        })
+                    }
+                });
+            }, function (error) {
+                return response.send({
+                    error: error.message
+                });
+            }
+        );
+    }
+});
+
+
 // Routes: Admin API: purge the entire application store
 app.post("/api/admin/purge", function (request, response) {
     return mongoose.connection.collections[Book.collectionName()].drop(function (error) {
@@ -337,7 +387,7 @@ app.post("/api/admin/purge", function (request, response) {
             console.warn(error);
             return response.send({ error: error });
         } else {
-            console.log("Book collection dropped!");
+            io.sockets.emit("books-removed");
             return response.send("Book collection dropped!");
         }
     });
@@ -347,10 +397,15 @@ app.post("/api/admin/purge", function (request, response) {
 // Routes: Admin API: replay the entire event store into the application store
 app.post("/api/admin/replay", function (request, response) {
     console.log("Replaying entire change log ...");
-    return StateChange.find().sort({ timestamp: "asc"}).execFind(function (error, stateChanges) {
+    return StateChange.find().sort({ timestamp: "asc"}).find(function (error, stateChanges) {
         if (error) {
             return console.warn(error);
         }
+        var terminateReplay = function (response, index) {
+            console.log("Replaying books DONE!");
+            io.sockets.emit("eventstore-replayed");
+            return response.send("Replaying books DONE!" + index + " book state changes replayed");
+        };
         var replay = function (stateChanges, index) {
             var stateChange = stateChanges[index];
             if (stateChange) {
@@ -365,8 +420,7 @@ app.post("/api/admin/replay", function (request, response) {
                                     if (index < stateChanges.length - 1) {
                                         return replay(stateChanges, ++index);
                                     } else {
-                                        console.log("Replaying books DONE!");
-                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                        return terminateReplay(response, index += 1);
                                     }
                                 } else {
                                     return _createAndSaveBook(new promise.Deferred, stateChange).then(function () {
@@ -374,8 +428,7 @@ app.post("/api/admin/replay", function (request, response) {
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
                                         } else {
-                                            console.log("Replaying books DONE!");
-                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                            return terminateReplay(response, index += 1);
                                         }
                                     });
                                 }
@@ -389,8 +442,7 @@ app.post("/api/admin/replay", function (request, response) {
                                     if (index < stateChanges.length - 1) {
                                         return replay(stateChanges, ++index);
                                     } else {
-                                        console.log("Replaying books DONE!");
-                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                        return terminateReplay(response, index += 1);
                                     }
                                 } else {
                                     return book.update(stateChange.changes, function (error, numberAffected) {
@@ -402,8 +454,7 @@ app.post("/api/admin/replay", function (request, response) {
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
                                         } else {
-                                            console.log("Replaying books DONE!");
-                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                            return terminateReplay(response, index += 1);
                                         }
                                     });
                                 }
@@ -417,8 +468,7 @@ app.post("/api/admin/replay", function (request, response) {
                                     if (index < stateChanges.length - 1) {
                                         return replay(stateChanges, ++index);
                                     } else {
-                                        console.log("Replaying books DONE!");
-                                        return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                        return terminateReplay(response, index += 1);
                                     }
                                 } else {
                                     return book.remove(function (error) {
@@ -430,8 +480,7 @@ app.post("/api/admin/replay", function (request, response) {
                                         if (index < stateChanges.length - 1) {
                                             return replay(stateChanges, ++index);
                                         } else {
-                                            console.log("Replaying books DONE!");
-                                            return response.send("Replaying books DONE!" + ++index + " book state changes imposed");
+                                            return terminateReplay(response, index += 1);
                                         }
                                     });
                                 }
@@ -453,23 +502,37 @@ app.post("/api/admin/replay", function (request, response) {
 });
 
 
-// Route: Library API: Get total number of books
-app.get("/api/bookcount", function (request, response) {
-    return count(Book).then(function (count) {
-        return response.send({ count: count });
-    })
+// Route: Library API: Get total number of books (by creating/posting a search object on the server)
+app.post("/api/bookcount", function (request, response) {
+    var titleSearchRegexString = request.body.titleSubstring,
+        authorSearchRegexString = request.body.authorSubstring;
+
+    if (_.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString)) {
+        return count(Book).then(function (count) {
+            return response.send({ count: count });
+        });
+    }
+    var searchRegexOptions = "i",
+        findObject = {
+            title: new RegExp(titleSearchRegexString, searchRegexOptions),
+            author: new RegExp(authorSearchRegexString, searchRegexOptions)
+        };
+    return Book.find(findObject, function (error, books) {
+        return response.send({ count: books.length });
+    });
 });
 
 
 // Route: Library API: Get all books
 app.get("/api/books", function (request, response) {
-    return Book.find().sort({ seq: "asc" }).execFind(function (error, books) {
+    return Book.find().sort({ seq: "asc" }).exec(function (error, books) {
         if (error) {
             return console.warn(error);
         }
         return response.send(books);
     });
 });
+
 
 // Route: Library API: Update a book
 app.put("/api/books/:id", function (request, response) {
@@ -518,7 +581,7 @@ app.delete("/api/books/:id", function (request, response) {
                 return removeBook(change.entityId).then(function (entityId) {
                     // Broadcast message to all other participating clients when application store is updated
                     return io.sockets.emit("book-removed", entityId);
-                })
+                });
                 // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
             });
 

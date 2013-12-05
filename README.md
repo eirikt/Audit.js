@@ -86,24 +86,21 @@ On the client side:
 
  * [jQuery][20]
  * [Backbone.js][21]
- * [Backbone.Marionette][22]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
- * [RequireJS][23]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
  * [Socket.IO][24]
- * [AmplifyJS][25]&nbsp;&nbsp;<sub><sup>(well, I plan to anyway ...)</sup></sub>
  * [Moment.js][26]
- * [Bootstrap][27]
 
 On the server side:
 
  * [MongoDB][30]
- * [Node.js][31]
+ * [Mongoose][31]
+ * [Node.js][35]
  * [Socket.IO][23]
 
 #### Setup
 
  1. Install [MongoDB][30] <sub><sup>(make sure it's running on the default port 27017)</sup></sub>
 
- 1. Install [Node.js][31]
+ 1. Install [Node.js][35]
 
  1. Clone Audit.JS
 
@@ -154,7 +151,9 @@ This markdown is written using the [Markdown Live Editor][50]
 [27]: http://twitter.github.io/bootstrap
 
 [30]: http://www.mongodb.org
-[31]: http://nodejs.org
+[31]: http://mongoosejs.com
+
+[35]: http://nodejs.org
 
 [50]: http://jrmoran.com/playground/markdown-live-editor
 
