@@ -13,7 +13,7 @@ var app = app || {};
 
 app.Book = Backbone.Model.extend({
     idAttribute: "_id",
-    urlRoot: "/api/books",
+    urlRoot: "/library/books",
     defaults: {
         title: null,
         author: null,
@@ -33,7 +33,7 @@ app.BookHistory = Backbone.Audit.StateChangeCollection.extend({
         if (!this.target.id) {
             throw new Error("Missing target entity ID");
         }
-        return "/api/admin/statechanges/" + this.target.id;
+        return "/events/" + this.target.id;
     }
 });
 

@@ -105,12 +105,12 @@
 
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a id="bookListingLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseSix" href="#">
-                    library :: book listing
+                <a id="bookListLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseSix" href="#">
+                    library :: paginated book list
                 </a>
             </div>
             <div id="collapseSix" class="collapse">
-                <div id="bookListing" class="accordion-inner"></div>
+                <div id="bookList" class="accordion-inner"></div>
             </div>
         </div>
     </div>
@@ -138,7 +138,7 @@
             <button id="generate" class="btn btn-success">Generate books</button>
         </span>
         <span>
-            <button id="purge" class="btn btn-danger pull-right">Purge all books</button>
+            <button id="removeAllBooks" class="btn btn-danger pull-right">Remove all books</button>
         </span>
     </div>
 </script>
@@ -157,7 +157,7 @@
     </form>
 </script>
 
-<script id="bookListingTableTemplate" type="text/template">
+<script id="bookListTableTemplate" type="text/template">
     <table class="table table-condensed table-striped table-hover">
         <thead>
         <tr>
@@ -173,7 +173,7 @@
 
 <script id="bookInfoTableRowTemplate" type="text/template">
     <td><small><%= seq %></small></td>
-    <td><small><a href="#/book/<%= _id %>"><%- title %></a></small></td>
+    <td><small><a href="#/library/books/<%= _id %>"><%- title %></a></small></td>
     <td><small><%- author %></small></td>
     <td><small><% _.each(keywords, function(keyobj) { %><%= keyobj.keyword %>&nbsp;<% }); %></small></td>
 </script>
@@ -240,25 +240,29 @@
 
 <!-- Regular script resource setup -->
 <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+<!--
 <script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
 <script src="//cdn.jsdelivr.net/momentjs/2.4.0/moment.min.js"></script>
 <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+-->
 
-<!-- Offline development setup
+<!-- Offline development setup -->
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>
 <script src="script/moment.js"></script>
 <script src="script/bootstrap.js"></script>
--->
 
 <!-- Non-CDN resources -->
 <script src="script/jquery.bind-with-delay.js"></script>
 
-<!-- Audit.js: generic state versioning stuff -->
+<!-- Audit.JS: generic state versioning add-in -->
 <script src="script/backbone.audit.js"></script>
+
+<!-- Audit.JS: other generic stuff ? -->
+<!--<script src="script/backbone.bootstrap-paginator.js"></script>-->
 
 <!-- Audit.JS: demo project -->
 <script src="script/book.js"></script>
