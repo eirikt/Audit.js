@@ -119,14 +119,20 @@
 
 <!-- Underscore templates -->
 <script id="stateChangeAdminTemplate" type="text/template">
-    <div>
-        <span class="pull-left">
+    <div class="row">
+        <span class="pull-left" style="margin-left: 2rem">
             Total number of state change events:&nbsp;<strong><%= totalCount %></strong>&nbsp;&nbsp;&nbsp;
             <small>CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;UPDATE:&nbsp;<%= updateCount %>&nbsp;&nbsp;&nbsp;DELETE:&nbsp;<%= deleteCount %></small>
             <br><br>
         </span>
+    </div>
+    <div class="row">
+        <span class="pull-left" style="margin-left: 2rem">
+            <!--<button id="toggleCqrs" class="btn btn-success">CQRS ON</button>-->
+            <button id="toggleCqrs" class="btn">?</button>
+        </span>
         <span>
-            <button id="replay" class="btn btn-inverse pull-right">Replay all state change events</button>
+            <button id="replay" class="btn btn-inverse" style="margin-left: 1rem">Replay all state change events</button>
         </span>
     </div>
 </script>
@@ -138,7 +144,7 @@
             <button id="generate" class="btn btn-success">Generate books</button>
         </span>
         <span>
-            <button id="removeAllBooks" class="btn btn-danger pull-right">Remove all books</button>
+            <button id="removeAllBooks" class="btn btn-danger pull-right">Clean books</button>
         </span>
     </div>
 </script>
@@ -262,7 +268,7 @@
 <script src="script/backbone.audit.js"></script>
 
 <!-- Audit.JS: other generic stuff ? -->
-<!--<script src="script/backbone.bootstrap-paginator.js"></script>-->
+<script src="script/backbone.bootstrap-pagination.js"></script>
 
 <!-- Audit.JS: demo project -->
 <script src="script/book.js"></script>

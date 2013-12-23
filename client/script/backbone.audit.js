@@ -1,4 +1,4 @@
-// TODO: Consider module pattern or something similar
+// TODO: Consider module pattern or something similar ...
 var Backbone = Backbone || {};
 var Audit = Backbone.Audit = {};
 

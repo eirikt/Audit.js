@@ -1,7 +1,7 @@
 {
     "name": "Audit.JS",
-    "version": "0.0.2",
-    "description": "A simple prototype/demo library web app using Event Sourcing and CQRS",
+    "version": "0.0.3",
+    "description": "A simple prototype/demo library web app using Event Sourcing and CQRS, and an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "dependencies": {
         "underscore": "latest",

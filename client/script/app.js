@@ -7,12 +7,20 @@ app.KEYUP_TRIGGER_DELAY_IN_MILLIS = 400;
 // Models
 ///////////////////////////////////////////////////////////////////////////////
 
-app.StateChangeCount = Backbone.Model.extend({
+app.CqrsCheck = Backbone.Model.extend({
+    urlRoot: "/events/cqrs/status"
+});
+
+app.CqrsToggle = Backbone.Model.extend({
+    urlRoot: "/events/cqrs/toggle"
+});
+
+app.EventStoreCount = Backbone.Model.extend({
     default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0 },
     urlRoot: "/events/count"
 });
 
-app.ReplayChangeLog = Backbone.Model.extend({
+app.EventStoreReplay = Backbone.Model.extend({
     urlRoot: "/events/replay"
 });
 
@@ -37,8 +45,11 @@ app.StateChangeAdminView = Backbone.View.extend({
     templateSelector: "#stateChangeAdminTemplate",
     template: null,
     events: {
+        "click #toggleCqrs": "toggleCqrs",
         "click #replay": "replayChangeLog"
     },
+    cqrsActive: true,
+
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
         this.listenTo(this.model, "change", this.render);
@@ -46,12 +57,45 @@ app.StateChangeAdminView = Backbone.View.extend({
     },
     render: function () {
         this.$el.html(this.template(this.model.toJSON()));
-        this.trigger("rendered");
+        this.checkCqrs();
     },
-    replayChangeLog: function () {
-        new app.ReplayChangeLog().save();
+    checkCqrs: function () {
+        var self = this;
+        new app.CqrsCheck().fetch().done(function (usingCqrs) {
+            if (usingCqrs) {
+                self.cqrsActive = true;
+                self.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
+                self.$("#replay").removeClass("disabled").attr("title", "");
+            } else {
+                self.cqrsActive = false;
+                self.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
+                self.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
+            }
+        });
+    },
+    toggleCqrs: function () {
+        var self = this;
+        new app.CqrsToggle().save().done(function (usingCqrs) {
+            if (usingCqrs) {
+                self.cqrsActive = true;
+                self.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
+                self.$("#replay").removeClass("disabled").attr("title", "");
+            } else {
+                self.cqrsActive = false;
+                self.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
+                self.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
+            }
+        });
+    },
+    replayChangeLog: function (event) {
+        if (this.cqrsActive) {
+            new app.EventStoreReplay().save();
+        } else {
+            event.preventDefault();
+        }
     }
 });
+
 
 app.LibraryAdminView = Backbone.View.extend({
     templateSelector: "#libraryAdminTemplate",
@@ -122,7 +166,7 @@ app.AppRouter = Backbone.Router.extend({
 $(function () {
 
     // Models
-    app.stateChangeCount = new app.StateChangeCount();
+    app.stateChangeCount = new app.EventStoreCount();
     app.bookCount = new app.BookCountQuery();
     app.bookSearchAndCount = new app.BookCountQuery();
     app.library = new app.Library({ pagination: true });
@@ -161,28 +205,31 @@ $(function () {
     app.refreshCounts();
 
 
+    ///////////////////////////////////////////////////////////////////////////////
     // HTTP server push events config
+    ///////////////////////////////////////////////////////////////////////////////
+
     var socket = io.connect('http://localhost:4711');
 
+    // Push event: Starting adding books ...
+    socket.on("adding-books", function (numberOfBooksToAdd) {
+        console.log("adding-books: " + numberOfBooksToAdd);
+    });
+
     // Push event: Book added
-    socket.on("book-added", function (bookAndCounts) {
-        app.stateChangeCount.set({
-            "totalCount": bookAndCounts.stateChangeCount,
-            "createCount": bookAndCounts.stateChangeCreateCount,
-            "updateCount": bookAndCounts.stateChangeUpdateCount,
-            "deleteCount": bookAndCounts.stateChangeDeleteCount
-        });
-        app.library.push(bookAndCounts.book);
-        app.bookCount.set("count", bookAndCounts.bookCount);
+    socket.on("book-added", function (bookNumberInSequence, book) {
+        console.log("book-added: ¤" + bookNumberInSequence + ", " + book.title);
     });
 
     // Push event: Books added
     socket.on("books-added", function (numberOfBooksAdded) {
+        console.log("books-added: " + numberOfBooksAdded);
         app.refreshCounts();
     });
 
     // Push event: Book updated
     socket.on("book-updated", function (updatedBook) {
+        console.log("book-updated: " + updatedBook);
         app.library.set(updatedBook, { add: false, remove: false, merge: true });
         app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
@@ -192,6 +239,7 @@ $(function () {
 
     // Push event: Book removed
     socket.on("book-removed", function (entityIdOfRemovedBook) {
+        console.log("book-removed: " + entityIdOfRemovedBook);
         app.library.remove(app.library.get(entityIdOfRemovedBook));
         app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
@@ -201,6 +249,7 @@ $(function () {
 
     // Push event: Library removed/All books removed
     socket.on("books-removed", function () {
+        console.log("books-removed");
         app.library.reset();
         app.refreshCounts();
         // TODO: reset form fields
@@ -209,8 +258,9 @@ $(function () {
         //app.bookView.collapse();
     });
 
-    // Push event: Event store completely replayed
+    // Push event: Event store replayed (in full)
     socket.on("events-replayed", function () {
+        console.log("events-replayed");
         app.library.fetch({ reset: true });
         app.refreshCounts();
     });

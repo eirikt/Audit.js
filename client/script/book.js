@@ -50,7 +50,6 @@ app.BookCompositeView = Backbone.View.extend({
         if (!this.isVisible()) {
             $("#bookDetails").click();
         }
-
         // Recreate/refresh the composite views
         if (this.bookView) {
             this.bookView.remove();
