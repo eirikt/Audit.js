@@ -94,22 +94,11 @@
 
         <div class="accordion-group">
             <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseFive" href="#">
-                    library :: book search and count
+                <a id="bookListLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFive" href="#">
+                    library :: book list
                 </a>
             </div>
             <div id="collapseFive" class="collapse">
-                <div id="bookSearchAndCount" class="accordion-inner"></div>
-            </div>
-        </div>
-
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a id="bookListLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseSix" href="#">
-                    library :: paginated book list
-                </a>
-            </div>
-            <div id="collapseSix" class="collapse">
                 <div id="bookList" class="accordion-inner"></div>
             </div>
         </div>
@@ -154,13 +143,10 @@
     <span class="pull-right lead"><%= count %></span>
 </script>
 
-<script id="bookSearchTemplate" type="text/template">
-    <form>
-        <input id="titleSubstring" type="text" class="span2 search-query right-margin" placeholder="search for title" value="<%= titleSubstring %>" />
-        <input id="authorSubstring" type="text" class="span2 search-query right-margin" placeholder="search for author" value="<%= authorSubstring %>" />
-        <input id="keywords" type="text" class="span2 search-query right-margin" placeholder="search for keyword" disabled />
-        &nbsp;&nbsp;&nbsp;Number of books found:&nbsp;<span style="font-size: larger;font-weight: bold">&nbsp;<%= count %></span>
-    </form>
+<script id="bookCountTemplate2" type="text/template">
+    <span class="pull-right">
+        <small><em>&nbsp;&nbsp;&nbsp;Number of books found in projection:&nbsp;<strong><%= bookCount %></strong></em></small>
+    </span>
 </script>
 
 <script id="bookListTableTemplate" type="text/template">
@@ -175,6 +161,13 @@
         </thead>
         <tbody></tbody>
     </table>
+</script>
+
+<script id="bookInfoTableFilteringRowTemplate" type="text/template">
+    <td></td>
+    <td><small><input id="titleSubstring" type="text" placeholder="filter on title" value="<%= titleSubstring %>" /></small></td>
+    <td><small><input id="authorSubstring" type="text" placeholder="filter on author" value="<%= authorSubstring %>" /></small></td>
+    <td><small><input id="keywords" type="text" placeholder="filter on keyword" disabled title="Not yet available" /></small></td>
 </script>
 
 <script id="bookInfoTableRowTemplate" type="text/template">
@@ -261,14 +254,14 @@
 <script src="script/moment.js"></script>
 <script src="script/bootstrap.js"></script>
 
-<!-- Non-CDN resources -->
+<!-- Third-party non-CDN resources -->
 <script src="script/jquery.bind-with-delay.js"></script>
 
 <!-- Audit.JS: generic state versioning add-in -->
 <script src="script/backbone.audit.js"></script>
 
-<!-- Audit.JS: other generic stuff ? -->
-<script src="script/backbone.bootstrap-pagination.js"></script>
+<!-- Audit.JS: other generic stuff -->
+<script src="script/backbone.bootstrap.pagination.js"></script>
 
 <!-- Audit.JS: demo project -->
 <script src="script/book.js"></script>

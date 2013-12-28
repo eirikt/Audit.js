@@ -11,47 +11,68 @@ app.BookCountQuery = Backbone.Model.extend({
  * Both a model and a view-model ...
  */
 app.Library = Backbone.Collection.extend({
-    uri: "/library/books",
+    url: "/library/books/projection",
     model: app.Book,
+    totalBookCount: 0,
     defaultPagination: {
-        orderBy: null, // Not yet supported ...
-        count: 10,
-        currentIndex: null,
-        currentCount: null
+        orderBy: null,                            // Not yet supported ...
+        count: app.LIBRARY_PAGINATION_SIZE,       // Overall number of books for each page / Pagination flag
+        currentIndex: 0,                          // Overall book index
+        currentCount: app.LIBRARY_PAGINATION_SIZE // Number of books on current page
+    },
+    defaultFiltering: {
+        titleSubstring: null,
+        authorSubstring: null,
+        keywords: null,
+        count: 0,           // ...
+        totalCount: 0       // ...
     },
     initialize: function (options) {
-        this.pagination = options ? options.pagination : false;
-        if (this.pagination &&
-            _.isBoolean(this.pagination) || _.isObject(this.pagination)) {
-            this.pagination = this.defaultPagination;
-            this.pagination.currentIndex = 0;                     // Default/start value
-            this.pagination.currentCount = this.pagination.count; // Default/start value
+        this.pagination = this.defaultPagination;
+        this.pagination.count = app.LIBRARY_PAGINATION_SIZE;        // Overall number of books for each page / Pagination flag
+        this.pagination.currentCount = app.LIBRARY_PAGINATION_SIZE; // Overall number of books for each page / Pagination flag
+        if (!options || options && (!options.pagination || options.pagination === false)) {
+            this.pagination = false;
+        }
+
+        this.filtering = this.defaultFiltering;
+        if (!options || options && (!options.filtering || options.filtering === false)) {
+            this.filtering = false;
         }
     },
-    url: function () {
-        var url = this.uri;
-        if (this.pagination) {
-            url += "?";
-            url += "orderBy=" + this.pagination.orderBy;
-            url += "&";
-            url += "count=" + this.pagination.currentCount;
-            url += "&";
-            url += "index=" + this.pagination.currentIndex;
-        }
-        return url;
+    _fetchByPOST: function () {
+        return Backbone.Collection.prototype.fetch.call(this,{
+            url: this.url,
+            reset: true,
+            type: "POST",
+            data: $.param({
+                count: this.pagination.count,
+                index: this.pagination.currentIndex,
+                titleSubstring: this.filtering.titleSubstring,
+                authorSubstring: this.filtering.authorSubstring
+            })
+        });
+    },
+    fetch: function () {
+        this._fetchByPOST();
     },
     parse: function (response) {
-        if (this.pagination) {
-            this.pagination.totalCount = response.count;
-        }
+        this.totalBookCount = response.totalCount;
+        this.filtering.totalCount = response.count;
         return response.books;
     },
     // Client-side sorting of book collection
     comparator: function (book) {
         return book.get("seq"); // Ascending (auto-generated) sequence number
     },
+    hasFiltering: function () {
+        return this.filtering;
+    },
+    isFiltered: function () {
+        return this.filtering.titleSubstring || this.filtering.authorSubstring;
+    },
     isEligibleForPagination: function () {
-        return this.pagination && this.pagination.totalCount > this.pagination.count;
+        return this.pagination && this.filtering.totalCount > this.pagination.count;
     }
 });
 
@@ -68,6 +89,18 @@ app.BookCountView = Backbone.View.extend({
 });
 
 
+app.BookCountView2 = Backbone.View.extend({
+    templateSelector: "#bookCountTemplate2",
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+    },
+    render: function () {
+        this.$el.html(this.template(this.model.toJSON()));
+        return this;
+    }
+});
+
+
 app.BookSearchView = Backbone.View.extend({
     templateSelector: "#bookSearchTemplate",
     initialize: function () {
@@ -80,7 +113,7 @@ app.BookSearchView = Backbone.View.extend({
         this.trigger("rendered");
 
         this.$("#titleSubstring").off().bindWithDelay("keyup", function () {
-            self.model.save("titleSubstring", self.$("#titleSubstring").val()).done(function () {
+            new app.BookCountQuery().save("titleSubstring", self.$("#titleSubstring").val()).done(function () {
                 var $titleSearch = self.$("#titleSubstring");
                 $titleSearch.focus().val($titleSearch.val());
             });
@@ -92,6 +125,19 @@ app.BookSearchView = Backbone.View.extend({
                 $authorSearch.focus().val($authorSearch.val());
             });
         }, app.KEYUP_TRIGGER_DELAY_IN_MILLIS);
+    }
+});
+
+
+app.BookInfoTableFilteringRowView = Backbone.View.extend({
+    tagName: "tr",
+    templateSelector: "#bookInfoTableFilteringRowTemplate",
+    initialize: function () {
+        this.template = _.template($(this.templateSelector).html());
+    },
+    render: function () {
+        this.$el.html(this.template(this.model.toJSON()));
+        return this;
     }
 });
 
@@ -110,15 +156,11 @@ app.BookInfoTableRowView = Backbone.View.extend({
 
 
 app.BookListTableView = Backbone.View.extend({
-    paginationView: null,
+    templateSelector: "#bookListTableTemplate",
     initialize: function () {
-        // TODO: The goal?
-        //this.listenTo(this.collection, "reset", this.render);
-        //this.listenTo(this.collection, "remove", this._removeBook);
-        //this.listenTo(this.collection, "add", this._renderBook);
-
-        //this.listenTo(this.collection, "reset add remove", this.render);
+        this.template = _.template($(this.templateSelector).html());
         this.listenTo(this.collection, "reset", this.render);
+        this.listenTo(this, "reset", this.render);
     },
     isVisible: function () {
         return this.$el.parent("div").hasClass("in");
@@ -126,30 +168,80 @@ app.BookListTableView = Backbone.View.extend({
     _removeBook: function (book) {
         throw new Error("Not yet implemented");
     },
+    _renderBookCounter: function () {
+        var counter = new app.BookCountView2({
+            model: new Backbone.Model({
+                bookCount: this.collection.filtering.totalCount
+            })
+        });
+        this.$el.prepend(counter.render().el);
+    },
     _renderPagination: function () {
-        this.paginationView = new BootstrapSimpleFourButtonPaginationView(this.collection.pagination);
-        this.$el.prepend(this.paginationView.render().el);
-        this.listenTo(this.paginationView, "pagination", function (index, count) {
-            app.library.pagination.currentIndex = index;
-            app.library.pagination.currentCount = count;
-            app.library.fetch({ reset: true});
+        var paginationView = new BootstrapSimpleFourButtonPaginationView({
+            model: new Backbone.Model({
+                count: this.collection.filtering.totalCount,
+                currentIndex: this.collection.pagination.currentIndex,
+                pageCount: this.collection.pagination.count
+            })
+        });
+        this.$el.prepend(paginationView.render().el);
+
+        var self = this;
+        this.listenTo(paginationView, "pagination", function (index, count) {
+            self.collection.pagination.currentIndex = index;
+            self.collection.pagination.currentCount = count;
+            self.collection.fetch();
         });
     },
+    _renderFiltering: function () {
+        var filteringRow = new app.BookInfoTableFilteringRowView({
+            model: new Backbone.Model(this.collection.filtering)
+        });
+        this.$("tbody").append(filteringRow.render().el);
+    },
     _renderBook: function (model) {
-        if (this.isVisible()) {
-            var book = new app.BookInfoTableRowView({ model: model }).render();
-            this.$("tbody").append(book.el);
-        }
+        var bookRow = new app.BookInfoTableRowView({ model: model });
+        this.$("tbody").append(bookRow.render().el);
     },
     render: function () {
-        this.$el.empty().append($("#bookListTableTemplate").html());
-        if (this.collection.isEligibleForPagination()) {
-            this._renderPagination();
+        if (this.isVisible()) {
+            var self = this;
+            this.$el.empty().append(this.template());
+            if (this.collection.isEligibleForPagination()) {
+                this._renderPagination();
+            }
+            if (this.collection.hasFiltering()) {
+                if (this.collection.totalBookCount > 0) {
+                    this._renderFiltering();
+                    if (this.collection.isFiltered()) {
+                        this._renderBookCounter();
+                    }
+                }
+            }
+            // TODO: ugh, ugly - proper functional style, please ...
+            this.collection.each(function (model) {
+                this._renderBook(model);
+            }, this);
+
+            this.$("#titleSubstring").off().bindWithDelay("keyup", function () {
+                var $el = $(this);
+                self.collection.filtering.titleSubstring = $el.val();
+                self.collection.pagination.currentIndex = 0; // "reset" book table
+                self.collection.fetch().done(function () {
+                    self.$("#titleSubstring").focus().val($el.val());
+                });
+            }, app.KEYUP_TRIGGER_DELAY_IN_MILLIS);
+
+            this.$("#authorSubstring").off().bindWithDelay("keyup", function () {
+                var $el = $(this);
+                self.collection.filtering.authorSubstring = $el.val();
+                self.collection.pagination.currentIndex = 0; // "reset" book table
+                self.collection.fetch().done(function () {
+                    self.$("#authorSubstring").focus().val($el.val());
+                });
+            }, app.KEYUP_TRIGGER_DELAY_IN_MILLIS);
         }
-        // TODO: ugh, ugly - proper functional style, please ...
-        this.collection.each(function (model) {
-            this._renderBook(model);
-        }, this);
+        return this;
     },
     close: function () {
         this.$("tr").remove();

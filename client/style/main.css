@@ -22,3 +22,24 @@ body {
 .right-margin {
     margin-right: 1rem;
 }
+
+/*****************************
+ * Debug
+ *****************************/
+/*
+div {
+    border: 1px dashed;
+}
+
+header {
+    border: 1px dashed;
+}
+
+nav {
+    border: 1px dashed;
+}
+
+img {
+    border: dashed;
+}
+*/

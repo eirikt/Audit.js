@@ -1,5 +1,6 @@
 var app = app || {};
 
+app.LIBRARY_PAGINATION_SIZE = 20;
 app.KEYUP_TRIGGER_DELAY_IN_MILLIS = 400;
 
 
@@ -25,7 +26,7 @@ app.EventStoreReplay = Backbone.Model.extend({
 });
 
 //app.CreateBookCommand = Backbone.Model.extend({
-//    urlRoot: "/library/books/create"
+//    urlRoot: "/library/books/newbook"
 //});
 
 app.GenerateRandomBooksCommand = Backbone.Model.extend({
@@ -48,7 +49,7 @@ app.StateChangeAdminView = Backbone.View.extend({
         "click #toggleCqrs": "toggleCqrs",
         "click #replay": "replayChangeLog"
     },
-    cqrsActive: true,
+    cqrsActive: false,
 
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
@@ -105,14 +106,10 @@ app.LibraryAdminView = Backbone.View.extend({
         "click #removeAllBooks": "removeAllBooks"
     },
     initialize: function () {
-        this.template = _.template($(this.templateSelector).html());
-        //this.listenTo(this.model, "change", this.render);
-        //this.model.fetch();
         this.render();
     },
     render: function () {
-        this.$el.html(this.template({}));//this.model.toJSON()));
-        this.trigger("rendered");
+        this.$el.html($(this.templateSelector).html());
     },
     generateRandomBooks: function () {
         var numberOfBooksToGenerate = parseInt(this.$("#numberOfBooksToGenerate").val());
@@ -160,7 +157,7 @@ app.AppRouter = Backbone.Router.extend({
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Bootstrapper (When DOM is ready ...)
+// Application bootstrapper (When DOM is ready ...)
 ///////////////////////////////////////////////////////////////////////////////
 
 $(function () {
@@ -168,15 +165,13 @@ $(function () {
     // Models
     app.stateChangeCount = new app.EventStoreCount();
     app.bookCount = new app.BookCountQuery();
-    app.bookSearchAndCount = new app.BookCountQuery();
-    app.library = new app.Library({ pagination: true });
+    app.library = new app.Library({ pagination: true, filtering: true });
 
     // On demand: Update state change count and book count
     app.refreshCounts = function () {
         app.stateChangeCount.save();
         app.bookCount.save();
-        app.bookSearchAndCount.save();
-        app.library.fetch({ reset: true });
+        app.library.fetch();
     };
 
     // Views
@@ -184,7 +179,6 @@ $(function () {
     app.libraryAdminView = new app.LibraryAdminView({ el: "#libraryAdmin" });
     app.bookCountView = new app.BookCountView({ el: "#libraryBookCount", model: app.bookCount });
     app.bookView = new app.BookCompositeView({ el: "#book" });
-    app.bookSearchView = new app.BookSearchView({ el: "#bookSearchAndCount", model: app.bookSearchAndCount });
     app.bookListView = new app.BookListTableView({ el: "#bookList", collection: app.library });
 
     // "Out-of-view" DOM events: Toggle book listing
@@ -193,7 +187,7 @@ $(function () {
         if (app.bookListView.isVisible()) {
             app.bookListView.close();
         } else {
-            app.bookListView.collection.fetch({ reset: true });
+            app.library.fetch();
         }
     });
 
@@ -209,27 +203,37 @@ $(function () {
     // HTTP server push events config
     ///////////////////////////////////////////////////////////////////////////////
 
-    var socket = io.connect('http://localhost:4711');
+    var socket = io.connect('http://localhost:4711'),
+        pushPrefix = "PUSH {", pushPostfix = "}",
+        pushMessage = function (msg) {
+            return pushPrefix + msg + pushPostfix;
+        };
 
-    // Push event: Starting adding books ...
-    socket.on("adding-books", function (numberOfBooksToAdd) {
-        console.log("adding-books: " + numberOfBooksToAdd);
+    // Push event:
+    socket.on("cqrs", function (cqrsInUse) {
+        console.log(pushMessage("cqrs: " + cqrsInUse));
+        app.refreshCounts();
     });
 
-    // Push event: Book added
-    socket.on("book-added", function (bookNumberInSequence, book) {
-        console.log("book-added: ¤" + bookNumberInSequence + ", " + book.title);
+    // Push event: Starting generating books ...
+    socket.on("generating-books", function (numberOfBooksToAdd) {
+        console.log(pushMessage("generating-books: " + numberOfBooksToAdd));
     });
 
-    // Push event: Books added
-    socket.on("books-added", function (numberOfBooksAdded) {
-        console.log("books-added: " + numberOfBooksAdded);
+    // Push event: (Single) book generated
+    socket.on("book-generated", function (bookNumberInSequence, book) {
+        console.log(pushMessage("book-generated: ¤" + bookNumberInSequence + ", " + JSON.stringify(book)));
+    });
+
+    // Push event: (All) books generated
+    socket.on("all-books-generated", function (numberOfBooksAdded) {
+        console.log(pushMessage("all-books-generated: " + numberOfBooksAdded));
         app.refreshCounts();
     });
 
     // Push event: Book updated
     socket.on("book-updated", function (updatedBook) {
-        console.log("book-updated: " + updatedBook);
+        console.log(pushMessage("book-updated: " + JSON.stringify(updatedBook)));
         app.library.set(updatedBook, { add: false, remove: false, merge: true });
         app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
@@ -239,7 +243,7 @@ $(function () {
 
     // Push event: Book removed
     socket.on("book-removed", function (entityIdOfRemovedBook) {
-        console.log("book-removed: " + entityIdOfRemovedBook);
+        console.log(pushMessage("book-removed: " + entityIdOfRemovedBook));
         app.library.remove(app.library.get(entityIdOfRemovedBook));
         app.refreshCounts();
         if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
@@ -249,7 +253,7 @@ $(function () {
 
     // Push event: Library removed/All books removed
     socket.on("books-removed", function () {
-        console.log("books-removed");
+        console.log(pushMessage("books-removed"));
         app.library.reset();
         app.refreshCounts();
         // TODO: reset form fields
@@ -260,8 +264,7 @@ $(function () {
 
     // Push event: Event store replayed (in full)
     socket.on("events-replayed", function () {
-        console.log("events-replayed");
-        app.library.fetch({ reset: true });
+        console.log(pushMessage("events-replayed"));
         app.refreshCounts();
     });
 });

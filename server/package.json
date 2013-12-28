@@ -1,13 +1,13 @@
 {
     "name": "Audit.JS",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "A simple prototype/demo library web app using Event Sourcing and CQRS, and an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "dependencies": {
         "underscore": "latest",
         "promised-io": "latest",
         "path": "latest",
-        "socket.io": "latest",
+        "socket.io": "0.9.16",
         "express": "latest",
         "mongoose": "latest",
         "mongoose-regexp": "latest"

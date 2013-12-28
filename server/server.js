@@ -1,40 +1,3 @@
-/* Target API:
-
- // [CQRS Query/Event store Query]: Admin API: Get total number of state changes(by creating/posting a "count" object/resource to the server)
- POST /events/count
-
- // [CQRS Query/Event store Query]: Admin API: Get all state changes for a particular entity
- GET /events/:entityId
-
- // [CQRS Query/Application store Special]: Admin API: replay the entire event store into the application store (by creating/posting a "replay" object/resource to the server)
- POST /events/replay
-
- // [Special]: Admin API: purge the entire application store (by creating/posting a "clean" object/resource to the server)
- POST /library/books/clean
-
- // [CQRS Command]: Admin API: generate books randomly (by creating/posting a "generate" object/resource to the server)
- POST /library/books/generate
-
- ...
-
- // [CQRS Query]: Library API: get total number of books (by creating/posting a "count" object/resource to the server)
- POST /library/books/count
-
- // [CQRS Query]: Library API: get a projection of books (by creating/posting a "projection" object/resource to the server)
- POST /library/books/projection
-
- TODO: ??
- // [CQRS Command]: Library API: add a new book (by creating/posting a "newbook" object/resource to the server)
- POST /library/books/newbook/ ??
-
- // [CQRS Command]: Library API: update a book
- PUT /library/books/:id
-
- // [CQRS Command]: Library API: delete a book
- DELETE /library/books/:id
- */
-
-
 // Module dependencies, external
 var application_root = __dirname,
     _ = require("underscore"),
@@ -46,23 +9,23 @@ var application_root = __dirname,
     mongoose = require("mongoose"),
 
 // Module dependencies, internal
-    randomBooks = require("./script/random-book-data.js");
+    randomBooks = require("./script/random-books.js"),
+    sequenceNumber = require("./script/mongoose.sequence-number.js");
 
 
 // Mongoose schemas
-var SequenceNumberMongooseSchema = new mongoose.Schema({
-    seq: { type: Number, default: 1 }
-});
-
 var StateChangeMongooseSchema = new mongoose.Schema({
     user: String,
-    //timestamp: { type: Date, default: Date.now }, // Possible, yes, but less maintainable code
     timestamp: Date,
+    //timestamp: { type: Date, default: Date.now }, // Possible, yes, but less maintainable code
     method: String,
     type: String,
-    entityId: { type: String, index: 1 }, // Indexed entity ID for quick grouping
+    entityId: String,
     changes: {}
 });
+// TODO: verify the effect of this ...
+// Indexed 'entityId' for quick grouping
+//StateChangeMongooseSchema.index({ entityId: 1 }, { unique: false });
 
 var KeywordMongooseSchema = new mongoose.Schema({
     keyword: String
@@ -81,12 +44,7 @@ var BookMongooseSchema = new mongoose.Schema({
 
 // Mongoose models (design rule: lower-case collection names)
 var Uuid = mongoose.model("uuid", mongoose.Schema({}));
-var Sequence = mongoose.model("sequence", SequenceNumberMongooseSchema);
 var StateChange = mongoose.model("statechange", StateChangeMongooseSchema);
-StateChange.isStateChange = function (obj) {
-    //if (obj && obj.)
-    return true;
-};
 var Keyword = mongoose.model("keyword", KeywordMongooseSchema);
 var Book = mongoose.model("book", BookMongooseSchema);
 Book.collectionName = function () {
@@ -96,30 +54,26 @@ Book.collectionName = function () {
 
 
 // Generic Mongoose helper functions
-function createUuid() {
-    return new Uuid()._id;
+function handleError(error, response) {
+    if (error) {
+        console.warn(error);
+        if (response) {
+            response.send(500, { error: error });
+        } else {
+            throw new Error(error);
+        }
+    }
 }
 
-function incrementSequenceNumber(schemaName, callback) {
-    Sequence.collection.findAndModify(
-        { _id: schemaName },
-        [],
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true },
-        function (error, result) {
-            if (error) {
-                callback(error);
-            } else {
-                callback(null, result.seq);
-            }
-        }
-    );
+function createUuid() {
+    return new Uuid()._id;
 }
 
 function count(model) {
     var dfd = new promise.Deferred();
     model.count(function (error, count) {
         if (error) {
+            console.warn("Error when counting collection " + model.modelName + ", " + error);
             dfd.reject();
         }
         dfd.resolve(count)
@@ -177,7 +131,7 @@ function getStateChangesByEntityId(entityId) {
     var dfd = new promise.Deferred();
     StateChange
         .find({ entityId: entityId })
-        .sort({ timestamp: "asc"})
+        .sort({ timestamp: "asc" })
         .exec(function (error, stateChanges) {
             if (error) {
                 return dfd.reject(error);
@@ -212,7 +166,7 @@ function _createAndSaveBook(deferred, bookAttributes) {
 
 function createBook(bookAttributes) {
     var dfd = new promise.Deferred();
-    incrementSequenceNumber(Book.collectionName(), function (error, nextSequence) {
+    sequenceNumber.incrementSequenceNumber(Book.collectionName(), function (error, nextSequence) {
         if (error) {
             console.warn(error);
             dfd.reject(error);
@@ -253,16 +207,20 @@ function removeBook(id) {
 
 function replayEventStore(response) {
     console.log("Replaying entire change log ...");
-    return StateChange.find().sort({ timestamp: "asc"}).find(function (error, stateChanges) {
+    return StateChange.find().sort({ timestamp: "asc" }).exec(function (error, stateChanges) {
+
         var terminateReplay = function (response, index) {
             console.log("Replaying books DONE!");
-            io.sockets.emit("events-replayed");
-            return response.send("Replaying books DONE!" + index + " book state changes replayed");
+            response.send(200);
+            return io.sockets.emit("events-replayed");
         };
+
         var replay = function (stateChanges, index) {
             var stateChange = stateChanges[index];
-            if (stateChange) {
+            if (!stateChange) {
+                return null;
 
+            } else {
                 if (stateChange.type === Book.modelName) {
                     switch (stateChange.method) {
 
@@ -356,12 +314,11 @@ function replayEventStore(response) {
 
 
 // Connect to database
-var db = mongoose.connect("mongodb://localhost/library", { safe: true }, function (error, db) {
-    if (error) {
-        console.warn(error);
-        throw new Error(error);
-    }
-    this.db = db;
+/*var db = */
+mongoose.connect("mongodb://localhost/library", function (error, db) {
+//var db = mongoose.connect("mongodb://localhost:27018/library", { safe: true }, function (error, db) {
+    handleError(error);
+    //this.db = db;
 });
 
 
@@ -397,7 +354,7 @@ server.listen(port, function () {
 io = socketio.listen(server);
 
 io.sockets.on("connection", function (socket) {
-    console.log("Socket.IO: server connection caught ...");
+    console.log("Socket.IO: server connection established ...");
 });
 
 
@@ -405,7 +362,7 @@ io.sockets.on("connection", function (socket) {
  * Flag indicating whether to use an application store in addition to the event store, CQRS style.
  * The alternative is to use the event store only, being considerately more ineffective ... but hey
  */
-useCQRS = true;
+useCQRS = false;
 
 
 // Route [Event store Query]: Admin API: Get total number of state changes
@@ -447,19 +404,20 @@ app.post("/events/cqrs/toggle", function (request, response) {
         console.log("Activating application store ...");
     }
     useCQRS = !useCQRS;
-
     response.send(useCQRS);
-
     if (useCQRS) {
         replayEventStore(response);
     }
+    io.sockets.emit("cqrs", useCQRS);
 });
 
 
 // Routes [Special]: Admin API: replay the entire event store into the application store
 app.post("/events/replay", function (request, response) {
     if (!useCQRS) {
-        throw new Error("URI '/events/replay' posted when no application store in use!");
+        //throw new Error("URI '/events/replay' posted when no application store in use!");
+        console.warn("URI '/events/replay' posted when no application store in use!");
+        return;
     }
     replayEventStore(response);
 });
@@ -471,7 +429,7 @@ app.post("/library/books/generate", function (request, response) {
     if (!numberOfBooksToGenerate) {
         return response.send([]);
     }
-    io.sockets.emit("adding-books", numberOfBooksToGenerate);
+    io.sockets.emit("generating-books", numberOfBooksToGenerate);
     var i, numberOfBooksGenerated = 0, numberOfBooksAtStart;
     return count(Book).then(function (bookCountAtStart) {
         numberOfBooksAtStart = bookCountAtStart;
@@ -483,29 +441,17 @@ app.post("/library/books/generate", function (request, response) {
             }).then(function (book) {
                     numberOfBooksGenerated += 1;
 
-                    // Inform all clients
-                    io.sockets.emit("book-added", numberOfBooksGenerated, book);
+                    // Inform initiating client
+                    io.emit("book-generated", numberOfBooksGenerated, book);
 
                     if (numberOfBooksGenerated >= numberOfBooksToGenerate) {
-                        //    return count(Book).then(function (currentBookCount) {
-                        //        return StateChange.count({ method: "CREATE"}, function (error, createCount) {
-                        //            return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
-                        //                return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
-                        //                    var responseObj = {
-                        //                        book: book,
-                        //                        bookCount: currentBookCount,
-                        //                       stateChangeCreateCount: createCount,
-                        //                        stateChangeUpdateCount: updateCount,
-                        //                        stateChangeDeleteCount: deleteCount,
-                        //                        stateChangeCount: createCount + updateCount + deleteCount
-                        //                    };
-                        io.sockets.emit("books-added", numberOfBooksToGenerate);
-                        return response.send();
-                        //                })
-                        //            })
-                        //        })
-                        //    });
+                        response.send(200);
+
+                        // Inform all clients
+                        return io.sockets.emit("all-books-generated", numberOfBooksGenerated);
                     }
+                    return null;
+
                 }, function (error) {
                     return response.send({
                         error: error.message
@@ -520,219 +466,253 @@ app.post("/library/books/generate", function (request, response) {
 // Routes [Special]: Admin API: purge the entire application store
 app.post("/library/books/clean", function (request, response) {
     if (!useCQRS) {
-        throw new Error("URI '/library/books/clean' posted when no application store in use!");
+        //throw new Error("URI '/library/books/clean' posted when no application store in use!");
+        console.warn("URI '/library/books/clean' posted when no application store in use!");
     }
     return mongoose.connection.collections[Book.collectionName()].drop(function (error) {
-        if (error) {
-            console.warn(error);
-            return response.send({ error: error });
-        }
+        handleError(error, response);
+        response.send(200);
         io.sockets.emit("books-removed");
-        return response.send("Book collection dropped!");
     });
 });
 
 
-/** Mongo DB MapReduce :: Map: Group all state change events by entityId */
-app.groupBy_entityId = function () {
-    //print("emit (" + this.entityId + ", " + JSON.stringify(this));
+/** Mongoose MapReduce :: Map: Group all state change events by entityId */
+app.mapReduce_map_groupByEntityId = function () {
     emit(this.entityId, this);
-    /*
-     emit(this.entityId, {
-     "timestamp": this.changes.timestamp,
-     "title": this.changes.title,
-     "author": this.changes.author
-     });
-     */
 };
 
-/** ... */
-app.reduce = function (key, values) {
-    //print("#1 reduce (k: " + key + ", values: " + JSON.stringify(values));
-
+/**
+ * Mongoose MapReduce :: Reduce:
+ * 1) Sort all object state change events by timestamp ascending (oldest first and then the newer ones)
+ * 2) Check that object first state change event method is a CREATE
+ * 3) Abort further processing if the last object state change event method is DELETE (return null)
+ * 4) Replay all object state change events (by reducing all the diffs)
+ * 5) Return the "replayed" (collapsed) object
+ */
+app.mapReduce_reduce_replayEvents = function (key, values) {
     var sortedStateChanges = values.sort(function (a, b) {
         return a.timestamp > b.timestamp
     });
-    //print("#2 reduce (sortedStateChanges) " + JSON.stringify(sortedStateChanges));
-
     if (sortedStateChanges[0].method !== "CREATE") {
         throw new Error("First event for book #" + key + " is not a CREATE event, rather a " + sortedStateChanges[0].method + "\n");
     }
-
     if (sortedStateChanges[sortedStateChanges.length - 1].method === "DELETE") {
         return null;
     }
-
-    var retVal = {};//sortedStateChanges[0].changes;
+    var retVal = {};
     sortedStateChanges.forEach(function (stateChange) {
-        //print("#3-1 reduce (retVal) " + JSON.stringify(retVal));
-        //print("#3-2 reduce (stateChange)    " + JSON.stringify(stateChange));
-        //print("#3-3 reduce (stateChange.changes)    " + JSON.stringify(stateChange.changes));
         for (var key in stateChange.changes) {
-            //print("#3-3-1 reduce (key)       " + JSON.stringify(key));
-            //print("#3-3-2 reduce (retVal[key])       " + JSON.stringify(retVal[key]));
-            //print("#3-3-3 reduce (stateChange.changes[key])       " + JSON.stringify(stateChange.changes[key]));
-
             retVal[key] = stateChange.changes[key];
         }
-        //print("#3-4 reduce (retVal) " + JSON.stringify(retVal));
     });
-    //print("#4 reduce (return)" + JSON.stringify(retVal));
-
     return retVal;
 };
 
-/** ... */
-app.finalize = function (key, reducedValue) {
-    //print("finalize (" + JSON.stringify(key) + ", " + JSON.stringify(reducedValue) + ") ...");
-    var retVal = null;
+/**
+ * Mongoose MapReduce :: Finalize/Post-processing:
+ * If Reduce phase is bypassed due to a single object state change event,
+ * return this single object state change event as the object state.
+ */
+app.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects = function (key, reducedValue) {
+    // TODO: move this to StateChange definition
+    isStateChange = function (obj) {
+        // TODO: how to include external references inside mapreduce functions ...
+        return obj && obj.changes /*&& _.isObject(obj.changes)*/;
+    };
     if (reducedValue) {
-        //if (StateChange.isStateChange(reducedValue)) {
-        if (reducedValue.changes) {
-            retVal = reducedValue.changes;
-        } else {
-            retVal = reducedValue;
-        }
+        return isStateChange(reducedValue) ? reducedValue.changes : reducedValue;
     }
-    //print("finalize retVal: " + JSON.stringify(retVal));
-    return retVal;
+    return null;
 };
+
 
 // Route [Query]: Library API: get total number of books (by creating/posting a count object/resource to the server)
 app.post("/library/books/count", function (request, response) {
-        var titleSearchRegexString = request.body.titleSubstring,
-            authorSearchRegexString = request.body.authorSubstring,
-            countAll = _.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString);
+    var titleSearchRegexString = request.body.titleSubstring,
+        authorSearchRegexString = request.body.authorSubstring,
+        countAll = _.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString);
 
-        // Full search / no search criteria and CQRS
-        if (countAll && useCQRS) {
-            return count(Book).then(function (count) {
+    // CQRS and no search criteria
+    if (countAll && useCQRS) {
+        return count(Book).then(function (count) {
+            return response.send({ count: count });
+        });
+    }
+
+    // Parametrized search
+    var searchRegexOptions = "i",
+        titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions),
+        authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
+
+    if (useCQRS) {
+        return Book.count({
+                "title": titleRegexp,
+                "author": authorRegexp
+            },
+            function (error, count) {
+                handleError(error, response);
                 return response.send({ count: count });
             });
-        }
-
-        /*
-         return StateChange.aggregate({
-         $group: {
-         _id: "$entityId", count: { $sum: 1 }
-         }
-         }, function (error, count) {
-         return response.send({ count: count.length });
-         }
-         );
-         }
-         }
-         */
-
-        // Parametrized search
-        var searchRegexOptions = "i",
-            titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions),
-            authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
-
-        if (useCQRS) {
-            return Book.find({
-                    "title": titleRegexp,
-                    "author": authorRegexp
+    }
+    var mapReduceConfig = {
+        query: { type: Book.modelName },
+        map: app.mapReduce_map_groupByEntityId,
+        reduce: app.mapReduce_reduce_replayEvents,
+        finalize: app.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
+        out: { replace: "filteredBooks", inline: 1 }//,
+        //verbose: true
+    };
+    return StateChange.mapReduce(mapReduceConfig, function (error, results) {
+        if (error) {
+            console.warn(error);
+            if (error.message === "ns doesn't exist") {
+                return response.send({ count: 0 });
+            } else {
+                return response.send(500, { error: error });
+            }
+        } else {
+            // Filter results and count the remaining ...
+            return results.find({
+                    "value.title": titleRegexp,
+                    "value.author": authorRegexp
                 },
+                "value.seq",
                 function (error, books) {
+                    handleError(error, response);
                     return response.send({ count: books.length });
                 });
+        }
+    });
+});
 
-        } else {
-            var mapReduceConfig = {
-                query: { type: Book.modelName},
-                map: app.groupBy_entityId,
-                reduce: app.reduce,
-                finalize: app.finalize,
-                out: { replace: "filteredBooks", inline: 1 },
-                verbose: true
-            };
-            StateChange.mapReduce(mapReduceConfig, function (error, results) {
-                //console.log("MAPREDUCE RESULTS:");
-                //console.log(results);
-                results.find(function (error, books) {
-                    console.log("MAPREDUCE BOOKS:");
-                    console.log(books);
-                });
 
-                /*
-                 var finalResult = [];
-                 results.forEach(function (obj, index) {
-                 if (obj.value) {
-                 finalResult.push(obj.value)
-                 }
-                 });
-                 */
+/**
+ * [CQRS Query]: Library API: get a projection of books (by creating/posting a "projection" object/resource to the server)
+ *
+ * In parameters, pagination:
+ * <ul>
+ *     <li/><code>count</code>: Number of books for each page
+ *     <li/><code>index</code>: The book index
+ * </ul>
+ * In parameters, filtering:
+ * <ul>
+ *     <li/><code>titleSubstring</code>: 'title' substring (in conjunction)
+ *     <li/><code>authorSubstring</code>: 'author' substring (in conjunction)
+ * </ul>
+ * Out parameters:
+ * <ul>
+ *     <li/><code>books</code>: The book projection
+ *     <li/><code>count</code>: The number of books in resulting projection
+ *     <li/><code>totalCount</code>: The total (unfiltered) number of books in db collection
+ * </ul>
+ */
+app.post("/library/books/projection", function (request, response) {
+    // Pagination
+    var numberOfBooksForEachPage = request.body.count, // Pagination or not ...
+        indexOfFirstBook = request.body.index,
 
-                // Filter results and count the remaining ...
-                return results.find({
-                        "value.title": titleRegexp,
-                        "value.author": authorRegexp
-                    },
-                    "value.seq",
-                    function (error, books) {
-                        //console.log("MAPREDUCE RESULTS.FIND():");
-                        //console.log(books);
-                        return response.send({ count: books.length });
-                    });
-            });
+        skip = 0,
+        limit = null,
+
+    // Filtering
+        titleSearchRegexString = request.body.titleSubstring,
+        authorSearchRegexString = request.body.authorSubstring,
+
+        searchRegexOptions = null,
+        titleRegexp = null,
+        authorRegexp = null,
+        findQuery = null,
+        findQuery_mapreduce = null,
+        sortQuery = null,
+        sortQuery_mapreduce = null;
+
+    if (numberOfBooksForEachPage) {
+        // Paginate!
+        limit = parseInt(numberOfBooksForEachPage, 10);
+        if (indexOfFirstBook) {
+            skip = parseInt(indexOfFirstBook, 10);
         }
     }
-);
+    if (!(_.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString))) {
+        // Filter!
+        searchRegexOptions = "i";
+        titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions);
+        authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
 
+        findQuery = { title: titleRegexp, author: authorRegexp };
+        findQuery_mapreduce = { "value.title": titleRegexp, "value.author": authorRegexp };
 
-// Route [Query]: Library API: get all books (with search criteria in query string)
-// TODO: I would really like a POST here
-app.get("/library/books", function (request, response) {
-    var numberOfBooksForEachPage = request.query.count; // Pagination or not ...
+        sortQuery = { seq: "asc" };
+        sortQuery_mapreduce = { "values.seq": "asc" };
+    }
+
     if (useCQRS) {
-        if (!numberOfBooksForEachPage) {
-            throw new Error("Is this code in use?");
-            //return Book.find().sort({ seq: "asc" }).exec(function (error, books) {
-            //    return response.send({ books: books });
-            //});
-
-        } else {
-            //var orderBy = request.query.orderBy; // Not yet supported
-            var firstBook = request.query.index;
-            return count(Book).then(function (count) {
-                return Book.find().sort({ seq: "asc" }).skip(firstBook).limit(numberOfBooksForEachPage).exec(function (error, books) {
-                    return response.send({ books: books, count: count });
-                });
+        return count(Book).then(function (totalCount) {
+            return Book.count(findQuery, function (error, count) {
+                return Book
+                    .find(findQuery)
+                    // TODO: hey, sorting does not work ...
+                    //.sort("+seq")
+                    //.sort(sortQuery)
+                    .skip(skip)
+                    .limit(limit)
+                    .exec(function (error, books) {
+                        return response.send({ books: books, count: count, totalCount: totalCount });
+                    });
             });
-        }
+        });
 
     } else {
-
-        if (!numberOfBooksForEachPage) {
-            throw new Error("Is this code in use?");
-
-        } else {
-            var mapReduceConfig = {
-                query: { type: Book.modelName},
-                map: app.groupBy_entityId,
-                reduce: app.reduce,
-                finalize: app.finalize,
-                out: { replace: "getAllBooks", inline: 1 },
-                verbose: true
-            };
-            StateChange.mapReduce(mapReduceConfig, function (error, results) {
-                var firstBook = request.query.index;
-
-                return results.find(function (error, totalResult) {
-                    return results.find().sort({ "values.seq": "asc" }).skip(firstBook).limit(numberOfBooksForEachPage).exec(function (error, paginatedResult) {
-                        var books = [];
-                        paginatedResult.forEach(function (obj, index) {
-                            if (obj.value) {
-                                obj.value._id = obj._id;
-                                books.push(obj.value)
-                            }
-                        });
-                        return response.send({ books: books, count: totalResult.length });
+        // No CQRS, rather event store scanning using mapreduce ...
+        var mapReduceConfig = {
+            query: { type: Book.modelName},
+            map: app.mapReduce_map_groupByEntityId,
+            reduce: app.mapReduce_reduce_replayEvents,
+            finalize: app.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
+            out: { replace: "getAllBooks", inline: 1 }
+        };
+        return StateChange.mapReduce(mapReduceConfig, function (error, results) {
+            if (error) {
+                console.warn(error);
+                if (error.message === "ns doesn't exist") {
+                    return response.send({ books: [], count: 0, totalCount: 0 });
+                } else {
+                    //throw new Error(error);
+                    return response.send(500, { error: error });
+                }
+            }
+            return results
+                .find(function (error, totalMapReducedResult) {
+                    var totalResult = [];
+                    totalMapReducedResult.forEach(function (obj, index) {
+                        if (obj.value) {
+                            totalResult.push(obj);
+                        }
                     });
+
+                    return results
+                        .find(findQuery_mapreduce)
+                        .exec(function (error, projectedResult) {
+
+                            return results
+                                .find(findQuery_mapreduce)
+                                .sort(sortQuery_mapreduce)
+                                .skip(skip)
+                                .limit(limit)
+                                .exec(function (error, paginatedResult) {
+                                    var books = [];
+                                    paginatedResult.forEach(function (obj, index) {
+                                        if (obj.value) {
+                                            obj.value._id = obj._id;
+                                            books.push(obj.value)
+                                        }
+                                    });
+                                    return response.send({ books: books, count: projectedResult.length, totalCount: totalResult.length });
+                                });
+                        });
                 });
-            });
-        }
+        });
     }
 });
 
@@ -754,19 +734,19 @@ app.put("/library/books/:id", function (request, response) {
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return updateBook(change.entityId, change.changes).then(function (book) {
-                        // Broadcast message to all other participating clients when application store is updated
+                        // Broadcast message to all clients when application store is updated
                         return io.sockets.emit("book-updated", book);
                     });
                     // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
 
                 } else {
-                    // Broadcast message to all other participating clients when application store is updated
+                    // Broadcast message to all clients when application store is updated
                     return io.sockets.emit("book-updated", change);
                 }
             });
 
         } else {
-            return response.send();
+            return response.send(404);
         }
     });
 });
@@ -777,28 +757,25 @@ app.delete("/library/books/:id", function (request, response) {
     return getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
         if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
             return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
-                if (error) {
-                    return console.warn(error);
-                }
                 // Ordinary HTTP response to originating client
                 response.send({ entityId: change.entityId });
 
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return removeBook(change.entityId).then(function (entityId) {
-                        // Broadcast message to all other participating clients when application store is updated
+                        // Broadcast message to all clients when application store is updated
                         return io.sockets.emit("book-removed", entityId);
                     });
                     // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
 
                 } else {
-                    // Broadcast message to all other participating clients when application store is updated
+                    // Broadcast message to all clients when application store is updated
                     return io.sockets.emit("book-removed", change.entityId);
                 }
             });
 
         } else {
-            return response.send();
+            return response.send(404);
         }
     });
 });
