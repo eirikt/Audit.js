@@ -9,9 +9,8 @@
  *     <li/><code>count</code>: ...
  *     <li/><code>content</code>: ...
  * </ul>
- * @see http://getbootstrap.com/2.3.2/components.html#pagination
+ * @see http://getbootstrap.com/components/#pagination
  */
-// TODO: upgrade Bootstrap version
 BootstrapPaginationButtonView = Backbone.View.extend({
     tagName: "li",
     className: "disabled",
@@ -51,8 +50,7 @@ BootstrapPaginationButtonView = Backbone.View.extend({
 
 
 /**
- * Simple pagination with four static buttons, first, previous, next, and last.
- * It is based on Bootstrap v2.3.2
+ * Simple Bootstrap-based centered pagination component with four static buttons, first, previous, next, and last.
  *
  * This view is expecting a model with:
  * <ul>
@@ -60,13 +58,9 @@ BootstrapPaginationButtonView = Backbone.View.extend({
  *     <li/><code>pageCount</code>: the number of elements to show on each page
  *     <li/><code>currentIndex</code>: the index of the first book on the current page
  * </ul>
- * @see http://getbootstrap.com/2.3.2/components.html#pagination
+ * @see http://getbootstrap.com/components/#pagination
  */
-// TODO: upgrade Bootstrap version
 BootstrapSimpleFourButtonPaginationView = Backbone.View.extend({
-    tagName: "div", // For clarity
-    className: "pagination pagination-centered",
-
     initialize: function () {
         this.totalNumberOfElements = this.model.get("count");
         this.pageIndex = this.model.get("currentIndex");
@@ -143,8 +137,9 @@ BootstrapSimpleFourButtonPaginationView = Backbone.View.extend({
             });
         });
 
-        this.$el.append("<ul>");
-        this.$("ul").append(button1.render().el)
+        this.$el.css({ "text-align": "center" }).append("<ul>");
+        this.$("ul").addClass("pagination")
+            .append(button1.render().el)
             .append(button2.render().el)
             .append(button3.render().el)
             .append(button4.render().el);

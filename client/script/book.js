@@ -1,14 +1,3 @@
-// http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
-function resetFormInputFields($form) {
-    $form.find("input:text, input:password, input:file, select, textarea").val("");
-    $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
-}
-
-function disableFormInputFields($form) {
-    $form.find("input:text, input:password, input:file, select, textarea").attr("disabled", "disabled");
-}
-
-
 var app = app || {};
 
 app.Book = Backbone.Model.extend({

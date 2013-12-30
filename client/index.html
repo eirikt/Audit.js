@@ -5,136 +5,127 @@
     <title>Audit.JS</title>
 
     <!-- Regular stylesheet resource setup -->
-    <!--<link rel="stylesheet" href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css">-->
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css">
 
-    <!-- Offline development setup -->
+    <!-- Offline development setup
     <link rel="stylesheet" href="style/bootstrap.css">
-    <link rel="stylesheet" href="style/bootstrap-responsive.css">
+    -->
 
-    <style>
-        body {
-            padding-top: 60px;
-        }
-        @media (max-width: 979px) {
-            /* Remove any padding from the body */
-            body {
-                padding-top: 0;
-            }
-        }
-    </style>
     <link href="style/main.css" rel="stylesheet">
 </head>
 
 <body>
-<div class="navbar navbar-fixed-top">
-    <div class="navbar-inner">
-        <div class="container">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </a>
-            <a class="brand" href="#">Audit.JS</a>
-
-            <div class="nav-collapse">
-                <ul class="nav">
-                    <li class="active"><a href="#">Home</a></li>
-                    <li><a href="#about">About</a></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="container">
-    <div class="accordion" id="accordion">
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseOne" href="#">
+    <nav class="navbar">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">Audit.JS</a>
+        </div>
+    </nav>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a data-toggle="collapse" href="#collapseOne">
                     state changes :: admin
                 </a>
             </div>
-            <div id="collapseOne" class="collapse">
-                <div id="stateChangeAdmin" class="accordion-inner"></div>
-            </div>
         </div>
+        <div id="collapseOne" class="panel-collapse collapse">
+            <div id="stateChangeAdmin" class="panel-body"></div>
+        </div>
+    </div>
 
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseTwo" href="#">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a data-toggle="collapse" href="#collapseTwo">
                     library :: admin
                 </a>
             </div>
-            <div id="collapseTwo" class="collapse">
-                <div id="libraryAdmin" class="accordion-inner"></div>
-            </div>
         </div>
+        <div id="collapseTwo" class="panel-collapse collapse">
+            <div id="libraryAdmin" class="panel-body"></div>
+        </div>
+    </div>
 
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a class="accordion-toggle" data-toggle="collapse" data-target="#collapseThree" href="#">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a data-toggle="collapse" href="#collapseThree">
                     library :: book count
                 </a>
             </div>
-            <div id="collapseThree" class="collapse in">
-                <div id="libraryBookCount" class="accordion-inner"></div>
-            </div>
         </div>
+        <div id="collapseThree" class="panel-collapse collapse in">
+            <div id="libraryBookCount" class="panel-body"></div>
+        </div>
+    </div>
 
-         <div class="accordion-group">
-            <div class="accordion-heading">
-                <a id="bookDetails" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFour" href="#">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a id="bookDetails" data-toggle="collapse" href="#collapseFour">
                     book :: details
                 </a>
             </div>
-            <div id="collapseFour" class="collapse">
-                <div id="book" class="accordion-inner"></div>
-            </div>
         </div>
+        <div id="collapseFour" class="panel-collapse collapse">
+            <div id="book" class="panel-body"></div>
+        </div>
+    </div>
 
-        <div class="accordion-group">
-            <div class="accordion-heading">
-                <a id="bookListLink" class="accordion-toggle" data-toggle="collapse" data-target="#collapseFive" href="#">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a id="bookListLink" data-toggle="collapse" data-parent="#accordion" href="#collapseFive">
                     library :: book list
                 </a>
             </div>
-            <div id="collapseFive" class="collapse">
-                <div id="bookList" class="accordion-inner"></div>
-            </div>
+        </div>
+        <div id="collapseFive" class="panel-collapse collapse">
+            <div id="bookList" class="panel-body"></div>
         </div>
     </div>
 </div>
-<!-- /container -->
+
 
 <!-- Underscore templates -->
 <script id="stateChangeAdminTemplate" type="text/template">
     <div class="row">
-        <span class="pull-left" style="margin-left: 2rem">
+        <span class="pull-left" style="margin-left: 2rem;margin-bottom: 2rem;">
             Total number of state change events:&nbsp;<strong><%= totalCount %></strong>&nbsp;&nbsp;&nbsp;
-            <small>CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;UPDATE:&nbsp;<%= updateCount %>&nbsp;&nbsp;&nbsp;DELETE:&nbsp;<%= deleteCount %></small>
-            <br><br>
+            <small>
+                CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;&nbsp;
+                UPDATE:&nbsp;<%= updateCount %>&nbsp;&nbsp;&nbsp;&nbsp;
+                DELETE:&nbsp;<%= deleteCount %>
+            </small>
         </span>
     </div>
     <div class="row">
         <span class="pull-left" style="margin-left: 2rem">
-            <!--<button id="toggleCqrs" class="btn btn-success">CQRS ON</button>-->
             <button id="toggleCqrs" class="btn">?</button>
         </span>
         <span>
-            <button id="replay" class="btn btn-inverse" style="margin-left: 1rem">Replay all state change events</button>
+            <button id="replay" class="btn btn-primary" style="margin-left: 1rem">Replay all state change events</button>
         </span>
     </div>
 </script>
 
 <script id="libraryAdminTemplate" type="text/template">
-    <div>
-        <span class="input-append">
-            <input id="numberOfBooksToGenerate" class="input-small" type="text" placeholder="how many?" maxlength="6" style="text-align:right;"></input>
-            <button id="generate" class="btn btn-success">Generate books</button>
-        </span>
-        <span>
-            <button id="removeAllBooks" class="btn btn-danger pull-right">Clean books</button>
-        </span>
+    <div class="row">
+        <div class="col-xs-5">
+            <div class="input-group">
+                <input id="numberOfBooksToGenerate" type="text" class="form-control" placeholder="how many?" maxlength="6" style="text-align: right" />
+                <span class="input-group-btn">
+                    <button id="generate" class="btn btn-success">Generate books</button>
+                </span>
+            </div>
+        </div>
+        <div class="col-xs-7">
+            <span>
+                <button id="removeAllBooks" class="btn btn-danger pull-right">Clean books</button>
+            </span>
+        </div>
     </div>
 </script>
 
@@ -144,9 +135,13 @@
 </script>
 
 <script id="bookCountTemplate2" type="text/template">
-    <span class="pull-right">
-        <small><em>&nbsp;&nbsp;&nbsp;Number of books found in projection:&nbsp;<strong><%= bookCount %></strong></em></small>
-    </span>
+    <div class="row">
+        <div class="col-sm-12">
+            <span class="pull-right">
+                <small><em>&nbsp;&nbsp;&nbsp;Number of books found in projection:&nbsp;<strong><%= bookCount %></strong></em></small>
+            </span>
+        </div>
+    </div>
 </script>
 
 <script id="bookListTableTemplate" type="text/template">
@@ -165,9 +160,9 @@
 
 <script id="bookInfoTableFilteringRowTemplate" type="text/template">
     <td></td>
-    <td><small><input id="titleSubstring" type="text" placeholder="filter on title" value="<%= titleSubstring %>" /></small></td>
-    <td><small><input id="authorSubstring" type="text" placeholder="filter on author" value="<%= authorSubstring %>" /></small></td>
-    <td><small><input id="keywords" type="text" placeholder="filter on keyword" disabled title="Not yet available" /></small></td>
+    <td><small><input id="titleSubstring" type="text" class="form-control" placeholder="filter on title" value="<%= titleSubstring %>"/></small></td>>
+    <td><small><input id="authorSubstring" type="text" class="form-control" placeholder="filter on author" value="<%= authorSubstring %>"/></small></td>
+    <td><small><input id="keywords" type="text" class="form-control" placeholder="filter on keyword" disabled title="Not yet available"/></small></td>
 </script>
 
 <script id="bookInfoTableRowTemplate" type="text/template">
@@ -180,31 +175,39 @@
 <script id="bookTemplate" type="text/template">
     <form id="editBook" action="#">
         <fieldset>
-            <div style="float:left;padding-left:15px;">
-                <label class="muted">Book No</label>
-                <input class="input-mini uneditable-input" type="text" value="<%= seq %>"</input>
+            <div class="row">
+                <div class="pull-right" style="margin-bottom: 1.5rem;">
+                    <button id="updateBook" class="btn btn-primary">Update</button>
+                    <button id="deleteBook" class="btn btn-danger">Delete</button>
+                </div>
             </div>
-            <div style="float:left;padding-left:15px;">
-                <label class="muted">Title</label>
-                <input id="title" type="text" value="<%- title %>"></input>
+            <div class="row">
+                <div class="col-sm-2">
+                    <label for="bookNo">No</label>
+                    <input id="bookNo" type="text" class="form-control" value="<%= seq %>" disabled />
+                </div>
+                <div class="col-sm-5">
+                    <label for="bookTitle">Title</label>
+                    <input id="bookTitle" type="text" class="form-control" value="<%- title %>" />
+                </div>
+                <div class="col-sm-5">
+                    <label for="bookAuthor">Author</label>
+                    <input id="bookAuthor" type="text" class="form-control" value="<%- author %>" />
+                </div>
             </div>
-            <div style="float:left;padding-left:15px;">
-                <label class="muted">Author</label>
-                <input id="author" type="text" value="<%- author %>"></input>
-            </div>
-            <div style="float:left;padding-left:15px;">
-                <label class="muted">Tags</label>
-                <% _.each(keywords, function(keywordobject) { %><span class="label label-success"><%= keywordobject.keyword %></span>&nbsp;<% }); %>
-            </div>
-            <div class="pull-right">
-                <button id="updateBook" class="btn">Update</button>
-                <button id="deleteBook" class="btn btn-danger">Delete</button>
+            <div class="row" style="margin-top: 3rem;">
+                <div class="col-sm-12">
+                    <label>Tags&nbsp;</label>
+                    <% _.each(keywords, function(keywordobject) { %><span class="label label-info"><%= keywordobject.keyword %></span>&nbsp;<%
+                    }); %>
+                </div>
             </div>
         </fieldset>
     </form>
 </script>
 
 <script id="bookHistoryTemplate" type="text/template">
+    <p><br></p>
     <small><strong>Book state change history</strong></small>
     <table class="table table-condensed table-striped table-hover">
         <thead>
@@ -237,22 +240,22 @@
 </script>
 <!-- /Underscore templates -->
 
+
 <!-- Regular script resource setup -->
 <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
-<!--
 <script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
 <script src="//cdn.jsdelivr.net/momentjs/2.4.0/moment.min.js"></script>
-<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
--->
+<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
 
-<!-- Offline development setup -->
+<!-- Offline development setup
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>
 <script src="script/moment.js"></script>
 <script src="script/bootstrap.js"></script>
+-->
 
 <!-- Third-party non-CDN resources -->
 <script src="script/jquery.bind-with-delay.js"></script>

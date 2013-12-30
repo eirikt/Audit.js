@@ -5,6 +5,25 @@ app.KEYUP_TRIGGER_DELAY_IN_MILLIS = 400;
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Helper functions
+///////////////////////////////////////////////////////////////////////////////
+
+// http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
+function resetFormInputFields($form) {
+    $form.find("input:text, input:password, input:file, select, textarea").val("");
+    $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
+}
+
+function disableFormInputFields($form) {
+    $form.find("input:text, input:password, input:file, select, textarea").attr("disabled", "disabled");
+}
+
+function prettyprintInteger(int) {
+    return int.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Models
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -49,7 +68,7 @@ app.StateChangeAdminView = Backbone.View.extend({
         "click #toggleCqrs": "_toggleCqrs",
         "click #replay": "_replayChangeLog"
     },
-    cqrsActive: false,
+    cqrsActive: null,
 
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
@@ -57,7 +76,12 @@ app.StateChangeAdminView = Backbone.View.extend({
         this.model.fetch();
     },
     render: function () {
-        this.$el.html(this.template(this.model.toJSON()));
+        var model = this.model.toJSON();
+        model.totalCount = prettyprintInteger(model.totalCount);
+        model.createCount = prettyprintInteger(model.createCount);
+        model.updateCount = prettyprintInteger(model.updateCount);
+        model.deleteCount = prettyprintInteger(model.deleteCount);
+        this.$el.html(this.template(model));
         this._checkCqrs();
     },
     renderButtons: function (usingCqrs) {

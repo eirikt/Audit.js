@@ -19,6 +19,10 @@ body {
     font-size: x-small;
 }
 
+.centered-text {
+    text-align: center;
+}
+
 .right-margin {
     margin-right: 1rem;
 }

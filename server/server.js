@@ -372,7 +372,7 @@ io.sockets.on("connection", function (socket) {
  * The alternative is to use the event store only, being considerately more ineffective ... but as a demo
  * <em>No application store is the default (at the moment).<em>
  */
-useCQRS = false;
+useCQRS = true;
 
 
 // TODO: consider some proper REST API documentation framework
