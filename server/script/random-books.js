@@ -19,3 +19,17 @@ var keywords = exports.keywords = ["#scifi", "#thriller", "#fantasy", "#debut", 
 var pickRandomElementFrom = exports.pickRandomElementFrom = function (array) {
     return array[_.random(array.length - 1)];
 };
+
+var randomUser = exports.randomUser = function () {
+    return users[_.random(users.length - 1)];
+};
+
+var randomBookTitle = exports.randomBookTitle = function () {
+    return pickRandomElementFrom(titleElement1) + " " +
+        pickRandomElementFrom(titleElement2) + " " +
+        pickRandomElementFrom(titleElement3);
+};
+
+var randomName = exports.randomName = function () {
+    return pickRandomElementFrom(firstNames) + " " + pickRandomElementFrom(lastNames);
+};

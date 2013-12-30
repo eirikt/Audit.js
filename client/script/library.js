@@ -54,7 +54,7 @@ app.Library = Backbone.Collection.extend({
         });
     },
     fetch: function () {
-        this._fetchByPOST();
+        return this._fetchByPOST();
     },
     parse: function (response) {
         this.totalBookCount = response.totalCount;

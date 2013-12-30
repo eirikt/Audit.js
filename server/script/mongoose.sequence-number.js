@@ -1,15 +1,10 @@
 mongoose = require("mongoose");
 
-
-// Mongoose schema
 var SequenceNumberMongooseSchema = exports.SequenceNumberMongooseSchema = new mongoose.Schema({
     seq: { type: Number, default: 1 }
 });
 
-
-// Mongoose model
 var Sequence = exports.Sequence = mongoose.model("sequence", SequenceNumberMongooseSchema);
-
 
 var incrementSequenceNumber = exports.incrementSequenceNumber = function (schemaName, callback) {
     Sequence.collection.findAndModify(
@@ -25,4 +20,4 @@ var incrementSequenceNumber = exports.incrementSequenceNumber = function (schema
             }
         }
     );
-}
+};

@@ -9,32 +9,32 @@ app.KEYUP_TRIGGER_DELAY_IN_MILLIS = 400;
 ///////////////////////////////////////////////////////////////////////////////
 
 app.CqrsCheck = Backbone.Model.extend({
-    urlRoot: "/events/cqrs/status"
+    url: "/events/cqrs/status"
 });
 
 app.CqrsToggle = Backbone.Model.extend({
-    urlRoot: "/events/cqrs/toggle"
+    url: "/events/cqrs/toggle"
 });
 
 app.EventStoreCount = Backbone.Model.extend({
     default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0 },
-    urlRoot: "/events/count"
+    url: "/events/count"
 });
 
 app.EventStoreReplay = Backbone.Model.extend({
-    urlRoot: "/events/replay"
+    url: "/events/replay"
 });
 
 //app.CreateBookCommand = Backbone.Model.extend({
-//    urlRoot: "/library/books/newbook"
+//    url: "/library/books/newbook"
 //});
 
 app.GenerateRandomBooksCommand = Backbone.Model.extend({
-    urlRoot: "/library/books/generate"
+    url: "/library/books/generate"
 });
 
 app.RemoveAllBooks = Backbone.Model.extend({
-    urlRoot: "/library/books/clean"
+    url: "/library/books/clean"
 });
 
 
@@ -46,8 +46,8 @@ app.StateChangeAdminView = Backbone.View.extend({
     templateSelector: "#stateChangeAdminTemplate",
     template: null,
     events: {
-        "click #toggleCqrs": "toggleCqrs",
-        "click #replay": "replayChangeLog"
+        "click #toggleCqrs": "_toggleCqrs",
+        "click #replay": "_replayChangeLog"
     },
     cqrsActive: false,
 
@@ -58,37 +58,26 @@ app.StateChangeAdminView = Backbone.View.extend({
     },
     render: function () {
         this.$el.html(this.template(this.model.toJSON()));
-        this.checkCqrs();
+        this._checkCqrs();
     },
-    checkCqrs: function () {
-        var self = this;
-        new app.CqrsCheck().fetch().done(function (usingCqrs) {
-            if (usingCqrs) {
-                self.cqrsActive = true;
-                self.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
-                self.$("#replay").removeClass("disabled").attr("title", "");
-            } else {
-                self.cqrsActive = false;
-                self.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
-                self.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
-            }
-        });
+    renderButtons: function (usingCqrs) {
+        if (usingCqrs) {
+            this.cqrsActive = true;
+            this.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
+            this.$("#replay").removeClass("disabled").attr("title", "");
+        } else {
+            this.cqrsActive = false;
+            this.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
+            this.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
+        }
     },
-    toggleCqrs: function () {
-        var self = this;
-        new app.CqrsToggle().save().done(function (usingCqrs) {
-            if (usingCqrs) {
-                self.cqrsActive = true;
-                self.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
-                self.$("#replay").removeClass("disabled").attr("title", "");
-            } else {
-                self.cqrsActive = false;
-                self.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
-                self.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
-            }
-        });
+    _checkCqrs: function () {
+        new app.CqrsCheck().fetch().done(_.bind(this.renderButtons, this));
     },
-    replayChangeLog: function (event) {
+    _toggleCqrs: function () {
+        new app.CqrsToggle().save();
+    },
+    _replayChangeLog: function (event) {
         if (this.cqrsActive) {
             new app.EventStoreReplay().save();
         } else {
@@ -168,8 +157,8 @@ $(function () {
     app.library = new app.Library({ pagination: true, filtering: true });
 
     // On demand: Update state change count and book count
-    app.refreshCounts = function () {
-        app.stateChangeCount.save();
+    app.refreshViews = function () {
+        app.stateChangeCount.fetch();
         app.bookCount.save();
         app.library.fetch();
     };
@@ -196,7 +185,7 @@ $(function () {
     Backbone.history.start();
 
     // Initial view rendering
-    app.refreshCounts();
+    app.refreshViews();
 
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -204,38 +193,73 @@ $(function () {
     ///////////////////////////////////////////////////////////////////////////////
 
     var socket = io.connect('http://localhost:4711'),
-        pushPrefix = "PUSH {", pushPostfix = "}",
-        pushMessage = function (msg) {
-            return pushPrefix + msg + pushPostfix;
+
+        pushMessage = function () {
+            var msg = arguments[0],
+                pushMsgArgs = _.rest(arguments),
+                hasMsgArgs = !_.isEmpty(pushMsgArgs),
+                retVal = "PUSH { " + msg;
+
+            if (hasMsgArgs) {
+                retVal += " { ";
+            }
+            _.each(pushMsgArgs, function (pushMsgArg, index) {
+                retVal += pushMsgArg;
+                if (index < pushMsgArgs.length - 1) {
+                    retVal += ", ";
+                }
+            });
+            if (hasMsgArgs) {
+                retVal += " }";
+            }
+            retVal += " }";
+            return retVal;
         };
 
-    // Push event:
+    // Push event: CQRS mode changed
     socket.on("cqrs", function (cqrsInUse) {
-        console.log(pushMessage("cqrs: " + cqrsInUse));
-        app.refreshCounts();
+        console.log(pushMessage("cqrs", cqrsInUse));
+        app.refreshViews();
+        app.stateChangeAdminView.renderButtons(cqrsInUse);
     });
 
-    // Push event: Starting generating books ...
+    // Push event: Replaying of all stage change events started
+    socket.on("replaying-events", function () {
+        console.log(pushMessage("replaying-events"));
+    });
+
+    // Push event: Stage change events replayed
+    socket.on("event-replayed", function (index) {
+        console.log(pushMessage("event-replayed", index));
+    });
+
+    // Push event: Replaying of all state change events are completed
+    socket.on("all-events-replayed", function (totalNumberOfEvents) {
+        console.log(pushMessage("all-events-replayed", totalNumberOfEvents));
+        app.refreshViews();
+    });
+
+    // Push event: Generating books started ...
     socket.on("generating-books", function (numberOfBooksToAdd) {
-        console.log(pushMessage("generating-books: " + numberOfBooksToAdd));
+        console.log(pushMessage("generating-books", numberOfBooksToAdd));
     });
 
     // Push event: (Single) book generated
     socket.on("book-generated", function (bookNumberInSequence, book) {
-        console.log(pushMessage("book-generated: ¤" + bookNumberInSequence + ", " + JSON.stringify(book)));
+        console.log(pushMessage("book-generated", "#" + bookNumberInSequence + ": " + JSON.stringify(book)));
     });
 
     // Push event: (All) books generated
     socket.on("all-books-generated", function (numberOfBooksAdded) {
-        console.log(pushMessage("all-books-generated: " + numberOfBooksAdded));
-        app.refreshCounts();
+        console.log(pushMessage("all-books-generated", numberOfBooksAdded));
+        app.refreshViews();
     });
 
     // Push event: Book updated
     socket.on("book-updated", function (updatedBook) {
-        console.log(pushMessage("book-updated: " + JSON.stringify(updatedBook)));
+        console.log(pushMessage("book-updated", JSON.stringify(updatedBook)));
         app.library.set(updatedBook, { add: false, remove: false, merge: true });
-        app.refreshCounts();
+        app.refreshViews();
         if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
             app.bookView.bookView.render();
         }
@@ -243,28 +267,22 @@ $(function () {
 
     // Push event: Book removed
     socket.on("book-removed", function (entityIdOfRemovedBook) {
-        console.log(pushMessage("book-removed: " + entityIdOfRemovedBook));
+        console.log(pushMessage("book-removed", entityIdOfRemovedBook));
         app.library.remove(app.library.get(entityIdOfRemovedBook));
-        app.refreshCounts();
+        app.refreshViews();
         if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
             app.bookView.reset();
         }
     });
 
-    // Push event: Library removed/All books removed
+    // Push event: Application store purged / all books removed
     socket.on("books-removed", function () {
         console.log(pushMessage("books-removed"));
-        app.library.reset();
-        app.refreshCounts();
+        //app.library.reset(); // Needed?
+        app.refreshViews();
         // TODO: reset form fields
         //app.bookView.clear();
         // TODO: collapse view (if expanded))
         //app.bookView.collapse();
-    });
-
-    // Push event: Event store replayed (in full)
-    socket.on("events-replayed", function () {
-        console.log(pushMessage("events-replayed"));
-        app.refreshCounts();
     });
 });
