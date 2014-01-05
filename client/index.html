@@ -131,7 +131,7 @@
 
 <script id="bookCountTemplate" type="text/template">
     <span>Total number of books:</span>
-    <span class="pull-right lead"><%= count %></span>
+    <span class="pull-right lead"><strong><%= count %></strong></span>
 </script>
 
 <script id="bookCountTemplate2" type="text/template">
@@ -183,16 +183,16 @@
             </div>
             <div class="row">
                 <div class="col-sm-2">
-                    <label for="bookNo">No</label>
-                    <input id="bookNo" type="text" class="form-control" value="<%= seq %>" disabled />
+                    <label for="seq">No</label>
+                    <input id="seq" type="text" class="form-control" value="<%= seq %>" disabled />
                 </div>
                 <div class="col-sm-5">
-                    <label for="bookTitle">Title</label>
-                    <input id="bookTitle" type="text" class="form-control" value="<%- title %>" />
+                    <label for="title">Title</label>
+                    <input id="title" type="text" class="form-control" value="<%- title %>" />
                 </div>
                 <div class="col-sm-5">
-                    <label for="bookAuthor">Author</label>
-                    <input id="bookAuthor" type="text" class="form-control" value="<%- author %>" />
+                    <label for="author">Author</label>
+                    <input id="author" type="text" class="form-control" value="<%- author %>" />
                 </div>
             </div>
             <div class="row" style="margin-top: 3rem;">
@@ -238,6 +238,68 @@
     <td><span class="tiny"><%= method %></span></td>
     <td><span class="tiny"><%- changes %></span></td>
 </script>
+
+<!-- TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out -->
+<script id="bootstrapModalProgressbarTemplate" type="text/template">
+    <div id="modalProgressbar" class="modal" role="dialog" style="margin-top:150px;">
+        <div class="modal-dialog">
+            <div class="important centered modal-content">
+                <div style="text-align:center;margin:1rem;"><strong><%= headerText %></strong></div>
+                <div class="progress" style="margin: 1rem">
+                    <span class="progress-bar progress-bar-info"
+                          role="progressbar"
+                          aria-valuenow="<%= progressValueInPercent %>"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          style="text-align: left;width:<%= progressValueInPercent %>%;">&nbsp;&nbsp;&nbsp;<%= progressValueInPercent %>%</span>
+                    <!--<span style="margin: 1rem">Remaining: 80%</span>-->
+                </div>
+                <div style="text-align:center;margin:1rem;"><small><%= footerText %></small></div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<!-- TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out -->
+<script id="bootstrapModalMultipleProgressbarTemplate" type="text/template">
+    <div id="modalMultipleProgressbar" class="modal" role="dialog" style="margin-top:150px;">
+        <div class="modal-dialog">
+            <div class="important centered modal-content">
+                <div style="text-align:center;margin:1rem;"><strong><%= headerText %></strong></div>
+                <div id="progressbars"></div>
+                <div style="text-align:center;margin:1rem;"><small><%= footerText %></small></div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script id="bootstrapProgressbarUnknownStateTemplate" type="text/template">
+    <div style="margin-left:1rem"><small><%= headerText %></small></div>
+    <div class="progress" style="margin:1rem">
+        <span class="progress-bar progress-bar-info"
+              role="progressbar"
+              aria-valuenow="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              style="text-align:left;">
+        </span>
+        <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;&nbsp;Unknown state ...</span>
+    </div>
+</script>
+
+<script id="bootstrapProgressbarTemplate" type="text/template">
+    <div style="margin-left:1rem"><small><%= headerText %></small></div>
+    <div class="progress" style="margin:1rem">
+        <span class="progress-bar progress-bar-info"
+              role="progressbar"
+              aria-valuenow="<%= progressValueInPercent %>"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              style="text-align:left;width:<%= progressValueInPercent %>%;">
+            &nbsp;&nbsp;&nbsp;<%= progressValueInPercent %>&nbsp;%
+        </span>
+    </div>
+</script>
 <!-- /Underscore templates -->
 
 
@@ -246,10 +308,11 @@
 <script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
-<script src="//cdn.jsdelivr.net/momentjs/2.4.0/moment.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.4.0/moment.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
 
 <!-- Offline development setup
+<script src="script/socket.io.min.js"></script>
 <script src="script/jquery.js"></script>
 <script src="script/underscore.js"></script>
 <script src="script/backbone.js"></script>
@@ -263,13 +326,16 @@
 <!-- Audit.JS: generic state versioning add-in -->
 <script src="script/backbone.audit.js"></script>
 
-<!-- Audit.JS: other generic stuff -->
+<!-- Audit.JS: other generic libs -->
+<script src="script/backbone.bootstrap.progressbar.js"></script>
 <script src="script/backbone.bootstrap.pagination.js"></script>
 
 <!-- Audit.JS: demo project -->
 <script src="script/book.js"></script>
 <script src="script/library.js"></script>
+<script src="script/app-admin.js"></script>
 <script src="script/app.js"></script>
+
 
 </body>
 </html>

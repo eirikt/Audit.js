@@ -1,6 +1,13 @@
 var app = app || {};
 
+///////////////////////////////////////////////////////////////////////////////
+// App config
+///////////////////////////////////////////////////////////////////////////////
+
+app.SERVER_URL = "http://127.0.0.1:4711";
+
 app.LIBRARY_PAGINATION_SIZE = 20;
+
 app.KEYUP_TRIGGER_DELAY_IN_MILLIS = 400;
 
 
@@ -24,115 +31,111 @@ function prettyprintInteger(int) {
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Models
+// HTTP server push events config
 ///////////////////////////////////////////////////////////////////////////////
 
-app.CqrsCheck = Backbone.Model.extend({
-    url: "/events/cqrs/status"
-});
+// TODO: consider renaming to 'PushServer'
+app.ServerPushClient = Backbone.Model.extend({
+    socket: null,
 
-app.CqrsToggle = Backbone.Model.extend({
-    url: "/events/cqrs/toggle"
-});
+    createPushMessage: function () {
+        var msg = arguments[0],
+            pushMsgArgs = _.rest(arguments),
+            hasMsgArgs = !_.isEmpty(pushMsgArgs),
+            retVal = "PUSH { " + msg;
 
-app.EventStoreCount = Backbone.Model.extend({
-    default: { totalCount: 0, createCount: 0, updateCount: 0, deleteCount: 0 },
-    url: "/events/count"
-});
-
-app.EventStoreReplay = Backbone.Model.extend({
-    url: "/events/replay"
-});
-
-//app.CreateBookCommand = Backbone.Model.extend({
-//    url: "/library/books/newbook"
-//});
-
-app.GenerateRandomBooksCommand = Backbone.Model.extend({
-    url: "/library/books/generate"
-});
-
-app.RemoveAllBooks = Backbone.Model.extend({
-    url: "/library/books/clean"
-});
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Views
-///////////////////////////////////////////////////////////////////////////////
-
-app.StateChangeAdminView = Backbone.View.extend({
-    templateSelector: "#stateChangeAdminTemplate",
-    template: null,
-    events: {
-        "click #toggleCqrs": "_toggleCqrs",
-        "click #replay": "_replayChangeLog"
+        if (hasMsgArgs) {
+            retVal += " { ";
+        }
+        _.each(pushMsgArgs, function (pushMsgArg, index) {
+            retVal += pushMsgArg;
+            if (index < pushMsgArgs.length - 1) {
+                retVal += ", ";
+            }
+        });
+        if (hasMsgArgs) {
+            retVal += " }";
+        }
+        retVal += " }";
+        return retVal;
     },
-    cqrsActive: null,
+
+    /** Generic push event subscription */
+    listenForPushEvent: function (eventId, callback) {
+        var self = this;
+        this.socket.on(eventId, function () {
+            // http://stackoverflow.com/questions/960866/converting-the-arguments-object-to-an-array-in-javascript
+            var args = Array.prototype.slice.call(arguments, 0),
+                marshalledArgs;
+            //args = args.sort(); // Screws things up somehow ...
+            args.unshift(eventId);
+            _.each(args, function (arg, index) {
+                if (_.isObject(arg)) {
+                    args[index] = JSON.stringify(arg);
+                }
+            });
+            // TODO: like this:
+            /*
+             marshalledArgs = _.map(args, function (arg) {
+             if (_.isObject(arg)) {
+             return JSON.stringify(arg);
+             } else {
+             return null;
+             }
+             });
+             */
+            marshalledArgs = args;
+            console.log(self.createPushMessage.apply(self, marshalledArgs));
+            self.trigger.apply(self, marshalledArgs);
+            if (callback) {
+                callback.apply(self, arguments);
+            }
+        });
+    },
 
     initialize: function () {
-        this.template = _.template($(this.templateSelector).html());
-        this.listenTo(this.model, "change", this.render);
-        this.model.fetch();
-    },
-    render: function () {
-        var model = this.model.toJSON();
-        model.totalCount = prettyprintInteger(model.totalCount);
-        model.createCount = prettyprintInteger(model.createCount);
-        model.updateCount = prettyprintInteger(model.updateCount);
-        model.deleteCount = prettyprintInteger(model.deleteCount);
-        this.$el.html(this.template(model));
-        this._checkCqrs();
-    },
-    renderButtons: function (usingCqrs) {
-        if (usingCqrs) {
-            this.cqrsActive = true;
-            this.$("#toggleCqrs").removeClass("btn-warning").addClass("btn-success").empty().append("CQRS ON");
-            this.$("#replay").removeClass("disabled").attr("title", "");
-        } else {
-            this.cqrsActive = false;
-            this.$("#toggleCqrs").addClass("btn-warning").removeClass("btn-success").empty().append("CQRS OFF");
-            this.$("#replay").addClass("disabled").attr("title", "N/A as CQRS is disabled");
-        }
-    },
-    _checkCqrs: function () {
-        new app.CqrsCheck().fetch().done(_.bind(this.renderButtons, this));
-    },
-    _toggleCqrs: function () {
-        new app.CqrsToggle().save();
-    },
-    _replayChangeLog: function (event) {
-        if (this.cqrsActive) {
-            new app.EventStoreReplay().save();
-        } else {
-            event.preventDefault();
-        }
-    }
-});
+        this.socket = io.connect(this.get("serverUrl"));
 
+        this.listenForPushEvent("cqrs", app.refreshViews);
 
-app.LibraryAdminView = Backbone.View.extend({
-    templateSelector: "#libraryAdminTemplate",
-    template: null,
-    events: {
-        "click #generate": "generateRandomBooks",
-        "click #removeAllBooks": "removeAllBooks"
-    },
-    initialize: function () {
-        this.render();
-    },
-    render: function () {
-        this.$el.html($(this.templateSelector).html());
-    },
-    generateRandomBooks: function () {
-        var numberOfBooksToGenerate = parseInt(this.$("#numberOfBooksToGenerate").val());
-        console.log("generateRandomBooks: " + numberOfBooksToGenerate + " books");
-        if (numberOfBooksToGenerate) {
-            new app.GenerateRandomBooksCommand().save({ numberOfBooks: numberOfBooksToGenerate });
-        }
-    },
-    removeAllBooks: function () {
-        new app.RemoveAllBooks().save();
+        this.listenForPushEvent("replaying-events");
+        this.listenForPushEvent("event-replayed");
+        this.listenForPushEvent("all-events-replayed", app.refreshViews);
+
+        this.listenForPushEvent("acquiring-sequencenumbers");
+        this.listenForPushEvent("sequencenumber-acquired");
+        this.listenForPushEvent("all-sequencenumbers-acquired");
+
+        this.listenForPushEvent("creating-statechangeevents");
+        this.listenForPushEvent("statechangeevent-created");
+        this.listenForPushEvent("all-statechangeevents-created");
+
+        this.listenForPushEvent("generating-books");
+        this.listenForPushEvent("book-generated");
+        this.listenForPushEvent("all-books-generated", app.refreshViews);
+
+        this.listenForPushEvent("book-updated", function (updatedBook) {
+            app.library.set(updatedBook, { add: false, remove: false, merge: true });
+            app.refreshViews();
+            if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
+                app.bookView.bookView.render();
+            }
+        });
+        this.listenForPushEvent("book-removed", function (entityIdOfRemovedBook) {
+            app.library.remove(app.library.get(entityIdOfRemovedBook));
+            app.refreshViews();
+            if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
+                app.bookView.reset();
+            }
+        });
+        this.listenForPushEvent("all-books-removed", function () {
+            //app.library.reset(); // Needed?
+            app.refreshViews();
+            // TODO: reset form fields
+            //app.bookView.clear();
+            // TODO: collapse view (if expanded))
+            //app.bookView.collapse();
+        });
     }
 });
 
@@ -187,6 +190,11 @@ $(function () {
         app.library.fetch();
     };
 
+    // Connect to server for HTTP server push
+    // Dependant on models, views dependant on this
+    // TODO: consider renaming to 'server'/'pushServer'
+    app.pushClient = new app.ServerPushClient({ serverUrl: app.SERVER_URL });
+
     // Views
     app.stateChangeAdminView = new app.StateChangeAdminView({ el: "#stateChangeAdmin", model: app.stateChangeCount });
     app.libraryAdminView = new app.LibraryAdminView({ el: "#libraryAdmin" });
@@ -205,108 +213,9 @@ $(function () {
     });
 
     // Start listening for URI hash changes
-    app.appRouter = new app.AppRouter();
+    app.router = new app.AppRouter();
     Backbone.history.start();
 
     // Initial view rendering
     app.refreshViews();
-
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // HTTP server push events config
-    ///////////////////////////////////////////////////////////////////////////////
-
-    var socket = io.connect('http://localhost:4711'),
-
-        pushMessage = function () {
-            var msg = arguments[0],
-                pushMsgArgs = _.rest(arguments),
-                hasMsgArgs = !_.isEmpty(pushMsgArgs),
-                retVal = "PUSH { " + msg;
-
-            if (hasMsgArgs) {
-                retVal += " { ";
-            }
-            _.each(pushMsgArgs, function (pushMsgArg, index) {
-                retVal += pushMsgArg;
-                if (index < pushMsgArgs.length - 1) {
-                    retVal += ", ";
-                }
-            });
-            if (hasMsgArgs) {
-                retVal += " }";
-            }
-            retVal += " }";
-            return retVal;
-        };
-
-    // Push event: CQRS mode changed
-    socket.on("cqrs", function (cqrsInUse) {
-        console.log(pushMessage("cqrs", cqrsInUse));
-        app.refreshViews();
-        app.stateChangeAdminView.renderButtons(cqrsInUse);
-    });
-
-    // Push event: Replaying of all stage change events started
-    socket.on("replaying-events", function () {
-        console.log(pushMessage("replaying-events"));
-    });
-
-    // Push event: Stage change events replayed
-    socket.on("event-replayed", function (index) {
-        console.log(pushMessage("event-replayed", index));
-    });
-
-    // Push event: Replaying of all state change events are completed
-    socket.on("all-events-replayed", function (totalNumberOfEvents) {
-        console.log(pushMessage("all-events-replayed", totalNumberOfEvents));
-        app.refreshViews();
-    });
-
-    // Push event: Generating books started ...
-    socket.on("generating-books", function (numberOfBooksToAdd) {
-        console.log(pushMessage("generating-books", numberOfBooksToAdd));
-    });
-
-    // Push event: (Single) book generated
-    socket.on("book-generated", function (bookNumberInSequence, book) {
-        console.log(pushMessage("book-generated", "#" + bookNumberInSequence + ": " + JSON.stringify(book)));
-    });
-
-    // Push event: (All) books generated
-    socket.on("all-books-generated", function (numberOfBooksAdded) {
-        console.log(pushMessage("all-books-generated", numberOfBooksAdded));
-        app.refreshViews();
-    });
-
-    // Push event: Book updated
-    socket.on("book-updated", function (updatedBook) {
-        console.log(pushMessage("book-updated", JSON.stringify(updatedBook)));
-        app.library.set(updatedBook, { add: false, remove: false, merge: true });
-        app.refreshViews();
-        if (app.bookView.model && app.bookView.model.id === updatedBook[app.Book.prototype.idAttribute]) {
-            app.bookView.bookView.render();
-        }
-    });
-
-    // Push event: Book removed
-    socket.on("book-removed", function (entityIdOfRemovedBook) {
-        console.log(pushMessage("book-removed", entityIdOfRemovedBook));
-        app.library.remove(app.library.get(entityIdOfRemovedBook));
-        app.refreshViews();
-        if (app.bookView.model && app.bookView.model.id === entityIdOfRemovedBook) {
-            app.bookView.reset();
-        }
-    });
-
-    // Push event: Application store purged / all books removed
-    socket.on("books-removed", function () {
-        console.log(pushMessage("books-removed"));
-        //app.library.reset(); // Needed?
-        app.refreshViews();
-        // TODO: reset form fields
-        //app.bookView.clear();
-        // TODO: collapse view (if expanded))
-        //app.bookView.collapse();
-    });
 });

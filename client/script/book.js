@@ -103,8 +103,8 @@ app.BookView = Backbone.View.extend({
             .map(function ($inputEl) {
                 return (isFieldEligibleForEditing($inputEl)) ? [$inputEl.id, $inputEl.value] : null;
             })
-            .compact()  // Remove nulls
-            .object()   // Arrays to object properties
+            .compact() // Remove nulls
+            .object()  // Arrays to object properties
             .value();
     },
     _updateBook: function (event) {

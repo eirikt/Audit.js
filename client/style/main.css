@@ -1,22 +1,33 @@
-/*****************************
+/**************************************
  * Twitter Bootstrap overrides
- *****************************/
+ **************************************/
 .lead {
-    font-size: xx-large;
+    font-size: x-large;
 }
 
-/*****************************
- * Twitter Bootstrap accordion
- *****************************/
-body {
-    padding-top: 60px;
+/**************************************
+ * Twitter Bootstrap progressbar
+ * http://stackoverflow.com/questions/18549790/bootstrap-modal-has-a-flaw
+ **************************************/
+.modal {
+    overflow-y: auto;
 }
 
-/*****************************
+/**************************************
  * Other stuff ...
- *****************************/
+ **************************************/
 .tiny {
     font-size: x-small;
+}
+
+.centered {
+    margin-left: auto;
+    margin-right: auto;
+    width: 80%;
+}
+
+.important {
+    background-color: #e3dce6;
 }
 
 .centered-text {
@@ -27,9 +38,9 @@ body {
     margin-right: 1rem;
 }
 
-/*****************************
+/**************************************
  * Debug
- *****************************/
+ **************************************/
 /*
 div {
     border: 1px dashed;

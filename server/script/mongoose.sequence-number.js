@@ -12,9 +12,9 @@ var incrementSequenceNumber = exports.incrementSequenceNumber = function (schema
         [],
         { $inc: { seq: 1 } },
         { new: true, upsert: true },
-        function (error, result) {
-            if (error) {
-                callback(error);
+        function (err, result) {
+            if (err) {
+                callback(err);
             } else {
                 callback(null, result.seq);
             }

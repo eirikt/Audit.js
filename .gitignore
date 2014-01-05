@@ -18,15 +18,12 @@ server/bin
 client/img/
 
 # Ignore local/offline third-party JS libs for now ...
+client/script/socket.io.min.js
 client/script/backbone.js
-client/script/backbone.marionette.js
-client/script/bootstrap.js
 client/script/jquery.js
 client/script/moment.js
 client/script/underscore.js
+client/script/bootstrap.js
 
 # Ignore local/offline third-party CSS libs for now ...
-client/style/bootstrap-responsive.css
-client/style/bootstrap-responsive.min.css
 client/style/bootstrap.css
-client/style/bootstrap.min.css

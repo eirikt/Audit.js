@@ -9,24 +9,13 @@ var application_root = __dirname,
     mongoose = require("mongoose"),
 
 // Module dependencies, internal
-    randomBooks = require("./script/random-books.js"),
-    sequenceNumber = require("./script/mongoose.sequence-number.js");
+    error = require("./script/error.js"),
+    sequenceNumber = require("./script/mongoose.sequence-number.js"),
+    eventSourcing = require("./script/mongoose.event-sourcing.js"),
+    randomBooks = require("./script/random-books.js");
 
 
 // Mongoose schemas
-var StateChangeMongooseSchema = new mongoose.Schema({
-    user: String,
-    timestamp: Date,
-    //timestamp: { type: Date, default: Date.now }, // Possible, yes, but less maintainable code
-    method: String,
-    type: String,
-    entityId: String,
-    changes: {}
-});
-// TODO: verify the effect of this ...
-// Indexed 'entityId' for quick grouping
-StateChangeMongooseSchema.index({ entityId: 1 }, { unique: false });
-
 var KeywordMongooseSchema = new mongoose.Schema({
     keyword: String
 });
@@ -43,8 +32,6 @@ var BookMongooseSchema = new mongoose.Schema({
 
 
 // Mongoose models (design rule: lower-case collection names)
-var Uuid = mongoose.model("uuid", mongoose.Schema({}));
-var StateChange = mongoose.model("statechange", StateChangeMongooseSchema);
 var Keyword = mongoose.model("keyword", KeywordMongooseSchema);
 var Book = mongoose.model("book", BookMongooseSchema);
 Book.collectionName = function () {
@@ -53,154 +40,20 @@ Book.collectionName = function () {
 // /Mongoose models
 
 
-// Generic Mongoose helper functions
-function handleError(error, response) {
-    if (error) {
-        console.warn(error);
-        if (response) {
-            if (error && error.message) {
-                response.send(500, { error: error.message });
-            } else {
-                response.send(500, { error: error });
-            }
-        } else {
-            throw new Error(error);
-        }
-    }
-}
-
-function createUuid() {
-    return new Uuid()._id;
-}
-
+// Generic Mongoose functions
 function count(model) {
     var dfd = new promise.Deferred();
-    model.count(function (error, count) {
-        if (error) {
-            console.warn("Error when counting collection " + model.modelName + ", " + error);
-            dfd.reject();
-        }
-        dfd.resolve(count)
-    });
-    return dfd.promise;
-}
-// /Generic Mongoose helper functions
-
-
-// Generic state versioning functions
-function createStateChange(method, model, entityId, options) {
-    // Create state change event
-    var change = new StateChange();
-
-    // Create state change event: Meta data
-    change.user = randomBooks.randomUser();
-    change.timestamp = new Date().getTime();
-    change.method = method;
-    change.type = model.modelName;
-    change.entityId = change.method === "CREATE" ? createUuid() : entityId;
-
-    // If an UPDATE, add the changes if given
-    if (options && options.changes && change.method === "UPDATE") {
-        change.changes = options.changes;
-    }
-
-    console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
-    return change;
-}
-
-function createAndSaveStateChange(deferred, model, changes, createAndSaveApplicationObjectFunction) {
-    // Create state change event: Meta data
-    var change = createStateChange("CREATE", model);
-
-    // Create state change event: The domain object changes a.k.a. "the diff"/"the delta"
-    change.changes = changes;
-
-    change.save(function (err) {
+    model.count(function (err, count) {
         if (err) {
-            console.log(err);
-            deferred.reject();
-            return null;
+            return error.handle(
+                { message: "Error when counting collection " + model.modelName + " (" + err.message + ")" },
+                { deferred: dfd });
         }
-        console.log("State change event saved ...OK [entityId=" + change.entityId + "]");
-        if (useCQRS) {
-            return createAndSaveApplicationObjectFunction(deferred, change);
-        } else {
-            return deferred.resolve(changes);
-        }
+        return dfd.resolve(count)
     });
-    return deferred.promise;
-}
-
-function getStateChangesByEntityId(entityId) {
-    var dfd = new promise.Deferred();
-    StateChange
-        .find({ entityId: entityId })
-        .sort({ timestamp: "asc" })
-        .exec(function (error, stateChanges) {
-            if (error) {
-                return dfd.reject(error);
-            }
-            return dfd.resolve(stateChanges);
-        });
     return dfd.promise;
 }
-// /Generic state versioning functions
-
-
-// Application-specific mapreduce functions
-
-/** Mongoose MapReduce :: Map: Group all state change events by entityId */
-function mapReduce_map_groupByEntityId() {
-    emit(this.entityId, this);
-}
-
-/**
- * Mongoose MapReduce :: Reduce: Replay state change events by merging them in the right order
- * 1) Sort all object state change events by timestamp ascending (oldest first and then the newer ones)
- * 2) Check that object first state change event method is a CREATE
- * 3) Abort further processing if the last object state change event method is DELETE (return null)
- * 4) Replay all object state change events (by reducing all the diffs) (abort further processing if one of the state change events being replayed have a method other than UPDATE)
- * 5) Return the "replayed" (collapsed) object
- */
-function mapReduce_reduce_replayEvents(key, values) {
-    var sortedStateChanges = values.sort(function (a, b) {
-        return a.timestamp > b.timestamp
-    });
-    if (sortedStateChanges[0].method !== "CREATE") {
-        throw new Error("First event for book #" + key + " is not a CREATE event, rather a " + sortedStateChanges[0].method + "\n");
-    }
-    if (sortedStateChanges[sortedStateChanges.length - 1].method === "DELETE") {
-        return null;
-    }
-    var retVal = {};
-    sortedStateChanges.forEach(function (stateChange, index) {
-        if (index > 0 && stateChange.method !== "UPDATE") {
-            throw new Error("Expected UPDATE event, was " + stateChange.method + "\n");
-        }
-        for (var key in stateChange.changes) {
-            retVal[key] = stateChange.changes[key];
-        }
-    });
-    return retVal;
-}
-
-/**
- * Mongoose MapReduce :: Finalize/Post-processing:
- * If Reduce phase is bypassed due to a single object state change event,
- * return this single object state change event as the object state.
- */
-function mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects(key, reducedValue) {
-    // TODO: move this to StateChange definition
-    isStateChange = function (obj) {
-        // TODO: how to include external references inside mapreduce functions ...
-        return obj && obj.changes /*&& _.isObject(obj.changes)*/;
-    };
-    if (reducedValue) {
-        return isStateChange(reducedValue) ? reducedValue.changes : reducedValue;
-    }
-    return null;
-}
-// /Application-specific mapreduce functions
+// /Generic Mongoose functions
 
 
 // Application-specific functions
@@ -208,56 +61,74 @@ function createKeyword(keyword) {
     return new Keyword({ keyword: keyword });
 }
 
-function _createAndSaveBook(deferred, bookAttributes) {
-    var book = new Book({ _id: bookAttributes.entityId });
 
-    // Add the rest of the properties, and save the book
-    book.set(bookAttributes.changes).save(function (error) {
-        if (error) {
-            console.warn(error);
-            deferred.reject();
-            return;
+/** 'Build' means build Book object from StateChange object ...  */
+function buildAndSaveBook(deferred, bookStateChangeObject) {
+    var book = new Book({ _id: bookStateChangeObject.entityId });
+    book.set(bookStateChangeObject.changes);
+    book.save(function (err, book) {
+        if (error.handle(err, { deferred: deferred })) {
+            return null;
         }
         console.log("Book #" + book.seq + " '" + book.title + "' saved ...OK (ID=" + book._id + ")");
-        deferred.resolve(book);
+        return deferred.resolve();
     });
     return deferred.promise;
 }
 
-function createBook(bookAttributes) {
+
+function createBook(bookAttributes, options) {
     var dfd = new promise.Deferred();
-    sequenceNumber.incrementSequenceNumber(Book.collectionName(), function (error, nextSequence) {
-        if (error) {
-            console.warn(error);
-            dfd.reject(error);
+    sequenceNumber.incrementSequenceNumber(Book.collectionName(), function (err, nextSequence) {
+        if (error.handle(err, { deferred: dfd })) {
             return null;
         }
+        if (options) {
+            io.sockets.emit("sequencenumber-acquired", options.sessionIndex, options.sessionTotal);
+            if (options.sessionIndex >= options.sessionTotal) {
+                io.sockets.emit("all-sequencenumbers-acquired", options.sessionIndex);
+            }
+        }
         bookAttributes.seq = nextSequence;
-        // TODO: Consider promise instead of '_createAndSaveBook' callback here
-        return createAndSaveStateChange(dfd, Book, bookAttributes, _createAndSaveBook);
+        return eventSourcing.stateChange("CREATE", Book, null, bookAttributes, randomBooks.randomUser())
+            .then(
+            function (stateChange) {
+                if (options) {
+                    io.sockets.emit("statechangeevent-created", options.sessionIndex, options.sessionTotal);
+                    if (options.sessionIndex >= options.sessionTotal) {
+                        io.sockets.emit("all-statechangeevents-created", options.sessionIndex);
+                    }
+                }
+                if (useCQRS) {
+                    return buildAndSaveBook(dfd, stateChange);
+                } else {
+                    return dfd.resolve();
+                }
+            }
+        );
     });
     return dfd.promise;
 }
+
 
 function updateBook(id, changes) {
     var dfd = new promise.Deferred();
-    Book.findByIdAndUpdate(id, changes, function (error, book) {
-        if (error) {
-            console.warn(error);
-            dfd.reject(error);
+    Book.findByIdAndUpdate(id, changes, function (err, book) {
+        if (error.handle(err, { deferred: dfd })) {
+            return null;
         }
         console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
-        dfd.resolve(book);
+        return dfd.resolve(book);
     });
     return dfd.promise;
 }
 
+
 function removeBook(id) {
     var dfd = new promise.Deferred();
-    Book.findByIdAndRemove(id, function (error) {
-        if (error) {
-            console.warn(error);
-            dfd.reject(error);
+    Book.findByIdAndRemove(id, function (err) {
+        if (error.handle(err, { deferred: dfd })) {
+            return null;
         }
         console.log("Book [id=" + id + "] deleted ...OK");
         dfd.resolve(id);
@@ -265,44 +136,61 @@ function removeBook(id) {
     return dfd.promise;
 }
 
-// TODO: consider replacing function logic with:
-// 'app.mapReduce_map_groupByEntityId',
-// 'app.mapReduce_reduce_replayEvents', and
-// 'app.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects'
-// NB! Emitting push messages will probably be more difficult ...
+
 function replayEventStore() {
     console.log("Replaying entire change log ...");
-    io.sockets.emit("replaying-events");
+    // TODO: factor out and move to 'mongoose.event-sourcing.js''
     var mapReduceConfig = {
         query: { type: Book.modelName},
-        map: mapReduce_map_groupByEntityId,
-        reduce: mapReduce_reduce_replayEvents,
-        finalize: mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-        out: { replace: "replayAllBooks", inline: 1 }
+        map: eventSourcing.mapReduce_map_groupByEntityId,
+        reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
+        finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
+        out: {
+            replace: "replayingOfAllBooks",
+            inline: 1//,
+            //scope: {
+            //    _replayStateChanges: _replayStateChanges
+            //}
+        }
     };
-    return StateChange.mapReduce(mapReduceConfig, function (error, results) {
-        handleError(error);
+    return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
+        if (err) {
+            if (err.message === "ns doesn't exist") {
+                console.warn(err);
+                return null;
+            } else {
+                return error.handle(err);
+            }
+        }
+        //io.sockets.emit("replaying-events");
         var index = 0;
         return count(results).then(function (count) {
-            // TODO: try cursors (http://stackoverflow.com/questions/15617864/execute-callback-for-each-document-found-when-mongoose-executes-find)
+            io.sockets.emit("replaying-events", count);
+            // TODO: try cursors instead of stream (http://stackoverflow.com/questions/15617864/execute-callback-for-each-document-found-when-mongoose-executes-find)
             return results.find().stream()
                 .on("data", function (reducedBookChangeEvents) {
                     if (_.isEmpty(reducedBookChangeEvents.value)) {
-                        return console.warn("Replaying books: #" + (index += 1) + ": Book " + reducedBookChangeEvents._id + " has no changes ... ");
+                        index += 1;
+                        return console.log("Replaying books: #" + (index) + ": Book " + reducedBookChangeEvents._id + " has no changes ... probably DELETED");
 
                     } else {
-                        return Book.findById(reducedBookChangeEvents._id, function (error, book) {
+                        return Book.findById(reducedBookChangeEvents._id, function (err, book) {
+                            index += 1;
                             if (book) {
-                                return console.log("Replaying books: #" + (index += 1) + ": Book no " + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
+                                //io.sockets.emit("event-replayed", index += 1, count);
+                                io.sockets.emit("event-replayed");
+                                if (index >= count) {
+                                    io.sockets.emit("all-events-replayed", index);
+                                }
+                                return console.log("Replaying books: #" + index + ": Book no " + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
 
                             } else {
-                                //console.log("Replaying books: #" + (index + 1) + ": " + JSON.stringify(reducedBookChangeEvents));
-                                //console.log("Replaying books: #" + (index + 1) + ": Book no " + reducedBookChangeEvents.value.seq + " \"" + reducedBookChangeEvents.value.title + "\" {_id:" + reducedBookChangeEvents._id + "}");
+                                // Create emulated state change object and recreate book out of it
                                 var bookAttr = {};
                                 bookAttr.entityId = reducedBookChangeEvents._id;
                                 bookAttr.changes = reducedBookChangeEvents.value;
-                                return _createAndSaveBook(new promise.Deferred, bookAttr).then(function () {
-                                    io.sockets.emit("event-replayed", index += 1);
+                                return buildAndSaveBook(new promise.Deferred, bookAttr).then(function () {
+                                    io.sockets.emit("event-replayed", index, count);
                                     if (index >= count) {
                                         io.sockets.emit("all-events-replayed", count);
                                     }
@@ -314,8 +202,8 @@ function replayEventStore() {
                 .on("close", function () {
                     //console.log("close!");
                 })
-                .on("error", function (error) {
-                    handleError(error);
+                .on("error", function (err) {
+                    error.handle(err);
                 });
         });
     });
@@ -324,9 +212,9 @@ function replayEventStore() {
 
 
 // Connect to database
-mongoose.connect("mongodb://localhost/library", function (error, db) {
-//var db = mongoose.connect("mongodb://localhost:27018/library", { safe: true }, function (error, db) {
-    handleError(error);
+mongoose.connect("mongodb://localhost/library", function (err, db) {
+//var db = mongoose.connect("mongodb://localhost:27018/library", { safe: true }, function (err, db) {
+    error.handle(err);
 });
 
 
@@ -372,7 +260,7 @@ io.sockets.on("connection", function (socket) {
  * The alternative is to use the event store only, being considerately more ineffective ... but as a demo
  * <em>No application store is the default (at the moment).<em>
  */
-useCQRS = true;
+useCQRS = false;
 
 
 // TODO: consider some proper REST API documentation framework
@@ -394,9 +282,9 @@ useCQRS = true;
  * Push messages           : -
  */
 app.get("/events/count", function (request, response) {
-    return StateChange.count({ method: "CREATE"}, function (error, createCount) {
-        return StateChange.count({ method: "UPDATE"}, function (error, updateCount) {
-            return StateChange.count({ method: "DELETE"}, function (error, deleteCount) {
+    return eventSourcing.StateChange.count({ method: "CREATE"}, function (err, createCount) {
+        return eventSourcing.StateChange.count({ method: "UPDATE"}, function (err, updateCount) {
+            return eventSourcing.StateChange.count({ method: "DELETE"}, function (err, deleteCount) {
                 return response.send(200, {
                     createCount: createCount,
                     updateCount: updateCount,
@@ -422,7 +310,7 @@ app.get("/events/count", function (request, response) {
  * Push messages          : -
  */
 app.get("/events/:entityId", function (request, response) {
-    return getStateChangesByEntityId(request.params.entityId).then(function (stateChanges) {
+    return eventSourcing.getStateChangesByEntityId(request.params.entityId).then(function (stateChanges) {
         return response.send(200, stateChanges);
     });
 });
@@ -493,7 +381,7 @@ app.post("/events/cqrs/toggle", function (request, response) {
  * Push messages           :
  *     cqrs                { the new CQRS usage flag value }
  *     replaying-events    { }
- *     event-replayed      { the index of the replayed state change event }
+ *     event-replayed      { the index of the replayed state change event, the total number of state change events expected to be replayed }
  *     all-events-replayed { the total number of replayed state change events }
  */
 app.post("/events/replay", function (request, response) {
@@ -523,46 +411,60 @@ app.post("/events/replay", function (request, response) {
  *     422 Unprocessable Entity : Missing mandatory property "numberOfBooks"
  * Resource out properties : -
  * Push messages           :
- *     generating-books    { }
- *     book-generated      { the index of the generated book, the book resource }
+ *     acquiring-sequencenumbers    { the total number sequence numbers to be acquired }
+ *     acquiring-sequencenumbers    { the index of the generated sequence number, the total number sequence numbers to be acquired }
+ *     all-sequencenumbers-acquired { the total number sequence numbers acquired }
+ *
+ *     creating-statechangeevents    { the total number state change events to be created }
+ *     statechangeevent-created      { the index of the created state change event, the total number state change events to be created }
+ *     all-statechangeevents-created { the total number state change events created }
+ *
+ *     generating-books    { the total number of books to be generated }
+ *     book-generated      { the index of the generated book, the total number of books to be generated }
  *     all-books-generated { the total number of books generated }
  */
 app.post("/library/books/generate", function (request, response) {
     var numberOfBooksToGenerate = request.body.numberOfBooks,
         i,
-        numberOfBooksGenerated = 0,
-        existingNumberOfBooksAtStart;
+        numberOfBooksGenerated = 0;
 
     if (!numberOfBooksToGenerate) {
-        return response.send(422, "Property 'numberOfBooks' is mandatory");
-    }
-    response.send(202);
-    io.sockets.emit("generating-books", numberOfBooksToGenerate);
-    return count(Book).then(
-        function (bookCountAtStart) {
-            existingNumberOfBooksAtStart = bookCountAtStart;
-            for (i = 0; i < parseInt(numberOfBooksToGenerate, 10); i += 1) {
-                createBook({
-                    title: randomBooks.randomBookTitle(),
-                    author: randomBooks.randomName(),
-                    keywords: [
-                        createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords)),
-                        createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords))
-                    ]
-                }).then(
-                    function (book) {
-                        numberOfBooksGenerated += 1;
-                        io.sockets.emit("book-generated", numberOfBooksGenerated, book);
-                        if (numberOfBooksGenerated >= numberOfBooksToGenerate) {
-                            io.sockets.emit("all-books-generated", numberOfBooksGenerated);
-                        }
+        response.send(422, "Property 'numberOfBooks' is mandatory");
 
-                    }, function (error) {
-                        return handleError(error, response);
+    } else {
+        response.send(202);
+        io.sockets.emit("acquiring-sequencenumbers", numberOfBooksToGenerate);
+        io.sockets.emit("creating-statechangeevents", numberOfBooksToGenerate);
+        io.sockets.emit("generating-books", numberOfBooksToGenerate);
+        for (i = 0; i < parseInt(numberOfBooksToGenerate, 10); i += 1) {
+            createBook({
+                title: randomBooks.randomBookTitle(),
+                author: randomBooks.randomName(),
+                // TODO: like this ... (but strange errors observed))
+                //keywords: [randomBooks.randomKeyword(), randomBooks.randomKeyword()]
+                keywords: [
+                    createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords)),
+                    createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords))
+                ]
+            }, {
+                sessionIndex: (i + 1),
+                sessionTotal: numberOfBooksToGenerate//,
+                // TODO: try this
+                //emitter: io.sockets.emit
+            }).then(
+                function (book) {
+                    numberOfBooksGenerated += 1;
+                    io.sockets.emit("book-generated", numberOfBooksGenerated, numberOfBooksToGenerate);
+                    if (numberOfBooksGenerated >= numberOfBooksToGenerate) {
+                        io.sockets.emit("all-books-generated", numberOfBooksGenerated);
                     }
-                );
-            }
-        });
+
+                }, function (err) {
+                    error.handle(err, { response: response });
+                }
+            );
+        }
+    }
 });
 
 
@@ -579,7 +481,7 @@ app.post("/library/books/generate", function (request, response) {
  *     202 Accepted      : When no application store is in use
  *     205 Reset Content : When application store is is use
  * Resource out properties : -
- * Push messages           : books-removed { }
+ * Push messages           : all-books-removed { }
  */
 app.post("/library/books/clean", function (request, response) {
     if (!useCQRS) {
@@ -588,9 +490,11 @@ app.post("/library/books/clean", function (request, response) {
     } else {
         response.send(205);
     }
-    return mongoose.connection.collections[Book.collectionName()].drop(function (error) {
-        handleError(error, response);
-        io.sockets.emit("books-removed");
+    return mongoose.connection.collections[Book.collectionName()].drop(function (err) {
+        if (error.handle(err, { response: response })) {
+            return null;
+        }
+        return io.sockets.emit("all-books-removed");
     });
 });
 
@@ -633,38 +537,46 @@ app.post("/library/books/count", function (request, response) {
                 "title": titleRegexp,
                 "author": authorRegexp
             },
-            function (error, count) {
-                handleError(error, response);
+            function (err, count) {
+                if (error.handle(err, { response: response })) {
+                    return null;
+                }
                 return response.send(200, { count: count });
             });
     }
-    var mapReduceConfig = {
-        query: { type: Book.modelName },
-        map: mapReduce_map_groupByEntityId,
-        reduce: mapReduce_reduce_replayEvents,
-        finalize: mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-        out: { replace: "filteredBooks", inline: 1 }
-    };
-    return StateChange.mapReduce(mapReduceConfig, function (error, results) {
-        if (error) {
-            console.warn(error);
-            if (error.message === "ns doesn't exist") {
-                return response.send(200, { count: 0 });
-            } else {
-                return response.send(500, { error: error.message });
-            }
-        } else {
-            // Filter results and count the remaining ...
-            return results.find({
-                    "value.title": titleRegexp,
-                    "value.author": authorRegexp
-                },
-                "value.seq",
-                function (error, books) {
-                    handleError(error, response);
-                    return response.send(200, { count: books.length });
-                });
+    // No CQRS, rather event store scanning using mapreduce ...
+    return count(eventSourcing.StateChange).then(function (count) {
+        if (count <= 0) {
+            return response.send(200, { count: 0 });
         }
+        var mapReduceConfig = {
+            query: { type: Book.modelName },
+            map: eventSourcing.mapReduce_map_groupByEntityId,
+            reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
+            finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
+            out: { replace: "filteredBooks", inline: 1 }
+        };
+        return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
+            if (err) {
+                if (err.message === "ns doesn't exist") {
+                    console.warn(err);
+                    response.send(200, { count: 0 });
+                } else {
+                    error.handle(err, { response: response });
+                }
+            }
+
+            // Filter results and count the remaining ...
+            return results.find(
+                { "value.title": titleRegexp, "value.author": authorRegexp },
+                "value.seq",
+                function (err, books) {
+                    if (!error.handle(err, { response: response })) {
+                        response.send(200, { count: books.length });
+                    }
+                }
+            );
+        });
     });
 });
 
@@ -705,7 +617,9 @@ app.post("/library/books/projection", function (request, response) {
         titleRegexp = null,
         authorRegexp = null,
         findQuery = null,
-        findQuery_mapreduce = null;
+        findQuery_mapreduce = null,
+        sortQuery = null,
+        sortQuery_mapreduce = null;
 
     if (numberOfBooksForEachPage) {
         // Paginate!
@@ -722,17 +636,19 @@ app.post("/library/books/projection", function (request, response) {
 
         findQuery = { title: titleRegexp, author: authorRegexp };
         findQuery_mapreduce = { "value.title": titleRegexp, "value.author": authorRegexp };
+
+        sortQuery_mapreduce = { "value.seq": "asc" };
     }
 
     if (useCQRS) {
         return count(Book).then(function (totalCount) {
-            return Book.count(findQuery, function (error, count) {
+            return Book.count(findQuery, function (err, count) {
                 return Book
                     .find(findQuery)
                     .sort({ seq: "asc" })
                     .skip(skip)
                     .limit(limit)
-                    .exec(function (error, books) {
+                    .exec(function (err, books) {
                         return response.send(200, { books: books, count: count, totalCount: totalCount });
                     });
             });
@@ -740,51 +656,67 @@ app.post("/library/books/projection", function (request, response) {
 
     } else {
         // No CQRS, rather event store scanning using mapreduce ...
-        var mapReduceConfig = {
-            query: { type: Book.modelName},
-            map: mapReduce_map_groupByEntityId,
-            reduce: mapReduce_reduce_replayEvents,
-            finalize: mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-            out: { replace: "getAllBooks", inline: 1 }
-        };
-        return StateChange.mapReduce(mapReduceConfig, function (error, results) {
-            if (error) {
-                if (error.message === "ns doesn't exist") {
-                    return response.send(200, { books: [], count: 0, totalCount: 0 });
-                } else {
-                    return handleError(error, response);
-                }
+        return count(eventSourcing.StateChange).then(function (count) {
+            if (count <= 0) {
+                return response.send(200, { books: [], count: 0, totalCount: 0 });
             }
-            return results
-                .find(function (error, totalMapReducedResult) {
-                    var totalResult = [];
-                    totalMapReducedResult.forEach(function (obj, index) {
-                        if (obj.value) {
-                            totalResult.push(obj);
-                        }
-                    });
-
-                    return results
-                        .find(findQuery_mapreduce)
-                        .exec(function (error, projectedResult) {
-
-                            return results
-                                .find(findQuery_mapreduce)
-                                .sort({ "value.seq": "asc" })
-                                .skip(skip)
-                                .limit(limit)
-                                .exec(function (error, paginatedResult) {
-                                    var books = [];
-                                    paginatedResult.forEach(function (obj, index) {
-                                        if (obj.value) {
-                                            obj.value._id = obj._id;
-                                            books.push(obj.value)
-                                        }
-                                    });
-                                    return response.send(200, { books: books, count: projectedResult.length, totalCount: totalResult.length });
-                                });
+            // TODO: factor out and move to 'mongoose.event-sourcing.js''
+            var mapReduceConfig = {
+                query: { type: Book.modelName},
+                map: eventSourcing.mapReduce_map_groupByEntityId,
+                reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
+                finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
+                out: {
+                    replace: "getAllBooks",
+                    inline: 1//,
+                    //scope: {
+                    //    replayStateChanges: replayStateChanges
+                    //}
+                }
+            };
+            return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
+                if (err) {
+                    if (err.message === "ns doesn't exist") {
+                        console.warn(err);
+                        return response.send(200, { books: [], count: 0, totalCount: 0 });
+                    } else {
+                        return error.handle(err, { response: response });
+                    }
+                }
+                return results
+                    .find(function (err, totalMapReducedResult) {
+                        var totalResult = [];
+                        totalMapReducedResult.forEach(function (obj, index) {
+                            if (obj.value) {
+                                totalResult.push(obj);
+                            }
                         });
-                });
+
+                        return results
+                            .find(findQuery_mapreduce)
+                            .exec(function (err, projectedResult) {
+
+                                return results
+                                    .find(findQuery_mapreduce)
+                                    .sort(sortQuery_mapreduce)
+                                    .skip(skip)
+                                    .limit(limit)
+                                    .exec(function (err, paginatedResult) {
+                                        var books = [];
+                                        paginatedResult.forEach(function (obj, index) {
+                                            if (obj.value) {
+                                                obj.value._id = obj._id;
+                                                books.push(obj.value)
+                                            }
+                                        });
+                                        return response.send(200, { books: books, count: projectedResult.length, totalCount: totalResult.length });
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
+            });
         });
     }
 });
@@ -804,37 +736,37 @@ app.post("/library/books/projection", function (request, response) {
  *     422 Unprocessable Entity : when request body is empty
  * Resource out properties :
  *     entityId : The entity id of the updated book
- * Push messages           : book-updated { change: the "BookMongooseSchema" object changes }
+ * Push messages           : book-updated { book: the "BookMongooseSchema" object }
  */
 app.put("/library/books/:id", function (request, response) {
-    return getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
-        if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
-            delete request.body._id;
-            var changes = request.body;
-            if (_.isEmpty(changes)) {
-                console.log("No changes in request ...aborting update");
-                return response.send(422, "No changes in update request");
-            }
-            return createStateChange("UPDATE", Book, request.params.id, { changes: changes }).save(function (error, change) {
-                handleError(error, response);
+    return eventSourcing.getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
+        if (!stateChanges || stateChanges[stateChanges.length - 1].method === "DELETE") {
+            return response.send(404);
+        }
+        delete request.body._id;
+        var changes = request.body;
+        if (_.isEmpty(changes)) {
+            console.log("No changes in request ...aborting update");
+            return response.send(422, "No changes in update request");
+        }
+        return eventSourcing.stateChange("UPDATE", Book, request.params.id, changes, randomBooks.randomUser())
+            .then(function (change) {
                 response.send(201, { entityId: change.entityId });
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return updateBook(change.entityId, change.changes).then(function (book) {
-                        // Broadcast message to all clients when application store is updated
-                        return io.sockets.emit("book-updated", { change: change.changes });
+                        return io.sockets.emit("book-updated", { book: book });
                     });
                     // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
 
                 } else {
-                    // Broadcast message to all clients when application store is updated
-                    return io.sockets.emit("book-updated", { change: change.changes });
+                    return io.sockets.emit("book-updated", { book: eventSourcing.rebuild(Book, change.entityId) });
                 }
-            });
 
-        } else {
-            return response.send(404);
-        }
+            }, function (err) {
+                error.handle(err, { response: response });
+            }
+        );
     });
 });
 
@@ -848,28 +780,31 @@ app.put("/library/books/:id", function (request, response) {
  * URI                     : /library/books/{id}
  * Resource in properties  : -
  * Status codes            :
- *     201 Created              : a new update event is stored
- *     404 Not Found            : when the resource does not exist / already deleted
+ *     201 Created   : a new update event is stored
+ *     404 Not Found : when the resource does not exist / already deleted
  * Resource out properties :
  *     entityId : The entity id of the updated book
  * Push messages           : book-removed { entityId: The entity id of the updated book }
  */
 app.delete("/library/books/:id", function (request, response) {
-    return getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
+    return eventSourcing.getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
         if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
-            return createStateChange("DELETE", Book, request.params.id).save(function (error, change) {
-                handleError(error, response);
-                response.send(200, { entityId: change.entityId });
-                if (useCQRS) {
-                    return removeBook(change.entityId).then(function (entityId) {
-                        return io.sockets.emit("book-removed", { entityId: entityId });
-                    });
-                    // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
+            return eventSourcing.stateChange("DELETE", Book, request.params.id, null, randomBooks.randomUser())
+                .then(function (change) {
+                    response.send(200, { entityId: change.entityId });
 
-                } else {
-                    return io.sockets.emit("book-removed", { entityId: change.entityId });
-                }
-            });
+                    if (useCQRS) {
+                        return removeBook(change.entityId).then(function (entityId) {
+                            return io.sockets.emit("book-removed", { entityId: entityId });
+                        });
+
+                    } else {
+                        return io.sockets.emit("book-removed", { entityId: change.entityId });
+                    }
+
+                }, function (err) {
+                    error.handle(err, { response: response });
+                });
 
         } else {
             return response.send(404);
