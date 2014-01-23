@@ -42,7 +42,7 @@ app.ServerPushClient = Backbone.Model.extend({
         var msg = arguments[0],
             pushMsgArgs = _.rest(arguments),
             hasMsgArgs = !_.isEmpty(pushMsgArgs),
-            retVal = "PUSH { " + msg;
+            retVal = "Server Push { " + msg;
 
         if (hasMsgArgs) {
             retVal += " { ";
@@ -67,26 +67,16 @@ app.ServerPushClient = Backbone.Model.extend({
             // http://stackoverflow.com/questions/960866/converting-the-arguments-object-to-an-array-in-javascript
             var args = Array.prototype.slice.call(arguments, 0),
                 marshalledArgs;
-            //args = args.sort(); // Screws things up somehow ...
+            //args = args.sort(); // Screw things up somehow ...
             args.unshift(eventId);
-            _.each(args, function (arg, index) {
-                if (_.isObject(arg)) {
-                    args[index] = JSON.stringify(arg);
-                }
+            marshalledArgs = _.map(args, function (arg) {
+                return _.isObject(arg) ? JSON.stringify(arg) : arg;
             });
-            // TODO: like this:
-            /*
-             marshalledArgs = _.map(args, function (arg) {
-             if (_.isObject(arg)) {
-             return JSON.stringify(arg);
-             } else {
-             return null;
-             }
-             });
-             */
-            marshalledArgs = args;
+
             console.log(self.createPushMessage.apply(self, marshalledArgs));
+
             self.trigger.apply(self, marshalledArgs);
+
             if (callback) {
                 callback.apply(self, arguments);
             }

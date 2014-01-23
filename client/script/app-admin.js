@@ -46,13 +46,17 @@ app.StateChangeAdminView = Backbone.View.extend({
     initialize: function () {
         this.template = _.template($(this.templateSelector).html());
 
-        var replayProgressbar = new Progressbar({
-            headerText: "Replaying all state change events into application store ..."
-        });
+        var replayStateChangeEventsProgressbar = new Progressbar({ headerText: "Replaying all state change events into application store ..." });
+
+        var replayProgressbar = new Progressbar();
         replayProgressbar.listenTo(app.pushClient, "replaying-events", replayProgressbar.start);
         replayProgressbar.listenTo(app.pushClient, "event-replayed", replayProgressbar.progress);
         replayProgressbar.listenTo(app.pushClient, "all-events-replayed", replayProgressbar.finish);
-        new BootstrapModalProgressbarView({ model: replayProgressbar });
+
+        new BootstrapModalMultipleProgressbarView({
+            model: replayStateChangeEventsProgressbar,
+            collection: new ProgressbarCollection([replayProgressbar])
+        });
 
         this.listenTo(app.pushClient, "cqrs", this.renderButtons);
         this.listenTo(this.model, "change", this.render);
@@ -82,6 +86,7 @@ app.StateChangeAdminView = Backbone.View.extend({
         new app.CqrsCheck().fetch().done(_.bind(this.renderButtons, this));
     },
     toggleCqrs: function () {
+        // TODO: consider introducing CQRS threshold warning ('modal conditional alert dialog'), e.g. 20000
         new app.CqrsToggle().save();
     },
     replayChangeLog: function (event) {
@@ -108,17 +113,21 @@ app.LibraryAdminView = Backbone.View.extend({
         var bookSequenceNumbersProgressbar = new Progressbar({ headerText: "Acquiring book sequence numbers ..." });
         bookSequenceNumbersProgressbar.listenTo(app.pushClient, "acquiring-sequencenumbers", bookSequenceNumbersProgressbar.start);
         bookSequenceNumbersProgressbar.listenTo(app.pushClient, "sequencenumber-acquired", bookSequenceNumbersProgressbar.progress);
-        //bookSequenceNumbersProgressbar.listenTo(app.pushClient, "all-sequencenumbers-acquired", bookSequenceNumbersProgressbar.finish);
+        bookSequenceNumbersProgressbar.listenTo(app.pushClient, "all-sequencenumbers-acquired", bookSequenceNumbersProgressbar.finish);
 
-        var stateChangeEventsProgressbar = new Progressbar({ headerText: "Creating state change event objects ... <em>(event store)</em>" });
+        var stateChangeEventsProgressbar = new Progressbar({ headerText: "Creating state change event objects ... " +
+            "<span class='pull-right' style='margin-right:1rem;'><small><em>(event store)</em></small></span>"
+        });
         stateChangeEventsProgressbar.listenTo(app.pushClient, "creating-statechangeevents", stateChangeEventsProgressbar.start);
         stateChangeEventsProgressbar.listenTo(app.pushClient, "statechangeevent-created", stateChangeEventsProgressbar.progress);
-        //stateChangeEventsProgressbar.listenTo(app.pushClient, "all-statechangeevents-created", stateChangeEventsProgressbar.finish);
+        stateChangeEventsProgressbar.listenTo(app.pushClient, "all-statechangeevents-created", stateChangeEventsProgressbar.finish);
 
-        var booksProgressbar = new Progressbar({ headerText: "Creating book objects ... <em>(application store)</em>" });
+        var booksProgressbar = new Progressbar({ headerText: "Creating book objects ...  " +
+            "<span class='pull-right' style='margin-right:1rem;'><small><em>(application store)</em></small></span>"
+        });
         booksProgressbar.listenTo(app.pushClient, "generating-books", booksProgressbar.start);
         booksProgressbar.listenTo(app.pushClient, "book-generated", booksProgressbar.progress);
-        //booksProgressbar.listenTo(app.pushClient, "all-books-generated", booksProgressbar.finish);
+        booksProgressbar.listenTo(app.pushClient, "all-books-generated", booksProgressbar.finish);
 
         new BootstrapModalMultipleProgressbarView({
             model: generateBooksProgressbar,

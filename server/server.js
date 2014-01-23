@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Main library application server / service API
+///////////////////////////////////////////////////////////////////////////////
+
 // Module dependencies, external
 var application_root = __dirname,
     _ = require("underscore"),
@@ -6,13 +10,16 @@ var application_root = __dirname,
     socketio = require("socket.io"),
     http = require("http"),
     express = require("express"),
+// TODO: replace express with:
+//koa = require('koa'),
     mongoose = require("mongoose"),
 
 // Module dependencies, internal
     error = require("./script/error.js"),
     sequenceNumber = require("./script/mongoose.sequence-number.js"),
     eventSourcing = require("./script/mongoose.event-sourcing.js"),
-    randomBooks = require("./script/random-books.js");
+    randomBooks = require("./script/random-books.js"),
+    utils = require("./script/utils.js");
 
 
 // Mongoose schemas
@@ -22,11 +29,11 @@ var KeywordMongooseSchema = new mongoose.Schema({
 
 var BookMongooseSchema = new mongoose.Schema({
     seq: Number,
-    title: String,
-    author: String,
-    releaseDate: Date,
-    coverImage: String,
-    keywords: [ KeywordMongooseSchema ]
+    title: { type: String, index: true },
+    author: { type: String, index: true },
+    //releaseDate: Date,    // Not yet supported
+    //coverImage: String,   // Not yet supported
+    keywords: { type: [ KeywordMongooseSchema ], index: true }
 });
 // /Mongoose schemas
 
@@ -62,7 +69,7 @@ function createKeyword(keyword) {
 }
 
 
-/** 'Build' means build Book object from StateChange object ...  */
+/** 'Build' means building Book object from eventSourcing.StateChange object ...  */
 function buildAndSaveBook(deferred, bookStateChangeObject) {
     var book = new Book({ _id: bookStateChangeObject.entityId });
     book.set(bookStateChangeObject.changes);
@@ -77,26 +84,42 @@ function buildAndSaveBook(deferred, bookStateChangeObject) {
 }
 
 
+/**
+ * TODO: document
+ * ...
+ *
+ * Push messages :
+ *     sequencenumber-acquired      ( ... )
+ *     statechangeevent-created     ( ... )
+ *     all-sequencenumbers-acquired
+ */
+// TODO: consider moving more of this logic to 'mongoose.event-sourcing.js'
 function createBook(bookAttributes, options) {
     var dfd = new promise.Deferred();
     sequenceNumber.incrementSequenceNumber(Book.collectionName(), function (err, nextSequence) {
         if (error.handle(err, { deferred: dfd })) {
             return null;
         }
-        if (options) {
-            io.sockets.emit("sequencenumber-acquired", options.sessionIndex, options.sessionTotal);
-            if (options.sessionIndex >= options.sessionTotal) {
-                io.sockets.emit("all-sequencenumbers-acquired", options.sessionIndex);
+        if (options && options.emitter) {
+            options.numberOfSequenceNumbersGenerated += 1;
+            utils.throttleEvents(options.emits, options.numberOfSequenceNumbersGenerated, options.totalCount, function (progressInPercent) {
+                io.sockets.emit("sequencenumber-acquired", progressInPercent, options.startTime);
+            });
+            if (options.numberOfSequenceNumbersGenerated >= options.totalCount) {
+                io.sockets.emit("all-sequencenumbers-acquired");
             }
         }
         bookAttributes.seq = nextSequence;
         return eventSourcing.stateChange("CREATE", Book, null, bookAttributes, randomBooks.randomUser())
             .then(
             function (stateChange) {
-                if (options) {
-                    io.sockets.emit("statechangeevent-created", options.sessionIndex, options.sessionTotal);
-                    if (options.sessionIndex >= options.sessionTotal) {
-                        io.sockets.emit("all-statechangeevents-created", options.sessionIndex);
+                if (options && options.emitter) {
+                    options.numberOfStateChangesGenerated += 1;
+                    utils.throttleEvents(options.emits, options.numberOfStateChangesGenerated, options.totalCount, function (progressInPercent) {
+                        io.sockets.emit("statechangeevent-created", progressInPercent, options.startTime);
+                    });
+                    if (options.numberOfStateChangesGenerated >= options.totalCount) {
+                        io.sockets.emit("all-statechangeevents-created");
                     }
                 }
                 if (useCQRS) {
@@ -127,86 +150,89 @@ function updateBook(id, changes) {
 function removeBook(id) {
     var dfd = new promise.Deferred();
     Book.findByIdAndRemove(id, function (err) {
-        if (error.handle(err, { deferred: dfd })) {
-            return null;
+        if (!error.handle(err, { deferred: dfd })) {
+            console.log("Book [id=" + id + "] deleted ...OK");
+            dfd.resolve(id);
         }
-        console.log("Book [id=" + id + "] deleted ...OK");
-        dfd.resolve(id);
     });
     return dfd.promise;
 }
 
 
-function replayEventStore() {
+/**
+ * Replay the entire <em>event store</em> into the <em>application store</em>
+ *
+ * Push messages :
+ *     replaying-events    (startTimestamp)
+ *     event-replayed      (total event state change replaying progress in percentage)
+ *     all-events-replayed ()
+ */
+// TODO: consider moving more of this logic to 'mongoose.event-sourcing.js'
+function replayAllStateChanges(type) {
     console.log("Replaying entire change log ...");
-    // TODO: factor out and move to 'mongoose.event-sourcing.js''
-    var mapReduceConfig = {
-        query: { type: Book.modelName},
-        map: eventSourcing.mapReduce_map_groupByEntityId,
-        reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
-        finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-        out: {
-            replace: "replayingOfAllBooks",
-            inline: 1//,
-            //scope: {
-            //    _replayStateChanges: _replayStateChanges
-            //}
-        }
-    };
-    return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
-        if (err) {
+    var startTime = Date.now(),
+        emits = 1000;
+    io.sockets.emit("replaying-events", startTime, emits);
+    return eventSourcing.find({ type: type }).then(
+        function (results) {
+            var index = 0;
+            return results.count(function (err, count) {
+                if (count < 1) {
+                    return io.sockets.emit("all-events-replayed");
+                }
+                // TODO: try cursors instead of streams (http://stackoverflow.com/questions/15617864/execute-callback-for-each-document-found-when-mongoose-executes-find)
+                return results.find().stream()
+                    .on("data", function (reducedBookChangeEvents) {
+                        if (_.isEmpty(reducedBookChangeEvents.value)) {
+                            index += 1;
+                            return console.log("Replaying books: #" + (index) + ": Book " + reducedBookChangeEvents._id + " has no changes ... probably DELETED");
+
+                        } else {
+                            return type.findById(reducedBookChangeEvents._id, function (err, book) {
+                                index += 1;
+                                if (book) {
+                                    utils.throttleEvents(emits, index, count, function (progressValue) {
+                                        io.sockets.emit("event-replayed", progressValue, startTime);
+                                    });
+                                    if (index >= count) {
+                                        io.sockets.emit("all-events-replayed");
+                                    }
+                                    return console.log("Replaying books: #" + index + ": Book no " + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
+
+                                } else {
+                                    // Create emulated state change object and recreate book out of it
+                                    var bookAttr = {};
+                                    bookAttr.entityId = reducedBookChangeEvents._id;
+                                    bookAttr.changes = reducedBookChangeEvents.value;
+                                    return buildAndSaveBook(new promise.Deferred, bookAttr).then(function () {
+                                        utils.throttleEvents(emits, index, count, function (progressValue) {
+                                            io.sockets.emit("event-replayed", progressValue, startTime);
+                                        });
+                                        if (index >= count) {
+                                            io.sockets.emit("all-events-replayed");
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    })
+                    .on("close", function () {
+                        console.log("close!");
+                    })
+                    .on("error", function (err) {
+                        error.handle(err);
+                    });
+            });
+        },
+        function (err) {
             if (err.message === "ns doesn't exist") {
                 console.warn(err);
-                return null;
+                return io.sockets.emit("all-events-replayed");
             } else {
                 return error.handle(err);
             }
         }
-        //io.sockets.emit("replaying-events");
-        var index = 0;
-        return count(results).then(function (count) {
-            io.sockets.emit("replaying-events", count);
-            // TODO: try cursors instead of stream (http://stackoverflow.com/questions/15617864/execute-callback-for-each-document-found-when-mongoose-executes-find)
-            return results.find().stream()
-                .on("data", function (reducedBookChangeEvents) {
-                    if (_.isEmpty(reducedBookChangeEvents.value)) {
-                        index += 1;
-                        return console.log("Replaying books: #" + (index) + ": Book " + reducedBookChangeEvents._id + " has no changes ... probably DELETED");
-
-                    } else {
-                        return Book.findById(reducedBookChangeEvents._id, function (err, book) {
-                            index += 1;
-                            if (book) {
-                                //io.sockets.emit("event-replayed", index += 1, count);
-                                io.sockets.emit("event-replayed");
-                                if (index >= count) {
-                                    io.sockets.emit("all-events-replayed", index);
-                                }
-                                return console.log("Replaying books: #" + index + ": Book no " + book.seq + " \"" + book.title + "\" already present! {_id:" + book._id + "}");
-
-                            } else {
-                                // Create emulated state change object and recreate book out of it
-                                var bookAttr = {};
-                                bookAttr.entityId = reducedBookChangeEvents._id;
-                                bookAttr.changes = reducedBookChangeEvents.value;
-                                return buildAndSaveBook(new promise.Deferred, bookAttr).then(function () {
-                                    io.sockets.emit("event-replayed", index, count);
-                                    if (index >= count) {
-                                        io.sockets.emit("all-events-replayed", count);
-                                    }
-                                });
-                            }
-                        });
-                    }
-                })
-                .on("close", function () {
-                    //console.log("close!");
-                })
-                .on("error", function (err) {
-                    error.handle(err);
-                });
-        });
-    });
+    );
 }
 // /Application-specific functions
 
@@ -260,7 +286,7 @@ io.sockets.on("connection", function (socket) {
  * The alternative is to use the event store only, being considerately more ineffective ... but as a demo
  * <em>No application store is the default (at the moment).<em>
  */
-useCQRS = false;
+useCQRS = true;
 
 
 // TODO: consider some proper REST API documentation framework
@@ -282,9 +308,9 @@ useCQRS = false;
  * Push messages           : -
  */
 app.get("/events/count", function (request, response) {
-    return eventSourcing.StateChange.count({ method: "CREATE"}, function (err, createCount) {
-        return eventSourcing.StateChange.count({ method: "UPDATE"}, function (err, updateCount) {
-            return eventSourcing.StateChange.count({ method: "DELETE"}, function (err, deleteCount) {
+    return eventSourcing.StateChange.count({ method: "CREATE" }, function (err, createCount) {
+        return eventSourcing.StateChange.count({ method: "UPDATE" }, function (err, updateCount) {
+            return eventSourcing.StateChange.count({ method: "DELETE" }, function (err, deleteCount) {
                 return response.send(200, {
                     createCount: createCount,
                     updateCount: updateCount,
@@ -360,7 +386,7 @@ app.post("/events/cqrs/toggle", function (request, response) {
     useCQRS = !useCQRS;
     io.sockets.emit("cqrs", useCQRS);
     if (useCQRS) {
-        replayEventStore();
+        replayAllStateChanges(Book);
     }
 });
 
@@ -392,7 +418,7 @@ app.post("/events/replay", function (request, response) {
         return response.send(403, msg);
     }
     response.send(202);
-    return replayEventStore();
+    return replayAllStateChanges(Book);
 });
 
 
@@ -424,39 +450,41 @@ app.post("/events/replay", function (request, response) {
  *     all-books-generated { the total number of books generated }
  */
 app.post("/library/books/generate", function (request, response) {
-    var numberOfBooksToGenerate = request.body.numberOfBooks,
-        i,
-        numberOfBooksGenerated = 0;
+    var totalNumberOfBooksToGenerate = request.body.numberOfBooks,
+        sessionData = {
+            startTime: Date.now(),
+            emits: 1000,
+            jobNo: 0,
+            totalCount: totalNumberOfBooksToGenerate,
+            numberOfSequenceNumbersGenerated: 0,
+            numberOfStateChangesGenerated: 0,
+            numberOfBooksGenerated: 0,
+            // TODO: try this one more time ...
+            emitter: io
+            //emitter: io.sockets
+            //emitter: io.sockets.emit
+        };
 
-    if (!numberOfBooksToGenerate) {
+    if (!totalNumberOfBooksToGenerate) {
         response.send(422, "Property 'numberOfBooks' is mandatory");
 
     } else {
         response.send(202);
-        io.sockets.emit("acquiring-sequencenumbers", numberOfBooksToGenerate);
-        io.sockets.emit("creating-statechangeevents", numberOfBooksToGenerate);
-        io.sockets.emit("generating-books", numberOfBooksToGenerate);
-        for (i = 0; i < parseInt(numberOfBooksToGenerate, 10); i += 1) {
-            createBook({
-                title: randomBooks.randomBookTitle(),
-                author: randomBooks.randomName(),
-                // TODO: like this ... (but strange errors observed))
-                //keywords: [randomBooks.randomKeyword(), randomBooks.randomKeyword()]
-                keywords: [
-                    createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords)),
-                    createKeyword(randomBooks.pickRandomElementFrom(randomBooks.keywords))
-                ]
-            }, {
-                sessionIndex: (i + 1),
-                sessionTotal: numberOfBooksToGenerate//,
-                // TODO: try this
-                //emitter: io.sockets.emit
-            }).then(
+        io.sockets.emit("acquiring-sequencenumbers", sessionData.startTime);
+        io.sockets.emit("creating-statechangeevents", sessionData.startTime);
+        io.sockets.emit("generating-books", sessionData.startTime);
+        for (sessionData.jobNo = 1; sessionData.jobNo <= parseInt(totalNumberOfBooksToGenerate, 10); sessionData.jobNo += 1) {
+            createBook(
+                { title: randomBooks.randomBookTitle(), author: randomBooks.randomName(), keywords: [createKeyword(randomBooks.randomKeyword()), createKeyword(randomBooks.randomKeyword())] },
+                sessionData
+            ).then(
                 function (book) {
-                    numberOfBooksGenerated += 1;
-                    io.sockets.emit("book-generated", numberOfBooksGenerated, numberOfBooksToGenerate);
-                    if (numberOfBooksGenerated >= numberOfBooksToGenerate) {
-                        io.sockets.emit("all-books-generated", numberOfBooksGenerated);
+                    sessionData.numberOfBooksGenerated += 1;
+                    utils.throttleEvents(sessionData.emits, sessionData.numberOfBooksGenerated, totalNumberOfBooksToGenerate, function (progressValueProgressInPercent) {
+                        io.sockets.emit("book-generated", progressValueProgressInPercent);
+                    });
+                    if (sessionData.numberOfBooksGenerated >= totalNumberOfBooksToGenerate) {
+                        io.sockets.emit("all-books-generated");
                     }
 
                 }, function (err) {
@@ -544,20 +572,19 @@ app.post("/library/books/count", function (request, response) {
                 return response.send(200, { count: count });
             });
     }
-    // No CQRS, rather event store scanning using mapreduce ...
+    // No CQRS, rather event store scanning using mapreduce
     return count(eventSourcing.StateChange).then(function (count) {
         if (count <= 0) {
             return response.send(200, { count: 0 });
         }
-        var mapReduceConfig = {
-            query: { type: Book.modelName },
-            map: eventSourcing.mapReduce_map_groupByEntityId,
-            reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
-            finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-            out: { replace: "filteredBooks", inline: 1 }
-        };
-        return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
-            if (err) {
+        return eventSourcing.count(Book, {
+            "value.title": titleRegexp,
+            "value.author": authorRegexp
+        }).then(
+            function (count) {
+                response.send(200, { count: count });
+
+            }, function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
                     response.send(200, { count: 0 });
@@ -565,18 +592,7 @@ app.post("/library/books/count", function (request, response) {
                     error.handle(err, { response: response });
                 }
             }
-
-            // Filter results and count the remaining ...
-            return results.find(
-                { "value.title": titleRegexp, "value.author": authorRegexp },
-                "value.seq",
-                function (err, books) {
-                    if (!error.handle(err, { response: response })) {
-                        response.send(200, { count: books.length });
-                    }
-                }
-            );
-        });
+        );
     });
 });
 
@@ -605,6 +621,7 @@ app.post("/library/books/projection", function (request, response) {
     // Pagination
     var numberOfBooksForEachPage = request.body.count, // Pagination or not ...
         indexOfFirstBook = request.body.index,
+        doPaginate = (numberOfBooksForEachPage),
 
         skip = 0,
         limit = null,
@@ -612,112 +629,54 @@ app.post("/library/books/projection", function (request, response) {
     // Filtering
         titleSearchRegexString = request.body.titleSubstring,
         authorSearchRegexString = request.body.authorSubstring,
+        doFilter = !(_.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString)),
 
         searchRegexOptions = null,
         titleRegexp = null,
         authorRegexp = null,
         findQuery = null,
-        findQuery_mapreduce = null,
-        sortQuery = null,
-        sortQuery_mapreduce = null;
+        sortQuery = { seq: "asc" };
 
-    if (numberOfBooksForEachPage) {
-        // Paginate!
+    if (doPaginate) {
         limit = parseInt(numberOfBooksForEachPage, 10);
         if (indexOfFirstBook) {
             skip = parseInt(indexOfFirstBook, 10);
         }
     }
-    if (!(_.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString))) {
-        // Filter!
+    if (doFilter) {
         searchRegexOptions = "i";
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions);
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
-
         findQuery = { title: titleRegexp, author: authorRegexp };
-        findQuery_mapreduce = { "value.title": titleRegexp, "value.author": authorRegexp };
-
-        sortQuery_mapreduce = { "value.seq": "asc" };
     }
 
     if (useCQRS) {
         return count(Book).then(function (totalCount) {
             return Book.count(findQuery, function (err, count) {
-                return Book
-                    .find(findQuery)
-                    .sort({ seq: "asc" })
-                    .skip(skip)
-                    .limit(limit)
-                    .exec(function (err, books) {
+                error.handle(err, { response: response });
+                return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(
+                    function (err, books) {
+                        error.handle(err, { response: response });
                         return response.send(200, { books: books, count: count, totalCount: totalCount });
-                    });
-            });
-        });
-
-    } else {
-        // No CQRS, rather event store scanning using mapreduce ...
-        return count(eventSourcing.StateChange).then(function (count) {
-            if (count <= 0) {
-                return response.send(200, { books: [], count: 0, totalCount: 0 });
-            }
-            // TODO: factor out and move to 'mongoose.event-sourcing.js''
-            var mapReduceConfig = {
-                query: { type: Book.modelName},
-                map: eventSourcing.mapReduce_map_groupByEntityId,
-                reduce: eventSourcing.mapReduce_reduce_replayStateChangeEvents,
-                finalize: eventSourcing.mapReduce_finalize_roundUpNonReducedSingleStateChangeEventObjects,
-                out: {
-                    replace: "getAllBooks",
-                    inline: 1//,
-                    //scope: {
-                    //    replayStateChanges: replayStateChanges
-                    //}
-                }
-            };
-            return eventSourcing.StateChange.mapReduce(mapReduceConfig, function (err, results) {
-                if (err) {
-                    if (err.message === "ns doesn't exist") {
-                        console.warn(err);
-                        return response.send(200, { books: [], count: 0, totalCount: 0 });
-                    } else {
-                        return error.handle(err, { response: response });
-                    }
-                }
-                return results
-                    .find(function (err, totalMapReducedResult) {
-                        var totalResult = [];
-                        totalMapReducedResult.forEach(function (obj, index) {
-                            if (obj.value) {
-                                totalResult.push(obj);
-                            }
-                        });
-
-                        return results
-                            .find(findQuery_mapreduce)
-                            .exec(function (err, projectedResult) {
-
-                                return results
-                                    .find(findQuery_mapreduce)
-                                    .sort(sortQuery_mapreduce)
-                                    .skip(skip)
-                                    .limit(limit)
-                                    .exec(function (err, paginatedResult) {
-                                        var books = [];
-                                        paginatedResult.forEach(function (obj, index) {
-                                            if (obj.value) {
-                                                obj.value._id = obj._id;
-                                                books.push(obj.value)
-                                            }
-                                        });
-                                        return response.send(200, { books: books, count: projectedResult.length, totalCount: totalResult.length });
-                                    }
-                                );
-                            }
-                        );
                     }
                 );
             });
         });
+
+    } else {
+        return eventSourcing.project({ type: Book, conditions: findQuery, sort: sortQuery, skip: skip, limit: limit }).then(
+            function (result) {
+                return response.send(200, { books: result.books, count: result.count, totalCount: result.totalCount });
+            },
+            function (err) {
+                if (err.message === "ns doesn't exist") {
+                    console.warn(err);
+                    response.send(200, { count: 0 });
+                } else {
+                    error.handle(err, { response: response });
+                }
+            }
+        );
     }
 });
 

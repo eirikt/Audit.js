@@ -91,8 +91,8 @@
 
 <!-- Underscore templates -->
 <script id="stateChangeAdminTemplate" type="text/template">
-    <div class="row">
-        <span class="pull-left" style="margin-left: 2rem;margin-bottom: 2rem;">
+    <div class="row" style="margin-left:.1rem;">
+        <span>
             Total number of state change events:&nbsp;<strong><%= totalCount %></strong>&nbsp;&nbsp;&nbsp;
             <small>
                 CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;&nbsp;
@@ -101,21 +101,27 @@
             </small>
         </span>
     </div>
-    <div class="row">
-        <span class="pull-left" style="margin-left: 2rem">
+    <div class="row" style="margin-left:.1rem;margin-top:1rem;">
+        <span>
             <button id="toggleCqrs" class="btn">?</button>
         </span>
         <span>
-            <button id="replay" class="btn btn-primary" style="margin-left: 1rem">Replay all state change events</button>
+            <button id="replay" class="btn">Replay all state change events</button>
         </span>
     </div>
+    <!--
+    <div class="row" style="margin-left: .1rem;margin-top: 1rem;">
+        <span><button class="btn">Local storage</button></span>
+        <span><button class="btn">Sync data</button></span>
+    </div>
+    -->
 </script>
 
 <script id="libraryAdminTemplate" type="text/template">
     <div class="row">
         <div class="col-xs-5">
             <div class="input-group">
-                <input id="numberOfBooksToGenerate" type="text" class="form-control" placeholder="how many?" maxlength="6" style="text-align: right" />
+                <input id="numberOfBooksToGenerate" type="text" class="form-control" placeholder="how many?" maxlength="6" style="text-align: right"/>
                 <span class="input-group-btn">
                     <button id="generate" class="btn btn-success">Generate books</button>
                 </span>
@@ -184,18 +190,18 @@
             <div class="row">
                 <div class="col-sm-2">
                     <label for="seq">No</label>
-                    <input id="seq" type="text" class="form-control" value="<%= seq %>" disabled />
+                    <input id="seq" type="text" class="form-control" value="<%= seq %>" disabled/>
                 </div>
                 <div class="col-sm-5">
                     <label for="title">Title</label>
-                    <input id="title" type="text" class="form-control" value="<%- title %>" />
+                    <input id="title" type="text" class="form-control" value="<%- title %>"/>
                 </div>
                 <div class="col-sm-5">
                     <label for="author">Author</label>
-                    <input id="author" type="text" class="form-control" value="<%- author %>" />
+                    <input id="author" type="text" class="form-control" value="<%- author %>"/>
                 </div>
             </div>
-            <div class="row" style="margin-top: 3rem;">
+            <div class="row" style="margin-top:3rem;">
                 <div class="col-sm-12">
                     <label>Tags&nbsp;</label>
                     <% _.each(keywords, function(keywordobject) { %><span class="label label-info"><%= keywordobject.keyword %></span>&nbsp;<%
@@ -240,41 +246,44 @@
 </script>
 
 <!-- TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out -->
-<script id="bootstrapModalProgressbarTemplate" type="text/template">
-    <div id="modalProgressbar" class="modal" role="dialog" style="margin-top:150px;">
+<script id="bootstrapModalMultipleProgressbarTemplate" type="text/template">
+    <div id="modalMultipleProgressbar" class="modal" role="dialog" style="margin-top:150px;">
         <div class="modal-dialog">
-            <div class="important centered modal-content">
-                <div style="text-align:center;margin:1rem;"><strong><%= headerText %></strong></div>
-                <div class="progress" style="margin: 1rem">
-                    <span class="progress-bar progress-bar-info"
-                          role="progressbar"
-                          aria-valuenow="<%= progressValueInPercent %>"
-                          aria-valuemin="0"
-                          aria-valuemax="100"
-                          style="text-align: left;width:<%= progressValueInPercent %>%;">&nbsp;&nbsp;&nbsp;<%= progressValueInPercent %>%</span>
-                    <!--<span style="margin: 1rem">Remaining: 80%</span>-->
+            <div class="important-looking centered modal-content">
+                <div style="margin:1rem;">
+                    <span><strong><%= headerText %></strong></span>
+                    <span id="stopwatch" class="pull-right"></span>
                 </div>
-                <div style="text-align:center;margin:1rem;"><small><%= footerText %></small></div>
+                <div id="progressbars"></div>
+                <div style="text-align:center;margin:2rem;">
+                    <span><small><%= footerText %></small></span>
+                </div>
             </div>
         </div>
     </div>
 </script>
 
-<!-- TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out -->
-<script id="bootstrapModalMultipleProgressbarTemplate" type="text/template">
-    <div id="modalMultipleProgressbar" class="modal" role="dialog" style="margin-top:150px;">
-        <div class="modal-dialog">
-            <div class="important centered modal-content">
-                <div style="text-align:center;margin:1rem;"><strong><%= headerText %></strong></div>
-                <div id="progressbars"></div>
-                <div style="text-align:center;margin:1rem;"><small><%= footerText %></small></div>
-            </div>
-        </div>
+<script id="bootstrapProgressbarTemplate" type="text/template">
+    <div style="margin-left:1rem">
+        <small><%= headerText %></small>
+    </div>
+    <div class="progress" style="margin:1rem">
+        <span class="progress-bar progress-bar-info"
+              role="progressbar"
+              aria-valuenow="<%= progressValueInPercent %>"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              style="text-align:left;width:<%= progressValueInPercent %>%;">
+            &nbsp;&nbsp;<%= Math.round(progressValueInPercent) %>&nbsp;%
+        </span>
+        <!--<span style="margin:1rem">Remaining: 80%</span>-->
     </div>
 </script>
 
 <script id="bootstrapProgressbarUnknownStateTemplate" type="text/template">
-    <div style="margin-left:1rem"><small><%= headerText %></small></div>
+    <div style="margin-left:1rem">
+        <small><%= headerText %></small>
+    </div>
     <div class="progress" style="margin:1rem">
         <span class="progress-bar progress-bar-info"
               role="progressbar"
@@ -283,21 +292,7 @@
               aria-valuemax="100"
               style="text-align:left;">
         </span>
-        <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;&nbsp;Unknown state ...</span>
-    </div>
-</script>
-
-<script id="bootstrapProgressbarTemplate" type="text/template">
-    <div style="margin-left:1rem"><small><%= headerText %></small></div>
-    <div class="progress" style="margin:1rem">
-        <span class="progress-bar progress-bar-info"
-              role="progressbar"
-              aria-valuenow="<%= progressValueInPercent %>"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              style="text-align:left;width:<%= progressValueInPercent %>%;">
-            &nbsp;&nbsp;&nbsp;<%= progressValueInPercent %>&nbsp;%
-        </span>
+        <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;Unknown state ...</span>
     </div>
 </script>
 <!-- /Underscore templates -->
@@ -308,7 +303,7 @@
 <script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.4.0/moment.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
 
 <!-- Offline development setup

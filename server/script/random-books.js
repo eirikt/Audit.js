@@ -1,10 +1,12 @@
+
+///////////////////////////////////////////////////////////////////////////////
 // Random (library domain) test data helper functions
+///////////////////////////////////////////////////////////////////////////////
 
-var getRandomAlphanumericStringOfLength = exports.getRandomAlphanumericStringOfLength = function (length) {
-    return Math.random().toString(36).substr(2, length);
-};
+_ = require("underscore");
 
-// Data elements to be randomly picked
+
+// Tests data elements to be randomly picked
 var users = exports.users = ["eric", "ann", "tim", "jeff", "liz", "paul"];
 
 var firstNames = exports.firstNames = ["Jo", "Jon", "Asle", "Stig", "Jens-Kåre", "Konrad", "Torstein", "Ann", "Anne", "Anna", "Dag", "Jostein", "Per", "Per Kristian", "Stian"];
@@ -15,8 +17,12 @@ var titleElement3 = exports.titleElement3 = ["Earth", "Mars", "Andromeda", "Utop
 var keywords = exports.keywords = ["#scifi", "#thriller", "#fantasy", "#debut", "#novel", "#shortstories", "#pageturner", "#blockbuster", "#rollercoaster"];
 
 
+var getRandomAlphanumericStringOfLength = exports.getRandomAlphanumericStringOfLength = function (length) {
+    return Math.random().toString(36).substr(2, length);
+};
+
 var pickRandomElementFrom = exports.pickRandomElementFrom = function (array) {
-    return array[require("underscore").random(array.length - 1)];
+    return array[_.random(array.length - 1)];
 };
 
 var randomUser = exports.randomUser = function () {
