@@ -3,15 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Audit.JS</title>
-
-    <!-- Regular stylesheet resource setup -->
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css">
-
-    <!-- Offline development setup
-    <link rel="stylesheet" href="style/bootstrap.css">
-    -->
-
-    <link href="style/main.css" rel="stylesheet">
+    <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.min.css">
+    <link href="styles/main.css" rel="stylesheet">
 </head>
 
 <body>
@@ -52,11 +45,24 @@
         <div class="panel-heading">
             <div class="panel-title">
                 <a data-toggle="collapse" href="#collapseThree">
+                    user :: admin
+                </a>
+            </div>
+        </div>
+        <div id="collapseThree" class="panel-collapse collapse">
+            <div id="userAdmin" class="panel-body"></div>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <a data-toggle="collapse" href="#collapseFour">
                     library :: book count
                 </a>
             </div>
         </div>
-        <div id="collapseThree" class="panel-collapse collapse in">
+        <div id="collapseFour" class="panel-collapse collapse in">
             <div id="libraryBookCount" class="panel-body"></div>
         </div>
     </div>
@@ -64,12 +70,12 @@
     <div class="panel panel-default">
         <div class="panel-heading">
             <div class="panel-title">
-                <a id="bookDetails" data-toggle="collapse" href="#collapseFour">
+                <a id="bookDetails" data-toggle="collapse" href="#collapseFive">
                     book :: details
                 </a>
             </div>
         </div>
-        <div id="collapseFour" class="panel-collapse collapse">
+        <div id="collapseFive" class="panel-collapse collapse">
             <div id="book" class="panel-body"></div>
         </div>
     </div>
@@ -77,260 +83,18 @@
     <div class="panel panel-default">
         <div class="panel-heading">
             <div class="panel-title">
-                <a id="bookListLink" data-toggle="collapse" data-parent="#accordion" href="#collapseFive">
+                <a id="bookListLink" data-toggle="collapse" data-parent="#accordion" href="#collapseSix">
                     library :: book list
                 </a>
             </div>
         </div>
-        <div id="collapseFive" class="panel-collapse collapse">
+        <div id="collapseSix" class="panel-collapse collapse">
             <div id="bookList" class="panel-body"></div>
         </div>
     </div>
 </div>
 
-
-<!-- Underscore templates -->
-<script id="stateChangeAdminTemplate" type="text/template">
-    <div class="row" style="margin-left:.1rem;">
-        <span>
-            Total number of state change events:&nbsp;<strong><%= totalCount %></strong>&nbsp;&nbsp;&nbsp;
-            <small>
-                CREATE:&nbsp;<%= createCount %>&nbsp;&nbsp;&nbsp;&nbsp;
-                UPDATE:&nbsp;<%= updateCount %>&nbsp;&nbsp;&nbsp;&nbsp;
-                DELETE:&nbsp;<%= deleteCount %>
-            </small>
-        </span>
-    </div>
-    <div class="row" style="margin-left:.1rem;margin-top:1rem;">
-        <span>
-            <button id="toggleCqrs" class="btn">?</button>
-        </span>
-        <span>
-            <button id="replay" class="btn">Replay all state change events</button>
-        </span>
-    </div>
-    <!--
-    <div class="row" style="margin-left: .1rem;margin-top: 1rem;">
-        <span><button class="btn">Local storage</button></span>
-        <span><button class="btn">Sync data</button></span>
-    </div>
-    -->
-</script>
-
-<script id="libraryAdminTemplate" type="text/template">
-    <div class="row">
-        <div class="col-xs-5">
-            <div class="input-group">
-                <input id="numberOfBooksToGenerate" type="text" class="form-control" placeholder="how many?" maxlength="6" style="text-align: right"/>
-                <span class="input-group-btn">
-                    <button id="generate" class="btn btn-success">Generate books</button>
-                </span>
-            </div>
-        </div>
-        <div class="col-xs-7">
-            <span>
-                <button id="removeAllBooks" class="btn btn-danger pull-right">Clean books</button>
-            </span>
-        </div>
-    </div>
-</script>
-
-<script id="bookCountTemplate" type="text/template">
-    <span>Total number of books:</span>
-    <span class="pull-right lead"><strong><%= count %></strong></span>
-</script>
-
-<script id="bookCountTemplate2" type="text/template">
-    <div class="row">
-        <div class="col-sm-12">
-            <span class="pull-right">
-                <small><em>&nbsp;&nbsp;&nbsp;Number of books found in projection:&nbsp;<strong><%= bookCount %></strong></em></small>
-            </span>
-        </div>
-    </div>
-</script>
-
-<script id="bookListTableTemplate" type="text/template">
-    <table class="table table-condensed table-striped table-hover">
-        <thead>
-        <tr>
-            <th><small>No</small></th>
-            <th><small>Title</small></th>
-            <th><small>Author</small></th>
-            <th><small>Keywords</small></th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</script>
-
-<script id="bookInfoTableFilteringRowTemplate" type="text/template">
-    <td></td>
-    <td><small><input id="titleSubstring" type="text" class="form-control" placeholder="filter on title" value="<%= titleSubstring %>"/></small></td>>
-    <td><small><input id="authorSubstring" type="text" class="form-control" placeholder="filter on author" value="<%= authorSubstring %>"/></small></td>
-    <td><small><input id="keywords" type="text" class="form-control" placeholder="filter on keyword" disabled title="Not yet available"/></small></td>
-</script>
-
-<script id="bookInfoTableRowTemplate" type="text/template">
-    <td><small><%= seq %></small></td>
-    <td><small><a href="#/library/books/<%= _id %>"><%- title %></a></small></td>
-    <td><small><%- author %></small></td>
-    <td><small><% _.each(keywords, function(keyobj) { %><%= keyobj.keyword %>&nbsp;<% }); %></small></td>
-</script>
-
-<script id="bookTemplate" type="text/template">
-    <form id="editBook" action="#">
-        <fieldset>
-            <div class="row">
-                <div class="pull-right" style="margin-bottom: 1.5rem;">
-                    <button id="updateBook" class="btn btn-primary">Update</button>
-                    <button id="deleteBook" class="btn btn-danger">Delete</button>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-sm-2">
-                    <label for="seq">No</label>
-                    <input id="seq" type="text" class="form-control" value="<%= seq %>" disabled/>
-                </div>
-                <div class="col-sm-5">
-                    <label for="title">Title</label>
-                    <input id="title" type="text" class="form-control" value="<%- title %>"/>
-                </div>
-                <div class="col-sm-5">
-                    <label for="author">Author</label>
-                    <input id="author" type="text" class="form-control" value="<%- author %>"/>
-                </div>
-            </div>
-            <div class="row" style="margin-top:3rem;">
-                <div class="col-sm-12">
-                    <label>Tags&nbsp;</label>
-                    <% _.each(keywords, function(keywordobject) { %><span class="label label-info"><%= keywordobject.keyword %></span>&nbsp;<%
-                    }); %>
-                </div>
-            </div>
-        </fieldset>
-    </form>
-</script>
-
-<script id="bookHistoryTemplate" type="text/template">
-    <p><br></p>
-    <small><strong>Book state change history</strong></small>
-    <table class="table table-condensed table-striped table-hover">
-        <thead>
-        <tr>
-            <th><span class="tiny">No</th>
-            <th><span class="tiny">Time</span></th>
-            <th><span class="tiny">User</span></th>
-            <th><span class="tiny">Method</span></th>
-            <th><span class="tiny">Changes</span></th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</script>
-
-<script id="bookHistoryEventTemplate" type="text/template">
-    <td><span class="tiny"><%= seq %></span></td>
-    <td>
-        <span class="tiny">
-            <% if (!currentState) { %>
-            <a href="#" class="state" data-seq="<%= seq %>"><%= timestamp %></a>
-            <% } else { %>
-            <%= timestamp %>
-            <% } %>
-        </span>
-    </td>
-    <td><span class="tiny"><%= user %></span></td>
-    <td><span class="tiny"><%= method %></span></td>
-    <td><span class="tiny"><%- changes %></span></td>
-</script>
-
-<!-- TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out -->
-<script id="bootstrapModalMultipleProgressbarTemplate" type="text/template">
-    <div id="modalMultipleProgressbar" class="modal" role="dialog" style="margin-top:150px;">
-        <div class="modal-dialog">
-            <div class="important-looking centered modal-content">
-                <div style="margin:1rem;">
-                    <span><strong><%= headerText %></strong></span>
-                    <span id="stopwatch" class="pull-right"></span>
-                </div>
-                <div id="progressbars"></div>
-                <div style="text-align:center;margin:2rem;">
-                    <span><small><%= footerText %></small></span>
-                </div>
-            </div>
-        </div>
-    </div>
-</script>
-
-<script id="bootstrapProgressbarTemplate" type="text/template">
-    <div style="margin-left:1rem">
-        <small><%= headerText %></small>
-    </div>
-    <div class="progress" style="margin:1rem">
-        <span class="progress-bar progress-bar-info"
-              role="progressbar"
-              aria-valuenow="<%= progressValueInPercent %>"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              style="text-align:left;width:<%= progressValueInPercent %>%;">
-            &nbsp;&nbsp;<%= Math.round(progressValueInPercent) %>&nbsp;%
-        </span>
-        <!--<span style="margin:1rem">Remaining: 80%</span>-->
-    </div>
-</script>
-
-<script id="bootstrapProgressbarUnknownStateTemplate" type="text/template">
-    <div style="margin-left:1rem">
-        <small><%= headerText %></small>
-    </div>
-    <div class="progress" style="margin:1rem">
-        <span class="progress-bar progress-bar-info"
-              role="progressbar"
-              aria-valuenow="0"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              style="text-align:left;">
-        </span>
-        <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;Unknown state ...</span>
-    </div>
-</script>
-<!-- /Underscore templates -->
-
-
-<!-- Regular script resource setup -->
-<script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
-<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
-
-<!-- Offline development setup
-<script src="script/socket.io.min.js"></script>
-<script src="script/jquery.js"></script>
-<script src="script/underscore.js"></script>
-<script src="script/backbone.js"></script>
-<script src="script/moment.js"></script>
-<script src="script/bootstrap.js"></script>
--->
-
-<!-- Third-party non-CDN resources -->
-<script src="script/jquery.bind-with-delay.js"></script>
-
-<!-- Audit.JS: generic state versioning add-in -->
-<script src="script/backbone.audit.js"></script>
-
-<!-- Audit.JS: other generic libs -->
-<script src="script/backbone.bootstrap.progressbar.js"></script>
-<script src="script/backbone.bootstrap.pagination.js"></script>
-
-<!-- Audit.JS: demo project -->
-<script src="script/book.js"></script>
-<script src="script/library.js"></script>
-<script src="script/app-admin.js"></script>
-<script src="script/app.js"></script>
-
+<script src="bower_components/requirejs/require.js" data-main="scripts/app.config"></script>
 
 </body>
 </html>

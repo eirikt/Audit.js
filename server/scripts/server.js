@@ -7,19 +7,27 @@ var application_root = __dirname,
     _ = require("underscore"),
     promise = require("promised-io/promise"),
     path = require("path"),
+
     socketio = require("socket.io"),
+// TODO: replace socket.io with sockjs: https://github.com/sockjs/sockjs-client
+// https://github.com/LearnBoost/socket.io/issues/463
+//sockjs = require("sockjs"),
+
     http = require("http"),
+
     express = require("express"),
-// TODO: replace express with:
+// TODO: replace express with Koa: http://koajs.com
 //koa = require('koa'),
+
     mongoose = require("mongoose"),
 
+
 // Module dependencies, internal
-    error = require("./script/error.js"),
-    sequenceNumber = require("./script/mongoose.sequence-number.js"),
-    eventSourcing = require("./script/mongoose.event-sourcing.js"),
-    randomBooks = require("./script/random-books.js"),
-    utils = require("./script/utils.js");
+    error = require("./error.js"),
+    sequenceNumber = require("./mongoose.sequence-number.js"),
+    eventSourcing = require("./mongoose.event-sourcing.js"),
+    randomBooks = require("./random-books.js"),
+    utils = require("./utils.js");
 
 
 // Mongoose schemas
@@ -89,9 +97,11 @@ function buildAndSaveBook(deferred, bookStateChangeObject) {
  * ...
  *
  * Push messages :
- *     sequencenumber-acquired      ( ... )
- *     statechangeevent-created     ( ... )
- *     all-sequencenumbers-acquired
+ *     sequencenumber-acquired       (the total number, start timestamp, current progress)
+ *     all-sequencenumbers-acquired  ()
+ *
+ *     statechangeevent-created      (the total number, start timestamp, current progress)
+ *     all-statechangeevents-created ()
  */
 // TODO: consider moving more of this logic to 'mongoose.event-sourcing.js'
 function createBook(bookAttributes, options) {
@@ -103,7 +113,7 @@ function createBook(bookAttributes, options) {
         if (options && options.emitter) {
             options.numberOfSequenceNumbersGenerated += 1;
             utils.throttleEvents(options.emits, options.numberOfSequenceNumbersGenerated, options.totalCount, function (progressInPercent) {
-                io.sockets.emit("sequencenumber-acquired", progressInPercent, options.startTime);
+                io.sockets.emit("sequencenumber-acquired", options.totalCount, options.startTime, progressInPercent);
             });
             if (options.numberOfSequenceNumbersGenerated >= options.totalCount) {
                 io.sockets.emit("all-sequencenumbers-acquired");
@@ -116,7 +126,7 @@ function createBook(bookAttributes, options) {
                 if (options && options.emitter) {
                     options.numberOfStateChangesGenerated += 1;
                     utils.throttleEvents(options.emits, options.numberOfStateChangesGenerated, options.totalCount, function (progressInPercent) {
-                        io.sockets.emit("statechangeevent-created", progressInPercent, options.startTime);
+                        io.sockets.emit("statechangeevent-created", options.totalCount, options.startTime, progressInPercent);
                     });
                     if (options.numberOfStateChangesGenerated >= options.totalCount) {
                         io.sockets.emit("all-statechangeevents-created");
@@ -163,8 +173,8 @@ function removeBook(id) {
  * Replay the entire <em>event store</em> into the <em>application store</em>
  *
  * Push messages :
- *     replaying-events    (startTimestamp)
- *     event-replayed      (total event state change replaying progress in percentage)
+ *     replaying-events    (the total number, start timestamp)
+ *     event-replayed      (the total number, start timestamp, current progress)
  *     all-events-replayed ()
  */
 // TODO: consider moving more of this logic to 'mongoose.event-sourcing.js'
@@ -172,7 +182,7 @@ function replayAllStateChanges(type) {
     console.log("Replaying entire change log ...");
     var startTime = Date.now(),
         emits = 1000;
-    io.sockets.emit("replaying-events", startTime, emits);
+    io.sockets.emit("replaying-events", null, startTime);
     return eventSourcing.find({ type: type }).then(
         function (results) {
             var index = 0;
@@ -192,7 +202,7 @@ function replayAllStateChanges(type) {
                                 index += 1;
                                 if (book) {
                                     utils.throttleEvents(emits, index, count, function (progressValue) {
-                                        io.sockets.emit("event-replayed", progressValue, startTime);
+                                        io.sockets.emit("event-replayed", count, startTime, progressValue);
                                     });
                                     if (index >= count) {
                                         io.sockets.emit("all-events-replayed");
@@ -206,7 +216,7 @@ function replayAllStateChanges(type) {
                                     bookAttr.changes = reducedBookChangeEvents.value;
                                     return buildAndSaveBook(new promise.Deferred, bookAttr).then(function () {
                                         utils.throttleEvents(emits, index, count, function (progressValue) {
-                                            io.sockets.emit("event-replayed", progressValue, startTime);
+                                            io.sockets.emit("event-replayed", count, startTime, progressValue);
                                         });
                                         if (index >= count) {
                                             io.sockets.emit("all-events-replayed");
@@ -244,7 +254,7 @@ mongoose.connect("mongodb://localhost/library", function (err, db) {
 });
 
 
-app = express();
+var app = express();
 
 app.configure(function () {
     // Parses request body and populates request.body
@@ -257,27 +267,31 @@ app.configure(function () {
     app.use(app.router);
 
     // Where to serve static content
-    app.use(express.static(path.join(application_root, "../client")));
+    app.use(express.static(path.join(application_root, "../../client")));
 
     // Show all errors in development
     app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 });
 
-server = http.createServer(app);
+var server = http.createServer(app);
 
 
-port = 4711;
+var port = 4711;
 
 server.listen(port, function () {
     console.log("Express server listening on port %d in %s mode", port, app.settings.env);
 });
 
 
-io = socketio.listen(server);
+var io = socketio.listen(server);
 
-io.sockets.on("connection", function (socket) {
-    console.log("Socket.IO: server connection established ...");
-});
+/**
+ * Simple emitting of current number of users.
+ */
+setInterval(function () {
+    console.log("Number of connected users: " + io.sockets.clients().length);
+    io.sockets.emit("number-of-connections", io.sockets.clients().length);
+}, 3000);
 
 
 /**
@@ -428,29 +442,37 @@ app.post("/events/replay", function (request, response) {
  *
  * CQRS Command
  *
- * HTTP method             : POST
- * URI                     : /library/books/generate
- * Resource in properties  :
+ * HTTP method                  : POST
+ * URI                          : /library/books/generate
+ * Resource properties incoming :
  *     numberOfBooks : number of books to generate, mandatory
- * Status codes            :
+ * Status codes                 :
  *     202 Accepted
  *     422 Unprocessable Entity : Missing mandatory property "numberOfBooks"
- * Resource out properties : -
- * Push messages           :
- *     acquiring-sequencenumbers    { the total number sequence numbers to be acquired }
- *     acquiring-sequencenumbers    { the index of the generated sequence number, the total number sequence numbers to be acquired }
- *     all-sequencenumbers-acquired { the total number sequence numbers acquired }
+ * Resource properties outgoing : -
+ * Push messages                :
+ *     acquiring-sequencenumbers     (the total number, start timestamp)
+ *     sequencenumber-acquired       (the total number, start timestamp, current progress)
+ *     all-sequencenumbers-acquired  ()
  *
- *     creating-statechangeevents    { the total number state change events to be created }
- *     statechangeevent-created      { the index of the created state change event, the total number state change events to be created }
- *     all-statechangeevents-created { the total number state change events created }
+ *     creating-statechangeevents    (the total number, start timestamp)
+ *     statechangeevent-created      (the total number, start timestamp, current progress)
+ *     all-statechangeevents-created ()
  *
- *     generating-books    { the total number of books to be generated }
- *     book-generated      { the index of the generated book, the total number of books to be generated }
- *     all-books-generated { the total number of books generated }
+ *     generating-books              (the total number, start timestamp)
+ *     book-generated                (the total number, start timestamp, current progress)
+ *     all-books-generated           ()
  */
 app.post("/library/books/generate", function (request, response) {
     var totalNumberOfBooksToGenerate = request.body.numberOfBooks,
+        sessionData;
+
+    if (!totalNumberOfBooksToGenerate) {
+        response.send(422, "Property 'numberOfBooks' is mandatory");
+
+    } else {
+        response.send(202);
+
         sessionData = {
             startTime: Date.now(),
             emits: 1000,
@@ -464,24 +486,20 @@ app.post("/library/books/generate", function (request, response) {
             //emitter: io.sockets
             //emitter: io.sockets.emit
         };
-
-    if (!totalNumberOfBooksToGenerate) {
-        response.send(422, "Property 'numberOfBooks' is mandatory");
-
-    } else {
-        response.send(202);
-        io.sockets.emit("acquiring-sequencenumbers", sessionData.startTime);
-        io.sockets.emit("creating-statechangeevents", sessionData.startTime);
-        io.sockets.emit("generating-books", sessionData.startTime);
+        io.sockets.emit("acquiring-sequencenumbers", totalNumberOfBooksToGenerate, sessionData.startTime);
+        io.sockets.emit("creating-statechangeevents", totalNumberOfBooksToGenerate, sessionData.startTime);
+        io.sockets.emit("generating-books", totalNumberOfBooksToGenerate, sessionData.startTime);
         for (sessionData.jobNo = 1; sessionData.jobNo <= parseInt(totalNumberOfBooksToGenerate, 10); sessionData.jobNo += 1) {
-            createBook(
-                { title: randomBooks.randomBookTitle(), author: randomBooks.randomName(), keywords: [createKeyword(randomBooks.randomKeyword()), createKeyword(randomBooks.randomKeyword())] },
-                sessionData
-            ).then(
+            createBook({
+                title: randomBooks.randomBookTitle(),
+                author: randomBooks.randomName(),
+                keywords: [createKeyword(randomBooks.randomKeyword()), createKeyword(randomBooks.randomKeyword())]
+            }, sessionData)
+                .then(
                 function (book) {
                     sessionData.numberOfBooksGenerated += 1;
                     utils.throttleEvents(sessionData.emits, sessionData.numberOfBooksGenerated, totalNumberOfBooksToGenerate, function (progressValueProgressInPercent) {
-                        io.sockets.emit("book-generated", progressValueProgressInPercent);
+                        io.sockets.emit("book-generated", sessionData.totalCount, sessionData.startTime, progressValueProgressInPercent);
                     });
                     if (sessionData.numberOfBooksGenerated >= totalNumberOfBooksToGenerate) {
                         io.sockets.emit("all-books-generated");

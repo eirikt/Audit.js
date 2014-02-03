@@ -1,29 +1,18 @@
 # Ignore IDE stuff
-.idea/
+.idea
+
+# Ignore MongoDB db
+data
+
+# Ignore derived/transient project resources
+node_modules
+client/bower_components
+test/bower_components/
+dist
+test/temp
+.sass-cache
+.tmp
+README.html
 
 # Ignore (personal) Git log
 git.log
-
-# Ignore MongoDB db
-server/data
-
-# Ignore derived/transient project resources
-README.html
-server/node_modules
-
-# Ignore project script helpers for now ...
-server/bin
-
-# Ignore images for now ...
-client/img/
-
-# Ignore local/offline third-party JS libs for now ...
-client/script/socket.io.min.js
-client/script/backbone.js
-client/script/jquery.js
-client/script/moment.js
-client/script/underscore.js
-client/script/bootstrap.js
-
-# Ignore local/offline third-party CSS libs for now ...
-client/style/bootstrap.css

@@ -1,0 +1,26 @@
+{
+    "name": "Audit.JS",
+    "version": "0.1.0",
+    "description": "A prototype/demo web app (library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
+    "author": "Eirik Torske <eirik.torske@gmail.com>",
+    "dependencies": {
+        "underscore": "~1.5.2",
+        "promised-io": "~0.3.4",
+        "mongoose": "~3.8.6",
+        "socket.io": "~0.9.15",
+        "express": "~3.4.8"
+    },
+    "devDependencies": {
+        "grunt": "~0.4.2",
+        "grunt-shell": "~0.6.4",
+        "grunt-jslint": "~1.1.2",
+        "grunt-jsdoc": "~0.5.1",
+        "grunt-express-server": "~0.4.11",
+        "grunt-contrib-uglify": "~0.3.2"
+    },
+    "peerDependencies": {
+        "bower": "*",
+        "grunt-cli": "*"
+    },
+    "engine": "node 0.10.22"
+}

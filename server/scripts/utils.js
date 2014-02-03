@@ -1,7 +1,7 @@
 // Generic helper functions
 
 /**
- * Invoke the given callback function only when the iteration number is a natural number percentage value of the total iteration number.
+ * Invoke the given callback function only when the iteration number is a natural number ratio of the total iteration number.
  *
  * @param numberOfThrottledEvents number of events to let through
  * @param iterationNo current event number
@@ -9,7 +9,10 @@
  * @param callback function with progress percentage value as parameter
  */
 var throttleEvents = exports.throttleEvents = function (numberOfThrottledEvents, iterationNo, totalIterationNo, callback) {
-    var skippingInterval, doEmit, progressValueProgressInPercent;
+    var skippingInterval,
+        doEmit,
+        progressValueProgressInPercent;
+
     if (numberOfThrottledEvents <= 100 && totalIterationNo <= numberOfThrottledEvents) {
         callback(iterationNo);
 

@@ -46,7 +46,7 @@ Also, reads most often constitute the larger portion of the application traffic,
 
  * After an application event is created and persisted, the control is immediately given/response is sent back to the client.
 
- * When an application event is created and persisted, a message with the event content is sent to the _application store_. The application store is _read-only_ for all clients. (It should be regarded as a kind of a reporting database, possibly with multiple representations taylored for each UI view.)
+ * When an application event is created and persisted, a message with the event content is sent to the _application store_. The application store is _read-only_ for all clients. (It should be regarded as a kind of a reporting database, possibly with multiple overlapping data representations tailored for each UI view.)
 
  * All client _commands_ are sent to the _event store_ - all client _queries_ are sent to the _application store_.
 
@@ -69,7 +69,9 @@ Cloned data stores are often needed, e.g. for applications supporting offline us
 And, not to forget, the application store is read-only (from the client's point of view that is), so some form of clever caching mechanism should be applied. 
 It is straightforward to pin-point necessary cache invalidation in the application store as we have full control over all state changes.
 
-The use of [HTTP server push][13] techniques (e.g. provided by [Socket.IO][24]) further brings new possibilities into this application architecture. 
+##### HTTP server push
+
+The use of [HTTP server push][13] techniques (e.g. provided by [Socket.IO][24]) further brings new possibilities into this application architecture.
 E.g. if there are some kind of problem with the application store update, a server-push message should be sent to the originating client. 
 Likewise, when the update of the application store completes successfully, a broadcast message containing the new state should be sent to all participating clients. 
 HTTP server push also should be ideal for the "chatty" conversations involved when merging event stores.
@@ -84,19 +86,23 @@ The initial setup is inspired by the example application in the book [_Developin
 
 On the client side:
 
+ * [RequireJS][28]
  * [jQuery][20]
  * [Backbone.js][21]
- * [Socket.IO][24]
  * [Moment.js][26]
+ * [Socket.IO][24]
 
 On the server side:
 
  * [MongoDB][30]
  * [Mongoose][31]
  * [Node.js][35]
+ * [Express][36]
  * [Socket.IO][23]
 
 #### Setup
+
+I am afraid some of the rather simplistic Grunt tasks below are Windows-dependent ...
 
  1. Install [MongoDB][30] <sub><sup>(make sure it's running on the default port 27017)</sup></sub>
 
@@ -107,26 +113,27 @@ On the server side:
     ```
     git clone https://github.com/eirikt/Audit.js.git
     ```
-
- 1. Retrieve all dependencies via Node Package Manager (npm)
+ 1. Retrieve all tools and server-side dependencies via Node Package Manager (npm)
 
     ```
-    cd ./Audit.JS/server
+    cd ./Audit.JS
     npm install
     ```
-
- 1. Start MongoDB deamon process (with a local data directory)
-
-    ```
-    mongod --dbpath data/db
-    ```
-
- 1. Start the Node Express app server configured in `server.js`
+ 1. Retrieve all client-side dependencies using Bower (via a Grunt task)
 
     ```
-    node server.js
+    grunt bower
     ```
+ 1. Start MongoDB (using a local data directory) (via a _blocking_ Grunt task)
 
+    ```
+    grunt mongodb
+    ```
+ 1. Start the Node-based app server configured in `server.js` (via a _blocking_ Grunt task)
+
+    ```
+    grunt node
+    ```
  1. Navigate to [http://localhost:4711](http://localhost:4711)
 
 
@@ -149,11 +156,13 @@ This markdown is written using the [Markdown Live Editor][50]
 [25]: http://amplifyjs.com
 [26]: http://momentjs.com
 [27]: http://twitter.github.io/bootstrap
+[28]: http://requirejs.org
 
 [30]: http://www.mongodb.org
 [31]: http://mongoosejs.com
 
 [35]: http://nodejs.org
+[36]: http://expressjs.com
 
 [50]: http://jrmoran.com/playground/markdown-live-editor
 

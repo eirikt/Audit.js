@@ -13,6 +13,13 @@
     overflow-y: auto;
 }
 
+.modal-dialog {
+    /*width: 75%;*/
+}
+
+.modal-content {
+}
+
 /**************************************
  * Other stuff ...
  **************************************/
@@ -23,7 +30,6 @@
 .centered {
     margin-left: auto;
     margin-right: auto;
-    width: 100%;
 }
 
 .important-looking {

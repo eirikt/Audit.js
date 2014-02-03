@@ -103,8 +103,6 @@ var _map_groupByEntityId = function () {
  * 5) Return the "replayed" (collapsed) object
  */
 var _reduce_replayStateChangeEvents = function (key, values) {
-    // TODO: how to include external references inside mapreduce functions ...
-    //return _replayStateChanges(values);
     var sortedStateChanges = values.sort(function (a, b) {
         return a.timestamp > b.timestamp
     });
