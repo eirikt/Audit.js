@@ -16,3 +16,6 @@ README.html
 
 # Ignore (personal) Git log
 git.log
+
+# Ignore (personal) benchmark file
+*.xlsx
