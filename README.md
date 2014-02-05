@@ -1,5 +1,9 @@
 # Audit.JS
 
+[![Dependency Status](https://david-dm.org/eirikt/Audit.js.png)](https://david-dm.org/eirikt/Audit.js)
+[![devDependency Status](https://david-dm.org/eirikt/Audit.js/dev-status.png)](https://david-dm.org/eirikt/Audit.js#info=devDependencies)
+
+
 A prototype project for an _audit-friendly_ application architecture.
 This prototype is a JavaScript implementation.
 
