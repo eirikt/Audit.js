@@ -1,5 +1,7 @@
 # Audit.JS
 
+[![Build Status](https://travis-ci.org/eirikt/Audit.js.png?branch=master)](https://travis-ci.org/eirikt/Audit.js)
+
 [![Dependency Status](https://david-dm.org/eirikt/Audit.js.png)](https://david-dm.org/eirikt/Audit.js)
 [![devDependency Status](https://david-dm.org/eirikt/Audit.js/dev-status.png)](https://david-dm.org/eirikt/Audit.js#info=devDependencies)
 
