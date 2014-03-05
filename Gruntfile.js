@@ -78,10 +78,12 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-jsdoc');
     grunt.loadNpmTasks('grunt-contrib-uglify');
 
-    grunt.registerTask('build', ['shell:help']);
+    grunt.registerTask('help', ['shell:help']);
     grunt.registerTask('bower', ['shell:bower']);
     grunt.registerTask('mongodb', ['shell:createDataDir', 'shell:mongod']);
     grunt.registerTask('node', ['shell:node']);
 
-    grunt.registerTask('default', ['build']);
+    grunt.registerTask('default', ['help']);
+
+    grunt.registerTask('build:travis', ['jsdoc']);
 };

@@ -9,6 +9,7 @@ node_modules
 client/bower_components
 test/bower_components/
 dist
+docs
 test/temp
 .sass-cache
 .tmp
