@@ -1,11 +1,11 @@
 define([]
 
-    /**
-     * Mix-in for state-change-aware Backbone models.
-     */
     , function () {
         "use strict";
 
+        /**
+         * Mix-in for state-change-aware Backbone models.
+         */
         return {
 
             /**

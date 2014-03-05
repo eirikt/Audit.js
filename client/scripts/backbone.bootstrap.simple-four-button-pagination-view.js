@@ -1,19 +1,22 @@
-define(["jquery", "underscore", "backbone", "backbone.bootstrap.pagination-button-view"]
+define([
+    "jquery", "underscore", "backbone",
+    "backbone.bootstrap.pagination-button-view"
+]
 
-    /**
-     * Simple Bootstrap-based centered pagination component with four static buttons, first, previous, next, and last.
-     *
-     * This view is expecting a model with:
-     * <ul>
-     *     <li/><code>count</code>: the total number of elements in the list
-     *     <li/><code>pageCount</code>: the number of elements to show on each page
-     *     <li/><code>currentIndex</code>: the index of the first book on the current page
-     * </ul>
-     * @see http://getbootstrap.com/components/#pagination
-     */
     , function ($, _, Backbone, BootstrapPaginationButtonView) {
         "use strict";
 
+        /**
+         * Simple Bootstrap-based centered pagination component with four static buttons, first, previous, next, and last.
+         *
+         * This view is expecting a model with:
+         * <ul>
+         *     <li/><code>count</code>: the total number of elements in the list
+         *     <li/><code>pageCount</code>: the number of elements to show on each page
+         *     <li/><code>currentIndex</code>: the index of the first book on the current page
+         * </ul>
+         * @see http://getbootstrap.com/components/#pagination
+         */
         return Backbone.View.extend({
             initialize: function () {
                 this.totalNumberOfElements = this.model.get("count");

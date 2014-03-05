@@ -1,11 +1,12 @@
 define(["underscore", "backbone", "moment"]
 
-    /**
-     * Stopwatch using 'Moment.js'
-     */
     , function (_, Backbone, Moment) {
         "use strict";
 
+        /**
+         * Watch using 'Moment.js'.
+         * Ticks and triggers every second when started.
+         */
         return Backbone.Model.extend({
             defaults: {
                 intervalFunctionId: null,

@@ -13,6 +13,8 @@ require([
          */
         $(function () {
 
+            console.log("DOM ready! Starting ...");
+
             // Models
             var StateChangeCount = Backbone.Model.extend({
                 defaults: {
@@ -45,11 +47,12 @@ require([
                 App.library.fetch();
             };
 
+
             // Connect to server for HTTP server push
-            // Dependant on models, views dependant on this
+            // Dependant on SOME models, all views dependant on this
             App.pushClient = new PushClient({ serverUrl: App.SERVER_URL });
 
-            //app.userCount = new app.UserCount();
+
             var userCount = Backbone.Model.extend({
                 defaults: { numberOfUsers: 0 },
                 initialize: function () {
@@ -92,15 +95,15 @@ require([
 
 define([]
 
-    /**
-     * Application configuration and placeholder
-     */
     , function () {
         "use strict";
 
+        /**
+         * Application configuration and placeholder
+         */
         return {
             SERVER_URL: "http://127.0.0.1:4711", // For server push client setup
-            LIBRARY_PAGINATION_SIZE: 10,
+            LIBRARY_PAGINATION_SIZE: 20,
             KEYUP_TRIGGER_DELAY_IN_MILLIS: 400
         }
     }
@@ -122,5 +125,6 @@ function disableFormInputFields($form) {
 }
 
 function prettyprintInteger(int) {
-    return int.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    if (int === 0) return "0";
+    return int ? int.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
 }

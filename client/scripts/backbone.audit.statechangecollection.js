@@ -1,12 +1,12 @@
 define(["underscore", "backbone", "backbone.audit.statechange"]
 
-    /**
-     * (Zero-based) Read-only collection of state changes.
-     * Always be sorted after ascending 'StateChange.timestamp'.
-     */
-    , function (_, Backbone,BackboneAuditStateChange) {
+    , function (_, Backbone, BackboneAuditStateChange) {
         "use strict";
 
+        /**
+         * (Zero-based) Read-only collection of state changes.
+         * Always be sorted after ascending 'StateChange.timestamp'.
+         */
         return Backbone.Collection.extend({
 
             model: BackboneAuditStateChange,

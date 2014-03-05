@@ -1,13 +1,17 @@
 define(["socket.io", "underscore", "backbone", "app", "app.book"]
 
-    /**
-     * HTTP server push events config
-     */
     , function (SocketIo, _, Backbone, App, Book) {
         "use strict";
 
+        /**
+         * HTTP server push events config
+         */
         return Backbone.Model.extend({
-            socket: null,
+            defaults: {
+                socket: null,
+                serverUrl: null,
+                connected: false
+            },
 
             createPushMessage: function () {
                 var msg = arguments[0],
@@ -34,7 +38,7 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"]
             /** Generic push event subscription */
             listenForPushEvent: function (eventId, callback) {
                 var self = this;
-                this.socket.on(eventId, function () {
+                this.get("socket").on(eventId, function () {
                     // http://stackoverflow.com/questions/960866/converting-the-arguments-object-to-an-array-in-javascript
                     var args = Array.prototype.slice.call(arguments, 0),
                         marshalledArgs;
@@ -55,27 +59,28 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"]
             },
 
             initialize: function () {
-                this.socket = SocketIo.connect(this.get("serverUrl"));
-
+                if (!this.get("connected")) {
+                    this.set("connected", true);
+                    this.set("socket", SocketIo.connect(this.get("serverUrl")));
+                    console.log("Connecting to " + this.get("serverUrl") + " ...");
+                } else {
+                    console.log("Already connected to " + this.get("serverUrl") + " ... not re-trying");
+                }
                 this.listenForPushEvent("number-of-connections");
 
                 this.listenForPushEvent("cqrs", App.refreshViews);
 
+                this.listenForPushEvent("creating-statechangeevents");
+                this.listenForPushEvent("statechangeevent-created");
+                this.listenForPushEvent("all-statechangeevents-created", App.refreshViews);
+
+                this.listenForPushEvent("mapreducing-events");
+                this.listenForPushEvent("event-mapreduced");
+                this.listenForPushEvent("all-events-mapreduced");
+
                 this.listenForPushEvent("replaying-events");
                 this.listenForPushEvent("event-replayed");
                 this.listenForPushEvent("all-events-replayed", App.refreshViews);
-
-                this.listenForPushEvent("acquiring-sequencenumbers");
-                this.listenForPushEvent("sequencenumber-acquired");
-                this.listenForPushEvent("all-sequencenumbers-acquired");
-
-                this.listenForPushEvent("creating-statechangeevents");
-                this.listenForPushEvent("statechangeevent-created");
-                this.listenForPushEvent("all-statechangeevents-created");
-
-                this.listenForPushEvent("generating-books");
-                this.listenForPushEvent("book-generated");
-                this.listenForPushEvent("all-books-generated", App.refreshViews);
 
                 this.listenForPushEvent("book-updated", function (updatedBook) {
                     App.library.set(updatedBook, { add: false, remove: false, merge: true });
@@ -92,7 +97,6 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"]
                     }
                 });
                 this.listenForPushEvent("all-books-removed", function () {
-                    //App.library.reset(); // Needed?
                     App.refreshViews();
                     // TODO: reset form fields
                     //App.bookView.clear();

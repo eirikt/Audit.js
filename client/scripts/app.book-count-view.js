@@ -14,7 +14,7 @@ define(["jquery", "underscore", "backbone"]
             render: function () {
                 var model = this.model.toJSON();
                 model.count = prettyprintInteger(model.count);
-                this.$el.html(this.template(model));
+                this.$el.empty().append(this.template(model));
             }
         });
     }

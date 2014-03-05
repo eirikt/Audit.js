@@ -1,28 +1,28 @@
-var handleError = exports.handle = function (error, options) {
-    if (!error) {
+var handleError = exports.handle = function (err, options) {
+    if (!err) {
         return false;
     }
-    var hasErrorMessage = error.message;
+    var hasErrorMessage = err.message;
     if (hasErrorMessage) {
-        console.warn(error.message);
+        console.warn(err.message);
     } else {
-        console.warn(error);
+        console.warn(err);
     }
     if (!options) {
-        throw new Error(error);
+        throw new Error(err);
     }
     if (options && options.response) {
         if (hasErrorMessage) {
-            options.response.send(500, { error: error.message });
+            options.response.send(500, { error: err.message });
         } else {
-            options.response.send(500, { error: error });
+            options.response.send(500, { error: err });
         }
     }
     if (options && options.deferred) {
         if (hasErrorMessage) {
-            options.deferred.reject(error.message);
+            options.deferred.reject(err.message);
         } else {
-            options.deferred.reject(error);
+            options.deferred.reject(err);
         }
     }
     return true;

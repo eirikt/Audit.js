@@ -1,6 +1,5 @@
-
 ///////////////////////////////////////////////////////////////////////////////
-// Random (library domain) test data helper functions
+// Random (simple library domain) test data helper functions
 ///////////////////////////////////////////////////////////////////////////////
 
 _ = require("underscore");
@@ -41,4 +40,16 @@ var randomName = exports.randomName = function () {
 
 var randomKeyword = exports.randomKeyword = function () {
     return pickRandomElementFrom(keywords);
+};
+
+var createRandomBookAttributes = exports.createRandomBookAttributes = function (keywordType) {
+    return {
+        title: randomBookTitle(),
+        author: randomName(),
+        keywords: [
+            new keywordType({ keyword: randomKeyword() }),
+            new keywordType({ keyword: randomKeyword() }),
+            new keywordType({ keyword: randomKeyword() })
+        ]
+    }
 };

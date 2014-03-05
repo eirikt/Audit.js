@@ -1,79 +1,25 @@
 define([
     "jquery", "underscore", "backbone",
-    "app",
-    "backbone.simple-underscore-template-view", "backbone.moment.stopwatch"
+    "backbone.simple-underscore-template-view", "backbone.timer"
 ]
 
-    /**
-     * Modal Bootstrap dialog with multiple progress bars, and a stopwatch showing the overall elapsed time.
-     */
-    , function ($, _, Backbone, App, SimpleUnderscoreView, Stopwatch) {
+    , function ($, _, Backbone, SimpleUnderscoreView, Timer) {
         "use strict";
 
-        // TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out
-        // TODO: include outer div in Backbone view
-        var template = _.template('' +
-            '<div id="modalMultipleProgressbar" class="modal" style="margin-top:100px;" role="dialog">' +
-            '<div class="modal-dialog">' +
-            '  <div class="important-looking centered modal-content">' +
-            '    <div class="clearfix" style="margin:1.2rem;">' +
-            '      <div id="progressbarMetainfo" class="pull-right"></div>' +
-            '        <div><strong><%= headerText %></strong></div>' +
-            '      </div>' +
-            '      <div id="progressbars" style="margin-top:2rem;"></div>' +
-            '      <div style="margin:1.2rem;text-align:center;">' +
-            '        <span><%= footerText %></span>' +
-            '      </div>' +
-            '    </div>' +
-            '  </div>' +
-            '</div>'
-        );
-
-        var bootstrapProgressbarTemplate = _.template('' +
-            '<div style="margin-left:1rem;">' +
-            '  <small><%= headerText %></small>' +
-            '</div>' +
-            '<div class="progress" style="margin:1rem">' +
-            '  <span class="progress-bar progress-bar-info"' +
-            '      role="progressbar"' +
-            '      aria-valuenow="<%= progressValueInPercent %>"' +
-            '      aria-valuemin="0"' +
-            '      aria-valuemax="100"' +
-            '      style="text-align:left;width:<%= progressValueInPercent %>%;">' +
-            '    &nbsp;&nbsp;<%= Math.round(progressValueInPercent) %>&nbsp;%' +
-            '  </span>' +
-            '  <!--<span style="margin:1rem">Remaining: 80%</span>-->' +
-            '</div>'
-        );
-
-        var bootstrapProgressbarUnknownStateTemplate = _.template('' +
-            '<div style="margin-left:1rem;">' +
-            '  <small>' +
-            '    <%= headerText %>' +
-            '  </small>' +
-            '</div>' +
-            '<div class="progress" style="margin:1rem;">' +
-            '  <span class="progress-bar progress-bar-info"' +
-            '      role="progressbar"' +
-            '      aria-valuenow="0"' +
-            '      aria-valuemin="0"' +
-            '      aria-valuemax="100"' +
-            '      style="text-align:left;">' +
-            '  </span>' +
-            '  <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;Unknown state ...</span>' +
-            '</div>'
-        );
-
+        /**
+         * Modal Bootstrap dialog with multiple progress bars, and a stopwatch showing the overall elapsed time.
+         */
         return Backbone.View.extend({
-            //templateSelector: "#bootstrapModalMultipleProgressbarTemplate",
 
             ProgressbarMetainfoView: Backbone.View.extend({
-                className: "tiny",
-                template: _.template("<table>" +
-                    "  <tr><td><span style='margin-right:1rem;'>Total count:</span></td><td><strong><%= prettyprintInteger(totalCount) %></strong></td></tr>" +
-                    "  <tr><td>Elapsed:</td><td><strong><%= elapsed %></strong></td></tr>" +
-                    "  <tr><td>By user:</td><td><span style='color:grey;font-style:italic'><%= user %></span></td></tr>" +
-                    "</table>"
+                tagName: 'div',
+                className: 'tiny',
+                template: _.template('' +
+                    '<table>' +
+                    '  <tr><td><span style="margin-right:1rem;">Total count:</span></td><td><strong><%= prettyprintInteger(totalCount) %></strong></td></tr>' +
+                    '  <tr><td>Elapsed:</td><td><strong><%= elapsed %></strong></td></tr>' +
+                    '  <tr><td>By user:</td><td><span style="color:grey;font-style:italic"><%= user %></span></td></tr>' +
+                    '</table>'
                 ),
                 initialize: function () {
                     this.listenTo(this.model, "change", this.render);
@@ -84,17 +30,69 @@ define([
                 }
             }),
 
+            // TODO: fading in and out, http://stackoverflow.com/questions/7676356/can-twitter-bootstrap-alerts-fade-in-as-well-as-out
+            template: _.template('' +
+                '<div id="modalMultipleProgressbar" class="modal" style="margin-top:100px;" role="dialog">' +
+                '  <div class="modal-dialog">' +
+                '    <div class="important-looking centered modal-content">' +
+                '      <div class="clearfix" style="margin:1.2rem;">' +
+                '        <div id="progressbarMetainfo" class="pull-right"></div>' +
+                '        <div><strong><%= headerText %></strong></div>' +
+                '      </div>' +
+                '      <div id="progressbars" style="margin-top:2rem;"></div>' +
+                '      <div style="margin:2rem;text-align:center;">' +
+                '        <span><%= footerText %></span>' +
+                '      </div>' +
+                '    </div>' +
+                '  </div>' +
+                '</div>'
+            ),
+
+            bootstrapProgressbarTemplate: _.template('' +
+                '<div style="margin-left:1rem;">' +
+                '  <small><%= headerText %></small>' +
+                '</div>' +
+                '<div class="progress" style="margin:1rem;">' +
+                '  <span class="progress-bar progress-bar-info"' +
+                '      role="progressbar"' +
+                '      aria-valuemin="0"' +
+                '      aria-valuenow="<%= progressValueInPercent %>"' +
+                '      aria-valuemax="100"' +
+                '      style="text-align:left;width:<%= progressValueInPercent %>%;">' +
+                '    &nbsp;&nbsp;<%= Math.round(progressValueInPercent) %>&nbsp;%' +
+                '  </span>' +
+                '  <!--<span style="margin:1rem">Remaining: 80%</span>-->' +
+                '</div>'
+            ),
+
+            unknownStateBootstrapProgressbarTemplate: _.template('' +
+                '<div style="margin-left:1rem;">' +
+                '  <small>' +
+                '    <%= headerText %>' +
+                '  </small>' +
+                '</div>' +
+                '<div class="progress" style="margin:1rem;">' +
+                '  <span class="progress-bar progress-bar-info"' +
+                '      role="progressbar"' +
+                '      aria-valuemin="0"' +
+                '      aria-valuenow="0"' +
+                '      aria-valuemax="100"' +
+                '      style="text-align:left;">' +
+                '  </span>' +
+                '  <span style="margin:1rem;font-size:x-small;text-align:center;">&nbsp;&nbsp;Unknown state ...</span>' +
+                '</div>'
+            ),
+
             setupDom: function () {
-                //this.$el.empty().append(_.template($(this.templateSelector).html())(this.model.toJSON()));
-                this.$el.empty().append(template(this.model.toJSON()));
+                this.$el.empty().append(this.template(this.model.toJSON()));
                 this.$("#progressbarMetainfo").append(this.metaInfoView.el);
             },
             initialize: function () {
-                this.stopwatch = new Stopwatch();
-                this.stopwatch.listenTo(App.pushClient, "replaying-events", this.stopwatch.stop);
+                //console.log("Multi-progressbar: initialize ...");
+                this.timer = new Timer();
 
                 this.metaInfoView = new this.ProgressbarMetainfoView({
-                    model: this.stopwatch
+                    model: this.timer
                 });
                 this.listenTo(this.model, "change", this.setupDom);
                 this.listenTo(this.collection, "change", this.render);
@@ -104,74 +102,77 @@ define([
                 $("body").prepend(this.render().el);
             },
             show: function () {
+                //console.log("Multi-progressbar: show ...");
                 this.$("#modalMultipleProgressbar").modal({
                     show: true,
                     backdrop: "static",
                     keyboard: false,
                     remote: false
                 });
-                if (!this.stopwatch.isStarted()) {
+                if (!this.timer.isStarted()) {
                     console.log("NOT STARTED, starting with " + this.model.get("startTime"));
-                    this.stopwatch.start(this.model.get("startTime"), this.model.get("totalCount"));
+                    this.timer.start(this.model.get("startTime"), this.model.get("totalCount"));
+                } else {
+                    this.timer.set("totalCount", this.model.get("totalCount"));
                 }
             },
             hide: function () {
+                //console.log("Multi-progressbar: hide ...");
                 this.$("#modalMultipleProgressbar").modal("hide");
                 $(".modal-backdrop").remove();
                 $("body").removeClass("modal-open");
-                this.stopwatch.stop();
+                this.timer.stop();
                 this.model.reset();
+                this.collection.each(function (progressbar) {
+                    progressbar.reset();
+                });
             },
-            areAnyProgressbarsVisible: function () {
+            areAnyProgressbarsActive: function () {
                 return this.collection.any(function (progressbar) {
-                    return progressbar.get("visible");
+                    return progressbar.isActive();
                 }, this);
             },
-            areAnyProgressbarsStarted: function () {
-                return this.collection.any(function (progressbar) {
-                    return progressbar.get("enabled");
+            areAllProgressbarsFinished: function () {
+                return this.collection.all(function (progressbar) {
+                    return progressbar.isFinished();
                 }, this);
             },
             render: function () {
+                //console.log("Multi-progressbar: render ...");
                 var self = this;
+
                 this.model.set("startTime", new Date().getTime(), { silent: true });
                 this.$("#progressbars").empty();
-                if (this.areAnyProgressbarsVisible()) {
+
+                if (this.areAllProgressbarsFinished()) {
+                    this.hide();
+
+                } else if (this.areAnyProgressbarsActive()) {
                     this.collection.each(function (progressbar) {
-                        if (progressbar.get("visible") || progressbar.get("enabled")) {
-                            self.$("#progressbars").append(
-                                new SimpleUnderscoreView({
-                                    //templateSelector: "#bootstrapProgressbarTemplate",
-                                    template: bootstrapProgressbarTemplate,
-                                    model: progressbar
-                                }).el
-                            );
+                        var template = self.unknownStateBootstrapProgressbarTemplate;
+                        if (progressbar.isActive()) {
+                            template = self.bootstrapProgressbarTemplate;
                             if (progressbar.get("startTime") != null &&
-                                progressbar.get("startTime")
-                                    < self.model.get("startTime")) {
+                                progressbar.get("startTime") < self.model.get("startTime")) {
+
                                 self.model.set("startTime", progressbar.get("startTime"), { silent: true });
                             }
                             if (progressbar.get("totalCount") != null) {
                                 self.model.set("totalCount", progressbar.get("totalCount"), { silent: true });
                             }
-
-                        } else {
-                            self.$("#progressbars").append(
-                                new SimpleUnderscoreView({
-                                    //templateSelector: "#bootstrapProgressbarUnknownStateTemplate",
-                                    template: bootstrapProgressbarUnknownStateTemplate,
-                                    model: progressbar
-                                }).el
-                            );
                         }
+                        self.$("#progressbars").append(
+                            new SimpleUnderscoreView({
+                                template: template,
+                                model: progressbar
+                            }).el
+                        );
                     });
                     this.show();
-
-                } else if (this.areAnyProgressbarsStarted()) {
+                }
+                else {
                     this.hide();
-                    this.collection.each(function (progressbar) {
-                        progressbar.reset();
-                    });
+
                 }
                 return this;
             }

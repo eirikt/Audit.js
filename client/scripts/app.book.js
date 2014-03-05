@@ -7,9 +7,10 @@ define(["underscore", "backbone", "backbone.audit.history"]
             idAttribute: "_id",
             urlRoot: "/library/books",
             defaults: {
+                seq: null,
                 title: null,
                 author: null,
-                releaseDate: null,
+                //releaseDate: null,
                 //coverImage: 'image/placeholder.png',
                 keywords: null
             }

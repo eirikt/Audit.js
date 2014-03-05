@@ -18,6 +18,7 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
             }
         });
 
+
         var BookInfoTableFilteringRowView = Backbone.View.extend({
             tagName: "tr",
             template: _.template('' +
@@ -31,6 +32,7 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
                 return this;
             }
         });
+
 
         var BookInfoTableRowView = Backbone.View.extend({
             tagName: "tr",

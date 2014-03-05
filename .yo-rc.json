@@ -1,6 +1,6 @@
 {
   "generator-backbone": {
-    "appPath": "app",
+    "appPath": "client",
     "coffee": false,
     "testFramework": "mocha",
     "templateFramework": "lodash",

@@ -4,6 +4,7 @@ define(["jquery", "underscore", "backbone"]
         "use strict";
 
         var BookHistoryEventView = Backbone.View.extend({
+            tagName: "tr",
             template: _.template('' +
                 '<td><span class="tiny"><%= seq %></span></td>' +
                 '<td>' +
@@ -19,7 +20,6 @@ define(["jquery", "underscore", "backbone"]
                 '<td><span class="tiny"><%= method %></span></td>' +
                 '<td><span class="tiny"><%- changes %></span></td>'
             ),
-            tagName: "tr",
             _getRelativeTimeDescription: function (timestamp) {
                 return moment(timestamp).fromNow();
             },

@@ -108,7 +108,7 @@ On the server side:
 
 I am afraid some of the rather simplistic Grunt tasks below are Windows-dependent ...
 
- 1. Install [MongoDB][30] <sub><sup>(make sure it's running on the default port 27017)</sup></sub>
+ 1. Install [MongoDB][30] <sub><sup>(use the default port 27017)</sup></sub>
 
  1. Install [Node.js][35]
 
@@ -116,12 +116,12 @@ I am afraid some of the rather simplistic Grunt tasks below are Windows-dependen
 
     ```
     git clone https://github.com/eirikt/Audit.js.git
+    cd ./Audit.JS
     ```
  1. Retrieve all tools and server-side dependencies via Node Package Manager (npm)
 
     ```
-    cd ./Audit.JS
-    npm install
+    npm -g install
     ```
  1. Retrieve all client-side dependencies using Bower (via a Grunt task)
 

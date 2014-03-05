@@ -23,20 +23,30 @@ module.exports = function (grunt) {
                 command: 'bower install'
             },
             createDataDir: {
-                options: { stdout: true, stderr: true, failOnError: true },
+                options: { stdout: true },
                 command: [
                     'mkdir data',
                     'cd data',
-                    'mkdir db',
-                    'cd ..'
+                    'mkdir db'
                 ].join('&&')
             },
             mongod: {
                 options: { stdout: true, stderr: true, failOnError: true },
                 command: 'mongod.exe --dbpath data/db'
             },
+            // TODO: does not work => "Warning: stdout maxBuffer exceeded. Use --force to continue."
             node: {
-                options: { stdout: true, stderr: true, failOnError: true },
+                execOptions: {
+                    //encoding: 'utf8',
+                    //timeout: 0,
+                    maxBuffer: 4096//,
+                    //killSignal: 'SIGTERM'
+                },
+                options: {
+                    stdout: true,
+                    stderr: true,
+                    failOnError: true
+                },
                 command: [
                     'echo Starting Node.js (4GB max process size/max garbage size) ...',
                     'node --max-old-space-size=4096 server/scripts/server.js'

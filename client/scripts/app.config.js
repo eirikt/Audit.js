@@ -1,11 +1,16 @@
 require.config({
     paths: {
         'socket.io': 'vendor/socket.io.min',
-        'jquery': '../bower_components/jquery/jquery.min',
+        'jquery': '../bower_components/jquery/dist/jquery.min',
         'jquery.bootstrap': '../bower_components/bootstrap/dist/js/bootstrap.min',
         'jquery.bindwithdelay': 'vendor/jquery.bind-with-delay',
-        'underscore': '../bower_components/underscore/underscore-min',
-        'backbone': '../bower_components/backbone/backbone-min',
+
+        // TODO: Bower... where are these??
+        //'underscore': '../bower_components/underscore/underscore-min',
+        //'backbone': '../bower_components/backbone/backbone-min',
+        'underscore': '../bower_components/underscore/underscore',
+        'backbone': '../bower_components/backbone/backbone',
+
         'moment': '../bower_components/moment/min/moment.min'
     },
     shim: {

@@ -3,6 +3,14 @@ define(["underscore", "backbone"]
     , function (_, Backbone) {
         "use strict";
 
+        /**
+         * Simple Underscore-based Backbone view.
+         *
+         * @param {Object} attr mandatory
+         * @param {String} attr.model mandatory model
+         * @param {String} attr.template mandatory in disjunction with <code>templateSelector</code>
+         * @param {String} attr.templateSelector mandatory in disjunction with <code>template</code>
+         */
         return Backbone.View.extend({
             initialize: function (attr) {
                 this.model = attr.model;

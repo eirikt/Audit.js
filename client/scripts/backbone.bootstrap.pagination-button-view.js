@@ -1,21 +1,21 @@
 define(["jquery", "underscore", "backbone"]
 
-    /**
-     * ...
-     *
-     * This view is expecting a model with:
-     * <ul>
-     *     <li/><code>seq</code>: the pagination button sequence number
-     *     <li/><code>title</code>: ...
-     *     <li/><code>index</code>: ...
-     *     <li/><code>count</code>: ...
-     *     <li/><code>content</code>: ...
-     * </ul>
-     * @see http://getbootstrap.com/components/#pagination
-     */
     , function ($, _, Backbone) {
         "use strict";
 
+        /**
+         * ...
+         *
+         * This view is expecting a model with:
+         * <ul>
+         *     <li/><code>seq</code>: the pagination button sequence number
+         *     <li/><code>title</code>: ...
+         *     <li/><code>index</code>: ...
+         *     <li/><code>count</code>: ...
+         *     <li/><code>content</code>: ...
+         * </ul>
+         * @see http://getbootstrap.com/components/#pagination
+         */
         return Backbone.View.extend({
             tagName: "li",
             className: "disabled",

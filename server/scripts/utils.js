@@ -1,5 +1,12 @@
 // Generic helper functions
 
+
+/** @returns {string} The percentage with the given precision */
+var getPercentage = exports.getPercentage = function (number, totalNumber, precision) {
+    return (number / totalNumber * 100).toFixed(precision || 1);
+};
+
+
 /**
  * Invoke the given callback function only when the iteration number is a natural number ratio of the total iteration number.
  *
@@ -23,7 +30,7 @@ var throttleEvents = exports.throttleEvents = function (numberOfThrottledEvents,
 
     if (doEmit && callback) {
         if (numberOfThrottledEvents > 100) {
-            progressValueProgressInPercent = (iterationNo / totalIterationNo * 100).toFixed(1);
+            progressValueProgressInPercent = getPercentage(iterationNo, totalIterationNo);
         } else {
             progressValueProgressInPercent = Math.ceil(iterationNo / totalIterationNo * 100);
         }

@@ -32,7 +32,7 @@ define(["underscore", "backbone"]
             },
 
             isDelete: function () {
-                return Audit.StateChange.isDeleteMethod(this.get("method"));
+                return this.constructor.isDeleteMethod(this.get("method"));
             }
 
         }, {
