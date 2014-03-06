@@ -527,8 +527,10 @@ var _ = require("underscore")
                                     .skip(skipValue)
                                     .limit(limitValue)
                                     .exec(function (err, paginatedResult) {
-                                        var books = paginatedResult.map(_buildObject);//.filter(_isNotNull);
-                                        return dfd.resolve({ books: books, count: projectedResult.length, totalCount: totalMapReducedResult.length });
+                                        var books = paginatedResult.map(_buildObject),
+                                            count = projectedResult.length,
+                                            totalCount = totalMapReducedResult.length;
+                                        return dfd.resolve(books, count, totalCount);
                                     }
                                 );
                             }

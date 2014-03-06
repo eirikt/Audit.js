@@ -1,3 +1,4 @@
+/* global define: false */
 define(["underscore", "backbone", "backbone.audit.statechange"]
 
     , function (_, Backbone, BackboneAuditStateChange) {
@@ -38,6 +39,6 @@ define(["underscore", "backbone", "backbone.audit.statechange"]
                 });
                 return stateChangeObjArrayFromServer;
             }
-        })
+        });
     }
 );

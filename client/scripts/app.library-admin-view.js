@@ -1,3 +1,4 @@
+/* global define: false, prettyprintInteger: false */
 define([
     "underscore", "backbone",
     "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"
@@ -33,7 +34,7 @@ define([
             },
             initialize: function () {
                 var generateBooksProgressbar = new Progressbar({ headerText: "Generating random books ..." });
-                generateBooksProgressbar.listenTo(App.pushClient, "creating-statechangeevents", function (totalCount, startTime) {
+                generateBooksProgressbar.listenTo(App.pushClient, "creating-statechangeevents", function (totalCount/*, startTime*/) {
                     generateBooksProgressbar.reset();
                     generateBooksProgressbar.set("headerText", "Generating " + prettyprintInteger(totalCount) + " random books ...");
                 });
@@ -66,7 +67,7 @@ define([
                     this.subView.model.set("headerText", "Generating " + prettyprintInteger(numberOfBooksToGenerate) + "random books ...", { silent: true });
 
                 } else {
-                    numberOfBooksToGenerate = 0
+                    numberOfBooksToGenerate = 0;
                 }
                 console.log("generateRandomBooks: " + numberOfBooksToGenerate + " books");
             },
@@ -76,6 +77,6 @@ define([
                 });
                 new RemoveAllBooks().save();
             }
-        })
+        });
     }
 );

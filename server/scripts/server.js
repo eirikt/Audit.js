@@ -260,8 +260,11 @@ app.post("/events/cqrs/toggle", function (request, response) {
 
 
 /**
- * Admin API :: Replay the entire <em>event store</em> into the <em>application store</em>
- * (by creating and sending (posting) a "replay" object/resource to the server)
+ * Admin API :: Replay the entire <em>event store</em> into the <em>application store</em>.
+ * (by creating and sending (posting) a "replay" object/resource to the server.)
+ *
+ * This is an idempotent operation, as already existing domain objects will not be overwritten.
+ * For complete re-creation of the application store, purge it before replaying event store.
  *
  * CQRS Query / Application store special
  *
@@ -532,8 +535,8 @@ app.post("/library/books/projection", function (request, response) {
     } else {
         return eventSourcing.project(Book, findQuery, sortQuery, skip, limit)
             .then(
-            function (result) {
-                return response.send(200, { books: result.books, count: result.count, totalCount: result.totalCount });
+            function (books, count, totalCount) {
+                return response.send(200, { books: books, count: count, totalCount: totalCount });
             },
             function (err) {
                 if (err.message === "ns doesn't exist") {

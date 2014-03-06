@@ -1,3 +1,4 @@
+/* global define: false */
 define([
     "jquery", "underscore", "backbone",
     "backbone.simple-underscore-template-view", "backbone.timer"
@@ -152,12 +153,12 @@ define([
                         var template = self.unknownStateBootstrapProgressbarTemplate;
                         if (progressbar.isActive()) {
                             template = self.bootstrapProgressbarTemplate;
-                            if (progressbar.get("startTime") != null &&
+                            if (progressbar.get("startTime") &&
                                 progressbar.get("startTime") < self.model.get("startTime")) {
 
                                 self.model.set("startTime", progressbar.get("startTime"), { silent: true });
                             }
-                            if (progressbar.get("totalCount") != null) {
+                            if (progressbar.get("totalCount")) {
                                 self.model.set("totalCount", progressbar.get("totalCount"), { silent: true });
                             }
                         }

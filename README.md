@@ -1,4 +1,4 @@
-# Audit.JS
+# Audit.js
 
 [![Build Status](https://travis-ci.org/eirikt/Audit.js.png?branch=master)](https://travis-ci.org/eirikt/Audit.js)
 
@@ -36,7 +36,7 @@ The main motivation for this is the fact that read and write operations require 
 Also, reads most often constitute the larger portion of the application traffic, so why not optimize for that.
 
 
-## Design principles for Audit.JS
+## Design principles for Audit.js
 
 #### Event Sourcing stuff
 
@@ -85,7 +85,7 @@ HTTP server push also should be ideal for the "chatty" conversations involved wh
 
 ## The application
 
-The Audit.JS prototype application is a simple library app.
+The Audit.js prototype application is a simple library app.
 The initial setup is inspired by the example application in the book [_Developing Backbone.js Applications_][16], by _Addy Osmani_.
 
 #### Core libs
@@ -108,37 +108,35 @@ On the server side:
 
 #### Setup
 
-I am afraid some of the rather simplistic Grunt tasks below are Windows-dependent ...
-
  1. Install [MongoDB][30] <sub><sup>(use the default port 27017)</sup></sub>
 
  1. Install [Node.js][35]
 
- 1. Clone Audit.JS
+ 1. Clone Audit.js
 
     ```
     git clone https://github.com/eirikt/Audit.js.git
-    cd ./Audit.JS
+    cd ./Audit.js
     ```
  1. Retrieve all tools and server-side dependencies via Node Package Manager (npm)
 
     ```
     npm -g install
     ```
- 1. Retrieve all client-side dependencies using Bower (via a Grunt task)
+ 1. Retrieve all client-side dependencies using Bower
 
     ```
-    grunt bower
+    bower install
     ```
  1. Start MongoDB (using a local data directory) (via a _blocking_ Grunt task)
 
     ```
     grunt mongodb
     ```
- 1. Start the Node-based app server configured in `server.js` (via a _blocking_ Grunt task)
+ 1. Start the Node-based app server configured in `server.js`
 
     ```
-    grunt node
+    node server/scripts/server.js
     ```
  1. Navigate to [http://localhost:4711](http://localhost:4711)
 

@@ -1,3 +1,4 @@
+/* global require: false, define: false */
 require([
     'underscore', 'backbone', 'jquery', 'jquery.bootstrap',
     'app', 'app.server-push-client', 'app.router',
@@ -53,15 +54,15 @@ require([
             App.pushClient = new PushClient({ serverUrl: App.SERVER_URL });
 
 
-            var userCount = Backbone.Model.extend({
+            var UserCount = Backbone.Model.extend({
                 defaults: { numberOfUsers: 0 },
                 initialize: function () {
                     this.listenTo(App.pushClient, "number-of-connections", function (numberOfConnections) {
-                        this.set("numberOfUsers", numberOfConnections)
+                        this.set("numberOfUsers", numberOfConnections);
                     });
                 }
             });
-            App.userCount = new userCount();
+            App.userCount = new UserCount();
 
 
             // Views
@@ -105,7 +106,7 @@ define([]
             SERVER_URL: "http://127.0.0.1:4711", // For server push client setup
             LIBRARY_PAGINATION_SIZE: 20,
             KEYUP_TRIGGER_DELAY_IN_MILLIS: 400
-        }
+        };
     }
 );
 
@@ -116,15 +117,20 @@ define([]
 
 // http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
 function resetFormInputFields($form) {
+    "use strict";
     $form.find("input:text, input:password, input:file, select, textarea").val("");
     $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
 }
 
 function disableFormInputFields($form) {
+    "use strict";
     $form.find("input:text, input:password, input:file, select, textarea").attr("disabled", "disabled");
 }
 
-function prettyprintInteger(int) {
-    if (int === 0) return "0";
-    return int ? int.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
+function prettyprintInteger(integer) {
+    "use strict";
+    if (integer === 0) {
+        return "0";
+    }
+    return integer ? integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
 }

@@ -1,3 +1,4 @@
+/* global define: false */
 define([
     "jquery", "underscore", "backbone",
     "backbone.bootstrap.pagination-button-view"

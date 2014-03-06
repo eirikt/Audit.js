@@ -1,3 +1,4 @@
+/* global define: false, disableFormInputFields: false */
 define(["jquery", "underscore", "backbone"]
 
     , function ($, _, Backbone) {

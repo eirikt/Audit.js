@@ -1,5 +1,5 @@
 {
-    "name": "Audit.JS",
+    "name": "Audit.js",
     "version": "0.1.1",
     "description": "A prototype/demo web app (for a simple library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",

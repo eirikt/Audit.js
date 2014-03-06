@@ -1,3 +1,4 @@
+/* global define: false */
 define(["jquery", "underscore", "backbone"]
 
     , function ($, _, Backbone) {
@@ -35,7 +36,8 @@ define(["jquery", "underscore", "backbone"]
                     self.trigger(
                         "pagination",
                         parseInt(event.target.dataset.index, 10),
-                        parseInt(event.target.dataset.count, 10))
+                        parseInt(event.target.dataset.count, 10)
+                    );
                 });
                 return this;
             },

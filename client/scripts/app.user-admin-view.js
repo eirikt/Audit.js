@@ -1,11 +1,12 @@
+/* global define: false */
 define(["underscore", "backbone"]
 
-    , function (_, Backbone, app) {
+    , function (_, Backbone) {
         "use strict";
 
         // TODO: Get rid of the top span as well ...
         var template = _.template('' +
-            '<span>'+
+            '<span>' +
             '  Number of connected users:&nbsp;' +
             '  <strong><%= numberOfUsers %></strong>' +
             '  &nbsp;&nbsp;&nbsp;' +

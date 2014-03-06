@@ -1,6 +1,7 @@
-define(["jquery", "underscore", "backbone"]
+/* global define: false */
+define(["jquery", "underscore", "backbone", "moment"]
 
-    , function ($, _, Backbone) {
+    , function ($, _, Backbone, Moment) {
         "use strict";
 
         var BookHistoryEventView = Backbone.View.extend({
@@ -21,7 +22,7 @@ define(["jquery", "underscore", "backbone"]
                 '<td><span class="tiny"><%- changes %></span></td>'
             ),
             _getRelativeTimeDescription: function (timestamp) {
-                return moment(timestamp).fromNow();
+                return new Moment(timestamp).fromNow();
             },
             render: function () {
                 var clonedAttributes = this.model.toJSON();

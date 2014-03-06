@@ -4,15 +4,12 @@
 # Ignore MongoDB db
 data
 
-# Ignore derived/transient project resources
+# Ignore derived/generated/transient project resources
 node_modules
 client/bower_components
 test/bower_components/
 dist
 docs
-test/temp
-.sass-cache
-.tmp
 README.html
 
 # Ignore (personal) Git log

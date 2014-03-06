@@ -1,3 +1,5 @@
+/* global define: false, prettyprintInteger: false */
+/* jshint -W031 */
 define([
     "underscore", "backbone",
     "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"
@@ -113,6 +115,6 @@ define([
                     event.preventDefault();
                 }
             }
-        })
+        });
     }
 );

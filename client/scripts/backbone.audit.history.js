@@ -1,3 +1,4 @@
+/* global define: false */
 define([]
 
     , function () {
@@ -18,7 +19,8 @@ define([]
             history: null,
 
             /** Overriding parse to make sure a server-side state snapshot is at hand. */
-            parse: function (resp, options) {
+            //parse: function (resp, options) {
+            parse: function () {
                 this._serverSideModel = this.clone();
                 // Nope, application specific url is missing ...
                 //if (!this.history) {
@@ -47,7 +49,7 @@ define([]
              * @param stateChangeSeqNumber One-based state change sequence number ordered by ascending timestamp
              */
             rewind: function (stateChangeSeqNumber) {
-                var targetStateChangeSequenceNumber = parseInt(stateChangeSeqNumber),
+                var targetStateChangeSequenceNumber = parseInt(stateChangeSeqNumber, 10),
                     i = 0;
 
                 this._reset();
