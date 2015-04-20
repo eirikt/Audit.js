@@ -1,4 +1,5 @@
 module.exports = function (grunt) {
+    'use strict';
 
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
@@ -12,54 +13,75 @@ module.exports = function (grunt) {
                     'echo ###   <%= pkg.name %> v<%= pkg.version %>   ###',
                     'echo ###########################',
                     'echo.',
-                    'echo Essential grunt tasks are:',
-                    'echo   bower     (install client dependencies)',
-                    'echo   mongodb   (start MongoDB)   (blocking command)',
-                    'echo   node      (start Node.js)   (blocking command)'
+                    'echo Essential Grunt tasks are:',
+                    'echo   install:client   installs client dependencies via Bower              (requires Git in path)',
+                    'echo   test             executes all Mocha tests',
+                    'echo   db               starts a MongoDB instance using a local data folder (blocking command)',
+                    'echo   run              starts up local Node.js runtime                     (blocking command)'
                 ].join('&&')
             },
-            bower: {
+            'install-client': {
                 options: { stdout: true, stderr: true, failOnError: true },
-                command: 'bower install'
+                command: 'node ./node_modules/bower/bin/bower install'
             },
             createDataDir: {
-                options: { stdout: true },
+                options: { stdout: true, stderr: true, failOnError: false },
                 command: [
-                    'mkdir data',
+                    'mkdir data'
+                ].join('&&')
+            },
+            createDbDir: {
+                options: { stdout: true, stderr: true, failOnError: false },
+                command: [
                     'cd data',
                     'mkdir db'
                 ].join('&&')
             },
             mongod: {
-                options: { stdout: true, stderr: true, failOnError: true },
-                command: 'mongod.exe --dbpath data/db'
-            },
-            // TODO: does not work => "Warning: stdout maxBuffer exceeded. Use --force to continue."
-            node: {
-                //execOptions: {
-                //encoding: 'utf8',
-                //timeout: 0,
-                //    maxBuffer: 4096//,
-                //killSignal: 'SIGTERM'
-                //},
                 options: {
                     stdout: true,
                     stderr: true,
-                    failOnError: true
+                    failOnError: true,
+                    execOptions: {
+                        maxBuffer: Infinity
+                    }
+                },
+                command: 'mongod.exe --dbpath data/db'
+            },
+            node: {
+                options: {
+                    stdout: true,
+                    stderr: true,
+                    failOnError: true,
+                    execOptions: {
+                        maxBuffer: Infinity
+                    }
                 },
                 command: [
-                    'echo Starting Node.js (4GB max process size/max garbage size) ...',
-                    'node --max-old-space-size=4096 server/scripts/server.js'
+                    'echo Starting Node.js',
+                    'node server/scripts/server.js'
                 ].join('&&')
+            }
+        },
+
+        // Server-side/Node.js specs/tests
+        mochaTest: {
+            test: {
+                options: {
+                    reporter: 'spec'
+                },
+                src: [
+                    'test/server/specs/test.spec.js'
+                ]
             }
         },
 
         jshint: {
             all: [
-                //'Gruntfile.js'
-                //'server/scripts/*.js'
-                'client/scripts/*.js'
-                //'test/spec/**/*.js'
+                'Gruntfile.js',
+                'server/scripts/*.js',
+                'client/scripts/*.js',
+                'test/spec/**/*.js'
             ],
             options: {
                 //reporter: 'jslint',
@@ -68,54 +90,45 @@ module.exports = function (grunt) {
 
                 //reporterOutput: 'dist/jshint.xml',
 
+                node: true,
                 browser: true,
                 jquery: true,
-                node: true,
+                mocha: true,
 
                 bitwise: true,
                 camelcase: true,
                 curly: true,
                 eqeqeq: true,
-                es3: false,
+                //es3: true,        // ES3 not relevant for Node.js
+                //es5: true,        // Default
                 forin: true,
                 freeze: true,
+                funcscope: true,
+                futurehostile: true,
+                globals: false,
+                globalstrict: false,
                 immed: true,
-                indent: false,
+                indent: true,
                 latedef: true,
                 newcap: true,
                 noarg: true,
+                nocomma: true,
                 noempty: true,
                 nonbsp: true,
                 nonew: true,
                 plusplus: true,
-                //qoutmark: true, // Not forcing consistent use of 'single' or 'double' as of now ...
+                //qoutmark: true,   // Not forcing consistent use of 'single' or 'double' as of now ...
+                singleGroups: true,
                 undef: true,
-                unused: true,
+                //unused: true,     // Don't know how to avoid this one - does not fit with hoisted variables/CommonJS style ...
                 strict: true,
                 trailing: true,
-                maxparams: 6,
-                maxdepth: 3,
-                maxstatements: 20,
-                maxcomplexity: 7,
+
+                maxcomplexity: 4,
+                maxdepth: 4,
                 maxlen: 180,
-
-                laxcomma: true,
-
-                globals: {
-                    require: false,
-                    define: false,
-                    prettyprintInteger: false
-                }
-            },
-            build: {
-                src: 'client/scripts/**/*.js',
-                dest: 'dist/<%= pkg.name %>.min.js'
-            }
-        },
-
-        mocha: {
-            test: {
-                src: ['tests/**/*.html']
+                maxparams: 4,
+                maxstatements: 30   // Default: ...
             }
         },
 
@@ -123,25 +136,26 @@ module.exports = function (grunt) {
             dist: {
                 src: ['server/scripts/*.js', 'client/scripts/*.js'],
                 options: {
-                    destination: 'docs'
+                    destination: 'doc'
                 }
             }
         }
     });
 
-    grunt.loadNpmTasks('grunt-contrib-jshint');
-    grunt.loadNpmTasks('grunt-contrib-uglify');
-
-    grunt.loadNpmTasks('grunt-mocha');
-    grunt.loadNpmTasks('grunt-jsdoc');
     grunt.loadNpmTasks('grunt-shell');
+    grunt.loadNpmTasks('grunt-mocha-test');
+    grunt.loadNpmTasks('grunt-contrib-jshint');
+    grunt.loadNpmTasks('grunt-jsdoc');
 
     grunt.registerTask('help', ['shell:help']);
-    grunt.registerTask('bower', ['shell:bower']);
-    grunt.registerTask('mongodb', ['shell:createDataDir', 'shell:mongod']);
-    grunt.registerTask('node', ['shell:node']);
+    grunt.registerTask('install:client', ['shell:install-client']);
+    grunt.registerTask('test', ['install:client', 'mochaTest']);
+    grunt.registerTask('lint', ['jshint']);
+    grunt.registerTask('doc', ['jsdoc']);
+
+    grunt.registerTask('build:travis', ['test', 'lint']);
+    grunt.registerTask('db', ['shell:createDataDir', 'shell:createDbDir', 'shell:mongod']);
+    grunt.registerTask('run', ['shell:node']);
 
     grunt.registerTask('default', ['help']);
-
-    grunt.registerTask('build:travis', ['jshint', 'mocha', 'jsdoc', 'uglify']);
 };

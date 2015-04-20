@@ -6,17 +6,21 @@
 var application_root = __dirname,
     _ = require("underscore"),
     promise = require("promised-io/promise"),
+    all = promise.all,
+    seq = promise.seq,
+    bodyParser = require("body-parser"),
     path = require("path"),
 
-    socketio = require("socket.io"),
-// TODO: replace socket.io with sockjs: https://github.com/sockjs/sockjs-client
+//socketio = require("socket.io"),
+// TODO: Consider replacing socket.io with sockjs: https://github.com/sockjs/sockjs-client
 // https://github.com/LearnBoost/socket.io/issues/463
 //sockjs = require("sockjs"),
 
-    http = require("http"),
+//http = require("http"),
 
-    express = require("express"),
-// TODO: replace express with Koa: http://koajs.com
+//express = require("express"),
+//bodyParser = require("body-parser"),
+// TODO: Consider replacing express with Koa: http://koajs.com
 //koa = require('koa'),
 
     mongodb = require("mongodb"),
@@ -40,11 +44,11 @@ var KeywordMongooseSchema = new mongoose.Schema({
 
 var BookMongooseSchema = new mongoose.Schema({
     seq: Number,
-    title: { type: String, index: true },
-    author: { type: String, index: true },
+    title: {type: String, index: true},
+    author: {type: String, index: true},
     //releaseDate: Date,  // Not yet supported
     //coverImage: String, // Not yet supported
-    keywords: { type: [ KeywordMongooseSchema ], index: true }
+    keywords: {type: [KeywordMongooseSchema], index: true}
 });
 
 
@@ -63,8 +67,8 @@ function count(type) {
     type.count(function (err, count) {
         if (err) {
             return error.handle(
-                { message: "Error when counting collection " + eventSourcing.collectionName(type) + " (" + err.message + ")" },
-                { deferred: dfd });
+                {message: "Error when counting collection " + eventSourcing.collectionName(type) + " (" + err.message + ")"},
+                {deferred: dfd});
         }
         return dfd.resolve(count)
     });
@@ -76,7 +80,7 @@ function count(type) {
 function updateBook(id, changes) {
     var dfd = new promise.Deferred();
     Book.findByIdAndUpdate(id, changes, function (err, book) {
-        if (error.handle(err, { deferred: dfd })) {
+        if (error.handle(err, {deferred: dfd})) {
             return null;
         }
         console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
@@ -89,7 +93,7 @@ function updateBook(id, changes) {
 function removeBook(id) {
     var dfd = new promise.Deferred();
     Book.findByIdAndRemove(id, function (err) {
-        if (!error.handle(err, { deferred: dfd })) {
+        if (!error.handle(err, {deferred: dfd})) {
             console.log("Book [id=" + id + "] deleted ...OK");
             dfd.resolve(id);
         }
@@ -109,46 +113,58 @@ mongodb.MongoClient.connect(dbUrl, function (err, mongodb) {
 // Connect to database via Mongoose
 mongoose.connect(dbUrl);
 
-
 // Establish Express app server
-var app = express();
+//var app = require('express')();
 
-app.configure(function () {
-    // Parses request body and populates request.body
-    app.use(express.bodyParser());
+//var app = express();
+//app.use(bodyParser.json());
+//app.use(express.static(path.join(application_root, "../../client")));
 
-    // Checks request.body for HTTP method overrides
-    app.use(express.methodOverride());
-
-    // Perform route lookup based on url and HTTP method
-    app.use(app.router);
-
-    // Where to serve static content
-    app.use(express.static(path.join(application_root, "../../client")));
-
-    // Show all errors in development
-    app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-});
-
-var server = http.createServer(app);
+//var server = http.Server(app);
 
 var port = 4711;
 
+var app = require('express')();
+var server = require('http').createServer(app);
+var io = require('socket.io').listen(server);
+
+app.use(bodyParser.json());
+app.use(require('express').static(path.join(application_root, "../../client")));
+
+//server.listen(app.get('port')); // not 'app.listen'!
+
+//var server = http.createServer(app);
+
 server.listen(port, function () {
-    console.log("Express server listening on port %d in %s mode", port);
+    console.log("Express server listening on port %d", port);
 });
 
 
 // Establish Server Push / Socket.IO manager
-var io = socketio.listen(server);
+//var io = socketio.listen(server, function(){
+//    console.log("Socket.io: listening on port %d", port);
+//});
+//io.set('transports', ['websocket', 'xhr-polling', 'jsonp-polling', 'htmlfile', 'flashsocket']);
+//io.set('origins', '*127.0.0.1:4711');
+
+var userCounter = 0;
+io.on("connection", function (socket) {
+    console.log("Socket.io: User connected ...");
+    userCounter += 1;
+    socket.on('disconnect', function () {
+        console.log("Socket.io: User disconnected!");
+        userCounter -= 1;
+    });
+});
+
 
 /**
  * Emitting of current number of users.
  */
 setInterval(function () {
-    console.log("Number of connected users: " + io.sockets.clients().length);
-    io.sockets.emit("number-of-connections", io.sockets.clients().length);
-}, 5000);
+    console.log("Number of connected users: " + userCounter);
+    io.emit("number-of-connections", userCounter);
+}, 10000);
 
 
 /**
@@ -179,9 +195,9 @@ useCQRS = true;
  * Push messages           : -
  */
 app.get("/events/count", function (request, response) {
-    return eventSourcing.StateChange.count({ method: "CREATE" }, function (err, createCount) {
-        return eventSourcing.StateChange.count({ method: "UPDATE" }, function (err, updateCount) {
-            return eventSourcing.StateChange.count({ method: "DELETE" }, function (err, deleteCount) {
+    return eventSourcing.StateChange.count({method: "CREATE"}, function (err, createCount) {
+        return eventSourcing.StateChange.count({method: "UPDATE"}, function (err, updateCount) {
+            return eventSourcing.StateChange.count({method: "DELETE"}, function (err, deleteCount) {
                 return response.send(200, {
                     createCount: createCount,
                     updateCount: updateCount,
@@ -252,7 +268,7 @@ app.post("/events/cqrs/toggle", function (request, response) {
         console.log("Activating application store ...");
     }
     useCQRS = !useCQRS;
-    io.sockets.emit("cqrs", useCQRS);
+    io.emit("cqrs", useCQRS);
     if (useCQRS) {
         eventSourcing.replayAllStateChanges(Book, io, db);
     }
@@ -261,7 +277,7 @@ app.post("/events/cqrs/toggle", function (request, response) {
 
 /**
  * Admin API :: Replay the entire <em>event store</em> into the <em>application store</em>.
- * (by creating and sending (posting) a "replay" object/resource to the server.)
+ * (by creating and sending (posting) a "replay" object/resource to the app.)
  *
  * This is an idempotent operation, as already existing domain objects will not be overwritten.
  * For complete re-creation of the application store, purge it before replaying event store.
@@ -329,7 +345,7 @@ app.post("/library/books/generate", function (request, response) {
         startTime = Date.now(),
         numberOfServerPushEmits = 1000,
         index = 0,
-        arrayOfActionFunctions = [];
+        createBookWithSequenceNumber = [];
 
     if (!totalNumberOfBooksToGenerate) {
         response.send(422, "Property 'numberOfBooks' is mandatory");
@@ -338,11 +354,11 @@ app.post("/library/books/generate", function (request, response) {
         response.send(202);
 
         count = parseInt(totalNumberOfBooksToGenerate, 10);
-        io.sockets.emit("creating-statechangeevents", totalNumberOfBooksToGenerate, startTime);
+        io.emit("creating-statechangeevents", totalNumberOfBooksToGenerate, startTime);
 
         // Create partially applied functions of all books to be generated
         for (; index < count; index += 1) {
-            arrayOfActionFunctions.push(
+            createBookWithSequenceNumber.push(
                 _.partial(eventSourcing.createSequenceNumberEntity,
                     Book,
                     randomBooks.createRandomBookAttributes(Keyword),
@@ -356,10 +372,10 @@ app.post("/library/books/generate", function (request, response) {
             );
         }
         // ...and then execute them strictly sequentially
-        promise.all(promise.seq(arrayOfActionFunctions))
-            .then(
+        //all(seq(createBookWithSequenceNumber)).then(
+        seq(createBookWithSequenceNumber).then(
             function () {
-                io.sockets.emit("all-statechangeevents-created");
+                io.emit("all-statechangeevents-created");
                 if (useCQRS) {
                     eventSourcing.replayAllStateChanges(Book, io, db);
                 }
@@ -393,10 +409,10 @@ app.post("/library/books/clean", function (request, response) {
         response.send(205);
     }
     return mongoose.connection.collections[Book.collectionName()].drop(function (err) {
-        if (error.handle(err, { response: response })) {
+        if (error.handle(err, {response: response})) {
             return null;
         }
-        return io.sockets.emit("all-books-removed");
+        return io.emit("all-books-removed");
     });
 });
 
@@ -425,7 +441,7 @@ app.post("/library/books/count", function (request, response) {
     // CQRS and no search criteria
     if (countAll && useCQRS) {
         return count(Book).then(function (count) {
-            return response.send(200, { count: count });
+            return response.send(200, {count: count});
         });
     }
 
@@ -433,32 +449,32 @@ app.post("/library/books/count", function (request, response) {
     var searchRegexOptions = "i",
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions),
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions),
-        findQuery = { title: titleRegexp, author: authorRegexp };
+        findQuery = {title: titleRegexp, author: authorRegexp};
 
     if (useCQRS) {
         return Book.count(findQuery, function (err, count) {
-            if (error.handle(err, { response: response })) {
+            if (error.handle(err, {response: response})) {
                 return null;
             }
-            return response.send(200, { count: count });
+            return response.send(200, {count: count});
         });
     }
     // No CQRS, rather scanning event store
     return count(eventSourcing.StateChange).then(function (count) {
         if (count <= 0) {
-            return response.send(200, { count: 0 });
+            return response.send(200, {count: 0});
         }
         return eventSourcing.count(Book, findQuery)
             .then(
             function (count) {
-                response.send(200, { count: count });
+                response.send(200, {count: count});
 
             }, function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    response.send(200, { count: 0 });
+                    response.send(200, {count: 0});
                 } else {
-                    error.handle(err, { response: response });
+                    error.handle(err, {response: response});
                 }
             }
         );
@@ -504,7 +520,7 @@ app.post("/library/books/projection", function (request, response) {
         titleRegexp = null,
         authorRegexp = null,
         findQuery = null,
-        sortQuery = { seq: "asc" };
+        sortQuery = {seq: "asc"};
 
     if (doPaginate) {
         limit = parseInt(numberOfBooksForEachPage, 10);
@@ -516,17 +532,17 @@ app.post("/library/books/projection", function (request, response) {
         searchRegexOptions = "i";
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions);
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
-        findQuery = { title: titleRegexp, author: authorRegexp };
+        findQuery = {title: titleRegexp, author: authorRegexp};
     }
 
     if (useCQRS) {
         return count(Book).then(function (totalCount) {
             return Book.count(findQuery, function (err, count) {
-                error.handle(err, { response: response });
+                error.handle(err, {response: response});
                 return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(
                     function (err, books) {
-                        error.handle(err, { response: response });
-                        return response.send(200, { books: books, count: count, totalCount: totalCount });
+                        error.handle(err, {response: response});
+                        return response.send(200, {books: books, count: count, totalCount: totalCount});
                     }
                 );
             });
@@ -536,14 +552,14 @@ app.post("/library/books/projection", function (request, response) {
         return eventSourcing.project(Book, findQuery, sortQuery, skip, limit)
             .then(
             function (books, count, totalCount) {
-                return response.send(200, { books: books, count: count, totalCount: totalCount });
+                return response.send(200, {books: books, count: count, totalCount: totalCount});
             },
             function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    return response.send(200, { count: 0 });
+                    return response.send(200, {count: 0});
                 } else {
-                    return error.handle(err, { response: response });
+                    return error.handle(err, {response: response});
                 }
             }
         );
@@ -581,21 +597,21 @@ app.put("/library/books/:id", function (request, response) {
         }
         return eventSourcing.createStateChange("UPDATE", Book, request.params.id, changes, randomBooks.randomUser())
             .then(function (change) {
-                response.send(201, { entityId: change.entityId });
+                response.send(201, {entityId: change.entityId});
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return updateBook(change.entityId, change.changes).then(function (book) {
-                        return io.sockets.emit("book-updated", book);
+                        return io.emit("book-updated", book);
                     });
                     // TODO: If dispatching of asynchronous message to application store fails, notify originating client (only)
 
                 } else {
                     // TODO: Does this synchronous entity rebuild really work with this immediate server push?
-                    return io.sockets.emit("book-updated", eventSourcing.rebuild(Book, change.entityId));
+                    return io.emit("book-updated", eventSourcing.rebuild(Book, change.entityId));
                 }
 
             }, function (err) {
-                error.handle(err, { response: response });
+                error.handle(err, {response: response});
             }
         );
     });
@@ -623,19 +639,19 @@ app.delete("/library/books/:id", function (request, response) {
         if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
             return eventSourcing.createStateChange("DELETE", Book, request.params.id, null, randomBooks.randomUser())
                 .then(function (change) {
-                    response.send(200, { entityId: change.entityId });
+                    response.send(200, {entityId: change.entityId});
 
                     if (useCQRS) {
                         return removeBook(change.entityId).then(function (entityId) {
-                            return io.sockets.emit("book-removed", entityId);
+                            return io.emit("book-removed", entityId);
                         });
 
                     } else {
-                        return io.sockets.emit("book-removed", change.entityId);
+                        return io.emit("book-removed", change.entityId);
                     }
 
                 }, function (err) {
-                    error.handle(err, { response: response });
+                    error.handle(err, {response: response});
                 });
 
         } else {

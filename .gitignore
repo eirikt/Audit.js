@@ -1,16 +1,17 @@
+# Always
+.ssh
+
 # Ignore IDE stuff
 .idea
 
-# Ignore MongoDB db
-data
+# Ignore Windows helpers
+.bin
 
 # Ignore derived/generated/transient project resources
+data
+doc
 node_modules
 client/bower_components
-test/bower_components/
-dist
-docs
-README.html
 
 # Ignore (personal) Git log
 git.log

@@ -6,8 +6,8 @@
 [![devDependency Status](https://david-dm.org/eirikt/Audit.js/dev-status.png)](https://david-dm.org/eirikt/Audit.js#info=devDependencies)
 
 
-A prototype project for an _audit-friendly_ application architecture.
-This prototype is a JavaScript implementation.
+A demo project for an _audit-friendly_ application architecture.
+This application is a JavaScript implementation.
 
 
 ## Core design patterns
@@ -32,7 +32,7 @@ What Event Sourcing is all about may simply be stated as:
 A rather ominously-looking abbreviation meaning _Command and Query Responsibility Segregation_.
 
 It simply means that an architecture should handle (responsibility) reads (queries) differently (segregated) than writes (commands).
-The main motivation for this is the fact that read and write operations require very different "attention" from the system architecture. 
+The main motivation for this is the fact that read and write operations require very different "attention" from the system architecture.
 Also, reads most often constitute the larger portion of the application traffic, so why not optimize for that.
 
 
@@ -47,7 +47,7 @@ Also, reads most often constitute the larger portion of the application traffic,
  * When application state changes occur (creating, updating, or deleting something) event objects are created. These event objects contain the _state change only_ (a.k.a. the "diffs"/"deltas"). Meta data like object type, object ID, user, and timestamp are also included.
 
  * When created, application event objects are immediately persisted in the _event store_.
- 
+
 #### CQRS stuff
 
  * After an application event is created and persisted, the control is immediately given/response is sent back to the client.
@@ -65,21 +65,21 @@ By querying the event store, we can look up the complete history of all applicat
 The entire application store are derived, and can be re-created on demand by iterating through the events in the event store.
 The application store can be brought to all past points in time with great ease.
 
-But the ability to read through the entire history of the application state not only opens for a full audit experience. 
+But the ability to read through the entire history of the application state not only opens for a full audit experience.
 It also opens the possibility to compare and merge different application stores.
 It is not the application stores which are compared of course, it is the event stores.
 Complete or partial event stores can be iterated, compared, and merged - rather easily.
 The different application stores involved may then be updated accordingly.
 Cloned data stores are often needed, e.g. for applications supporting offline usage.
 
-And, not to forget, the application store is read-only (from the client's point of view that is), so some form of clever caching mechanism should be applied. 
+And, not to forget, the application store is read-only (from the client's point of view that is), so some form of clever caching mechanism should be applied.
 It is straightforward to pin-point necessary cache invalidation in the application store as we have full control over all state changes.
 
 ##### HTTP server push
 
 The use of [HTTP server push][13] techniques (e.g. provided by [Socket.IO][24]) further brings new possibilities into this application architecture.
-E.g. if there are some kind of problem with the application store update, a server-push message should be sent to the originating client. 
-Likewise, when the update of the application store completes successfully, a broadcast message containing the new state should be sent to all participating clients. 
+E.g. if there are some kind of problem with the application store update, a server-push message should be sent to the originating client.
+Likewise, when the update of the application store completes successfully, a broadcast message containing the new state should be sent to all participating clients.
 HTTP server push also should be ideal for the "chatty" conversations involved when merging event stores.
 
 
@@ -87,24 +87,6 @@ HTTP server push also should be ideal for the "chatty" conversations involved wh
 
 The Audit.js prototype application is a simple library app.
 The initial setup is inspired by the example application in the book [_Developing Backbone.js Applications_][16], by _Addy Osmani_.
-
-#### Core libs
-
-On the client side:
-
- * [RequireJS][28]
- * [jQuery][20]
- * [Backbone.js][21]
- * [Moment.js][26]
- * [Socket.IO][24]
-
-On the server side:
-
- * [MongoDB][30]
- * [Mongoose][31]
- * [Node.js][35]
- * [Express][36]
- * [Socket.IO][23]
 
 #### Setup
 
@@ -121,22 +103,22 @@ On the server side:
  1. Retrieve all tools and server-side dependencies via Node Package Manager (npm)
 
     ```
-    npm -g install
+    npm install
     ```
  1. Retrieve all client-side dependencies using Bower
 
     ```
-    bower install
+    grunt install:client
     ```
  1. Start MongoDB (using a local data directory) (via a _blocking_ Grunt task)
 
     ```
-    grunt mongodb
+    grunt db
     ```
  1. Start the Node-based app server configured in `server.js`
 
     ```
-    node server/scripts/server.js
+    grunt run
     ```
  1. Navigate to [http://localhost:4711](http://localhost:4711)
 
@@ -175,7 +157,7 @@ This markdown is written using the [Markdown Live Editor][50]
 
 ## MIT Licence
 
-Copyright © 2013 Eirik Torske All Rights Reserved.
+Copyright © 2013-2015 Eirik Torske All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

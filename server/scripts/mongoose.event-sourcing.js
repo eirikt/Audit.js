@@ -197,7 +197,7 @@ var _ = require("underscore")
             }
             // TODO: how to filter out null objects in mapreduce step?
             // Removing deleted entities => value set to null in reduce step above
-            return dfd.resolve(results.find({ value: { "$ne": null }}));
+            return dfd.resolve(results.find({ value: { "$ne": null } }));
         });
         return dfd.promise;
     }
@@ -288,10 +288,10 @@ var _ = require("underscore")
             eligibleForServerPush = arguments.length >= 7 && arguments[2] && arguments[3] && arguments[4] && arguments[5] && arguments[6],
             doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
                 utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressValue) {
-                    io.sockets.emit("event-replayed", count, startTime, progressValue);
+                    io.emit("event-replayed", count, startTime, progressValue);
                 });
                 if (index >= count) {
-                    io.sockets.emit("all-events-replayed");
+                    io.emit("all-events-replayed");
                 }
             };
 
@@ -421,7 +421,7 @@ var _ = require("underscore")
                     function (stateChange) {
                         if (eligibleForServerPush) {
                             utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressInPercent) {
-                                io.sockets.emit("statechangeevent-created", count, startTime, progressInPercent);
+                                io.emit("statechangeevent-created", count, startTime, progressInPercent);
                             });
                         }
                         return dfd.resolve(arguments);
@@ -568,7 +568,7 @@ var _ = require("underscore")
                         //msg = data.inprog[0].msg,
                             progress = data.inprog[0].progress;
                         if (progress.total && progress.total > 1) {
-                            io.sockets.emit("event-mapreduced", progress.total, startTime, utils.getPercentage(progress.done, progress.total));
+                            io.emit("event-mapreduced", progress.total, startTime, utils.getPercentage(progress.done, progress.total));
                         }
                     } catch (ex) {
                         // Just taking the easy and lazy way out on this one ...
@@ -602,7 +602,7 @@ var _ = require("underscore")
             intervalInMillis = 50,
             mongoDBMapReduceStatisticsSocketIoEmitter = new _MongoDBMapReduceStatisticsSocketIoEmitter(io, db, startTime);
 
-        io.sockets.emit("mapreducing-events", null, startTime);
+        io.emit("mapreducing-events", null, startTime);
         mongoDBMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
 
         return _find(type)
@@ -611,10 +611,10 @@ var _ = require("underscore")
                 mongoDBMapReduceStatisticsSocketIoEmitter.stop();
 
                 return results.find(function (err, cursor) {
-                    io.sockets.emit("all-events-mapreduced", cursor.length, startTime);
+                    io.emit("all-events-mapreduced", cursor.length, startTime);
 
                     if (cursor.length >= 1) {
-                        io.sockets.emit("replaying-events", cursor.length, startTime);
+                        io.emit("replaying-events", cursor.length, startTime);
                     }
                     var arrayOfConditionalRecreateFunctions = [], index = 0;
                     for (; index < cursor.length; index += 1) {
@@ -633,7 +633,7 @@ var _ = require("underscore")
                     return promise.all(promise.seq(arrayOfConditionalRecreateFunctions))
                         .then(
                         function () {
-                            io.sockets.emit("all-events-replayed")
+                            io.emit("all-events-replayed")
                         }
                     );
                 });
@@ -641,7 +641,7 @@ var _ = require("underscore")
             }, function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    return io.sockets.emit("all-events-replayed");
+                    return io.emit("all-events-replayed");
                 } else {
                     return error.handle(err);
                 }

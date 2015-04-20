@@ -61,7 +61,8 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"]
             initialize: function () {
                 if (!this.get("connected")) {
                     this.set("connected", true);
-                    this.set("socket", SocketIo.connect(this.get("serverUrl")));
+                    //this.set("socket", SocketIo.connect(this.get("serverUrl")));
+                    this.set("socket", new SocketIo());
                     console.log("Connecting to " + this.get("serverUrl") + " ...");
                 } else {
                     console.log("Already connected to " + this.get("serverUrl") + " ... not re-trying");

@@ -1,16 +1,14 @@
 {
     "name": "Audit.js",
-    "version": "0.1.1",
     "description": "A prototype/demo web app (for a simple library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "dependencies": {
-        "requirejs": "~2.1.11",
-        "socket.io": "~0.9.15",
-        "jquery": "~2.1.0",
-        "bootstrap": "~3.1.1",
-        "backbone": "~1.1.2",
-        "moment": "~2.5.1"
-    },
-    "devDependencies": {
+        "requirejs": "2.1.17",
+        "bootstrap": "3.3.4",
+        "backbone": "1.1.2",
+        "moment": "2.9.0",
+        "mocha": "2.2.4",
+        "chai": "2.2.0",
+        "sinon": "1.14.1"
     }
 }

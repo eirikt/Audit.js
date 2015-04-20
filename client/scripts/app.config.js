@@ -1,17 +1,12 @@
 require.config({
     paths: {
-        'socket.io': 'vendor/socket.io.min',
-        'jquery': '../bower_components/jquery/dist/jquery.min',
-        'jquery.bootstrap': '../bower_components/bootstrap/dist/js/bootstrap.min',
+        'socket.io': 'vendor/socket.io',
+        'jquery': '../bower_components/jquery/dist/jquery',
+        'jquery.bootstrap': '../bower_components/bootstrap/dist/js/bootstrap',
         'jquery.bindwithdelay': 'vendor/jquery.bind-with-delay',
-
-        // TODO: Bower... where are these??
-        //'underscore': '../bower_components/underscore/underscore-min',
-        //'backbone': '../bower_components/backbone/backbone-min',
         'underscore': '../bower_components/underscore/underscore',
         'backbone': '../bower_components/backbone/backbone',
-
-        'moment': '../bower_components/moment/min/moment.min'
+        'moment': '../bower_components/moment/moment'
     },
     shim: {
         // TODO: RequireJS and Socket.IO ...
@@ -43,8 +38,4 @@ require.config({
 });
 
 // Loading and startup
-require(['jquery.bindwithdelay'], function () {
-});
-
-require(['app'], function () {
-});
+require(['socket.io', 'jquery.bindwithdelay', 'app'], function () { });
