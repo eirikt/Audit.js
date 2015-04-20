@@ -1,9 +1,11 @@
+/* jshint -W024 */
+
 ///////////////////////////////////////////////////////////////////////////////
 // Main library application server / service API
 ///////////////////////////////////////////////////////////////////////////////
 
 // Module dependencies, external
-var application_root = __dirname,
+var applicationRoot = __dirname,
     _ = require("underscore"),
     promise = require("promised-io/promise"),
     all = promise.all,
@@ -34,43 +36,47 @@ var application_root = __dirname,
 
 
 // MongoDB URL
-    dbUrl = "mongodb://localhost/library";
+    dbUrl = "mongodb://localhost/library",
 
 
 // Mongoose schemas
-var KeywordMongooseSchema = new mongoose.Schema({
-    keyword: String
-});
+    KeywordMongooseSchema = new mongoose.Schema({
+        keyword: String
+    }),
 
-var BookMongooseSchema = new mongoose.Schema({
-    seq: Number,
-    title: {type: String, index: true},
-    author: {type: String, index: true},
-    //releaseDate: Date,  // Not yet supported
-    //coverImage: String, // Not yet supported
-    keywords: {type: [KeywordMongooseSchema], index: true}
-});
+    BookMongooseSchema = new mongoose.Schema({
+        seq: Number,
+        title: { type: String, index: true },
+        author: { type: String, index: true },
+        //releaseDate: Date,  // Not yet supported
+        //coverImage: String, // Not yet supported
+        keywords: { type: [KeywordMongooseSchema], index: true }
+    }),
 
 
 // Mongoose models (designated as "entity types" in Audit.js) (design rule: lower-case collection names)
-var Keyword = mongoose.model("keyword", KeywordMongooseSchema);
+    Keyword = mongoose.model("keyword", KeywordMongooseSchema),
 
-var Book = mongoose.model("book", BookMongooseSchema);
+    Book = mongoose.model("book", BookMongooseSchema);
+
+
 Book.collectionName = function () {
+    'use strict';
     return Book.modelName + "s".toLowerCase();
 };
 
 
 // Generic Mongoose functions
 function count(type) {
+    'use strict';
     var dfd = new promise.Deferred();
     type.count(function (err, count) {
         if (err) {
             return error.handle(
-                {message: "Error when counting collection " + eventSourcing.collectionName(type) + " (" + err.message + ")"},
-                {deferred: dfd});
+                { message: "Error when counting collection " + eventSourcing.collectionName(type) + " (" + err.message + ")" },
+                { deferred: dfd });
         }
-        return dfd.resolve(count)
+        return dfd.resolve(count);
     });
     return dfd.promise;
 }
@@ -78,9 +84,10 @@ function count(type) {
 
 // Application-specific functions
 function updateBook(id, changes) {
+    'use strict';
     var dfd = new promise.Deferred();
     Book.findByIdAndUpdate(id, changes, function (err, book) {
-        if (error.handle(err, {deferred: dfd})) {
+        if (error.handle(err, { deferred: dfd })) {
             return null;
         }
         console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
@@ -91,9 +98,10 @@ function updateBook(id, changes) {
 
 
 function removeBook(id) {
+    'use strict';
     var dfd = new promise.Deferred();
     Book.findByIdAndRemove(id, function (err) {
-        if (!error.handle(err, {deferred: dfd})) {
+        if (!error.handle(err, { deferred: dfd })) {
             console.log("Book [id=" + id + "] deleted ...OK");
             dfd.resolve(id);
         }
@@ -106,6 +114,7 @@ function removeBook(id) {
 // Connect to database via MongoDB native driver
 var db;
 mongodb.MongoClient.connect(dbUrl, function (err, mongodb) {
+    'use strict';
     db = mongodb;
 });
 
@@ -118,7 +127,7 @@ mongoose.connect(dbUrl);
 
 //var app = express();
 //app.use(bodyParser.json());
-//app.use(express.static(path.join(application_root, "../../client")));
+//app.use(express.static(path.join(applicationRoot, "../../client")));
 
 //var server = http.Server(app);
 
@@ -129,13 +138,14 @@ var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
 
 app.use(bodyParser.json());
-app.use(require('express').static(path.join(application_root, "../../client")));
+app.use(require('express').static(path.join(applicationRoot, "../../client")));
 
 //server.listen(app.get('port')); // not 'app.listen'!
 
 //var server = http.createServer(app);
 
 server.listen(port, function () {
+    'use strict';
     console.log("Express server listening on port %d", port);
 });
 
@@ -149,6 +159,7 @@ server.listen(port, function () {
 
 var userCounter = 0;
 io.on("connection", function (socket) {
+    'use strict';
     console.log("Socket.io: User connected ...");
     userCounter += 1;
     socket.on('disconnect', function () {
@@ -162,6 +173,7 @@ io.on("connection", function (socket) {
  * Emitting of current number of users.
  */
 setInterval(function () {
+    'use strict';
     console.log("Number of connected users: " + userCounter);
     io.emit("number-of-connections", userCounter);
 }, 10000);
@@ -173,7 +185,7 @@ setInterval(function () {
  * The alternative is to use the event store only, being considerately more ineffective ... but as a demo
  * <em>No application store is the default (at the moment).<em>
  */
-useCQRS = true;
+var useCQRS = true;
 
 
 // TODO: consider some proper REST API documentation framework
@@ -195,18 +207,19 @@ useCQRS = true;
  * Push messages           : -
  */
 app.get("/events/count", function (request, response) {
-    return eventSourcing.StateChange.count({method: "CREATE"}, function (err, createCount) {
-        return eventSourcing.StateChange.count({method: "UPDATE"}, function (err, updateCount) {
-            return eventSourcing.StateChange.count({method: "DELETE"}, function (err, deleteCount) {
+    'use strict';
+    return eventSourcing.StateChange.count({ method: "CREATE" }, function (err, createCount) {
+        return eventSourcing.StateChange.count({ method: "UPDATE" }, function (err, updateCount) {
+            return eventSourcing.StateChange.count({ method: "DELETE" }, function (err, deleteCount) {
                 return response.send(200, {
                     createCount: createCount,
                     updateCount: updateCount,
                     deleteCount: deleteCount,
                     totalCount: createCount + updateCount + deleteCount
                 });
-            })
-        })
-    })
+            });
+        });
+    });
 });
 
 
@@ -223,6 +236,7 @@ app.get("/events/count", function (request, response) {
  * Push messages          : -
  */
 app.get("/events/:entityId", function (request, response) {
+    'use strict';
     return eventSourcing.getStateChangesByEntityId(request.params.entityId).then(function (stateChanges) {
         return response.send(200, stateChanges);
     });
@@ -242,6 +256,7 @@ app.get("/events/:entityId", function (request, response) {
  * Push messages           : -
  */
 app.get("/events/cqrs/status", function (request, response) {
+    'use strict';
     response.send(200, useCQRS);
 });
 
@@ -261,6 +276,7 @@ app.get("/events/cqrs/status", function (request, response) {
  *     'cqrs' (CQRS status)
  */
 app.post("/events/cqrs/toggle", function (request, response) {
+    'use strict';
     response.send(202);
     if (useCQRS) {
         console.log("Bypassing application store - will use event store only!");
@@ -340,6 +356,7 @@ app.post("/events/replay", function (request, response) {
  *     'all-events-replayed'           ()
  */
 app.post("/library/books/generate", function (request, response) {
+    'use strict';
     var totalNumberOfBooksToGenerate = request.body.numberOfBooks,
         count,
         startTime = Date.now(),
@@ -380,7 +397,7 @@ app.post("/library/books/generate", function (request, response) {
                     eventSourcing.replayAllStateChanges(Book, io, db);
                 }
             }
-        )
+        );
     }
 });
 
@@ -402,6 +419,7 @@ app.post("/library/books/generate", function (request, response) {
  *     'all-books-removed' ()
  */
 app.post("/library/books/clean", function (request, response) {
+    'use strict';
     if (!useCQRS) {
         console.warn("URI '/library/books/clean' posted when no application store in use!");
         response.send(202);
@@ -409,7 +427,7 @@ app.post("/library/books/clean", function (request, response) {
         response.send(205);
     }
     return mongoose.connection.collections[Book.collectionName()].drop(function (err) {
-        if (error.handle(err, {response: response})) {
+        if (error.handle(err, { response: response })) {
             return null;
         }
         return io.emit("all-books-removed");
@@ -434,6 +452,7 @@ app.post("/library/books/clean", function (request, response) {
  * Push messages           : -
  */
 app.post("/library/books/count", function (request, response) {
+    'use strict';
     var titleSearchRegexString = request.body.titleSubstring,
         authorSearchRegexString = request.body.authorSubstring,
         countAll = _.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString);
@@ -441,7 +460,7 @@ app.post("/library/books/count", function (request, response) {
     // CQRS and no search criteria
     if (countAll && useCQRS) {
         return count(Book).then(function (count) {
-            return response.send(200, {count: count});
+            return response.send(200, { count: count });
         });
     }
 
@@ -449,32 +468,32 @@ app.post("/library/books/count", function (request, response) {
     var searchRegexOptions = "i",
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions),
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions),
-        findQuery = {title: titleRegexp, author: authorRegexp};
+        findQuery = { title: titleRegexp, author: authorRegexp };
 
     if (useCQRS) {
         return Book.count(findQuery, function (err, count) {
-            if (error.handle(err, {response: response})) {
+            if (error.handle(err, { response: response })) {
                 return null;
             }
-            return response.send(200, {count: count});
+            return response.send(200, { count: count });
         });
     }
     // No CQRS, rather scanning event store
     return count(eventSourcing.StateChange).then(function (count) {
         if (count <= 0) {
-            return response.send(200, {count: 0});
+            return response.send(200, { count: 0 });
         }
         return eventSourcing.count(Book, findQuery)
             .then(
             function (count) {
-                response.send(200, {count: count});
+                response.send(200, { count: count });
 
             }, function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    response.send(200, {count: 0});
+                    response.send(200, { count: 0 });
                 } else {
-                    error.handle(err, {response: response});
+                    error.handle(err, { response: response });
                 }
             }
         );
@@ -503,10 +522,11 @@ app.post("/library/books/count", function (request, response) {
  * Push messages           : -
  */
 app.post("/library/books/projection", function (request, response) {
+    'use strict';
     // Pagination
     var numberOfBooksForEachPage = request.body.count, // Pagination or not ...
         indexOfFirstBook = request.body.index,
-        doPaginate = (numberOfBooksForEachPage),
+        doPaginate = numberOfBooksForEachPage,
 
         skip = 0,
         limit = null,
@@ -520,7 +540,7 @@ app.post("/library/books/projection", function (request, response) {
         titleRegexp = null,
         authorRegexp = null,
         findQuery = null,
-        sortQuery = {seq: "asc"};
+        sortQuery = { seq: "asc" };
 
     if (doPaginate) {
         limit = parseInt(numberOfBooksForEachPage, 10);
@@ -532,17 +552,17 @@ app.post("/library/books/projection", function (request, response) {
         searchRegexOptions = "i";
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions);
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
-        findQuery = {title: titleRegexp, author: authorRegexp};
+        findQuery = { title: titleRegexp, author: authorRegexp };
     }
 
     if (useCQRS) {
         return count(Book).then(function (totalCount) {
             return Book.count(findQuery, function (err, count) {
-                error.handle(err, {response: response});
+                error.handle(err, { response: response });
                 return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(
                     function (err, books) {
-                        error.handle(err, {response: response});
-                        return response.send(200, {books: books, count: count, totalCount: totalCount});
+                        error.handle(err, { response: response });
+                        return response.send(200, { books: books, count: count, totalCount: totalCount });
                     }
                 );
             });
@@ -552,14 +572,14 @@ app.post("/library/books/projection", function (request, response) {
         return eventSourcing.project(Book, findQuery, sortQuery, skip, limit)
             .then(
             function (books, count, totalCount) {
-                return response.send(200, {books: books, count: count, totalCount: totalCount});
+                return response.send(200, { books: books, count: count, totalCount: totalCount });
             },
             function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    return response.send(200, {count: 0});
+                    return response.send(200, { count: 0 });
                 } else {
-                    return error.handle(err, {response: response});
+                    return error.handle(err, { response: response });
                 }
             }
         );
@@ -585,6 +605,7 @@ app.post("/library/books/projection", function (request, response) {
  *     'book-updated' ("BookMongooseSchema" object)
  */
 app.put("/library/books/:id", function (request, response) {
+    'use strict';
     return eventSourcing.getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
         if (!stateChanges || stateChanges[stateChanges.length - 1].method === "DELETE") {
             return response.send(404);
@@ -597,7 +618,7 @@ app.put("/library/books/:id", function (request, response) {
         }
         return eventSourcing.createStateChange("UPDATE", Book, request.params.id, changes, randomBooks.randomUser())
             .then(function (change) {
-                response.send(201, {entityId: change.entityId});
+                response.send(201, { entityId: change.entityId });
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return updateBook(change.entityId, change.changes).then(function (book) {
@@ -611,7 +632,7 @@ app.put("/library/books/:id", function (request, response) {
                 }
 
             }, function (err) {
-                error.handle(err, {response: response});
+                error.handle(err, { response: response });
             }
         );
     });
@@ -635,11 +656,12 @@ app.put("/library/books/:id", function (request, response) {
  *     'book-removed' (The entity id of the deleted book)
  */
 app.delete("/library/books/:id", function (request, response) {
+    'use strict';
     return eventSourcing.getStateChangesByEntityId(request.params.id).then(function (stateChanges) {
         if (stateChanges && stateChanges[stateChanges.length - 1].method !== "DELETE") {
             return eventSourcing.createStateChange("DELETE", Book, request.params.id, null, randomBooks.randomUser())
                 .then(function (change) {
-                    response.send(200, {entityId: change.entityId});
+                    response.send(200, { entityId: change.entityId });
 
                     if (useCQRS) {
                         return removeBook(change.entityId).then(function (entityId) {
@@ -651,7 +673,7 @@ app.delete("/library/books/:id", function (request, response) {
                     }
 
                 }, function (err) {
-                    error.handle(err, {response: response});
+                    error.handle(err, { response: response });
                 });
 
         } else {

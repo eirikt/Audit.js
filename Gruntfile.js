@@ -124,10 +124,10 @@ module.exports = function (grunt) {
                 strict: true,
                 trailing: true,
 
-                maxcomplexity: 4,
+                maxcomplexity: 8,
                 maxdepth: 4,
-                maxlen: 180,
-                maxparams: 4,
+                maxlen: 220,
+                maxparams: 8,
                 maxstatements: 30   // Default: ...
             }
         },
