@@ -1,7 +1,7 @@
 /* global define: false */
-define(["jquery", "underscore", "backbone"]
+define(["jquery", "underscore", "backbone"],
 
-    , function ($, _, Backbone) {
+    function ($, _, Backbone) {
         "use strict";
 
         /**

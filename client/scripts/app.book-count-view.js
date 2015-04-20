@@ -1,6 +1,7 @@
-define(["jquery", "underscore", "backbone"]
+/* global define:false, prettyprintInteger:false */
+define(["jquery", "underscore", "backbone"],
 
-    , function ($, _, Backbone) {
+    function ($, _, Backbone) {
         "use strict";
 
         return Backbone.View.extend({

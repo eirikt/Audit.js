@@ -1,10 +1,8 @@
 /* global define: false */
-define([
-    "jquery", "underscore", "backbone",
-    "backbone.bootstrap.pagination-button-view"
-]
+define(["jquery", "underscore", "backbone",
+        "backbone.bootstrap.pagination-button-view"],
 
-    , function ($, _, Backbone, BootstrapPaginationButtonView) {
+    function ($, _, Backbone, BootstrapPaginationButtonView) {
         "use strict";
 
         /**

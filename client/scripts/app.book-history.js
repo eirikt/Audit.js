@@ -1,6 +1,7 @@
-define(["underscore", "backbone", "backbone.audit.statechangecollection"]
+/* global define:false, JSON:false */
+define(["underscore", "backbone", "backbone.audit.statechangecollection"],
 
-    , function (_, Backbone, StateChangeCollection) {
+    function (_, Backbone, StateChangeCollection) {
         "use strict";
 
         return StateChangeCollection.extend({

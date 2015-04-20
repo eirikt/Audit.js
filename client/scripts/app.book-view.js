@@ -1,7 +1,7 @@
 /* global define: false, disableFormInputFields: false */
-define(["jquery", "underscore", "backbone"]
+define(["jquery", "underscore", "backbone"],
 
-    , function ($, _, Backbone) {
+    function ($, _, Backbone) {
         "use strict";
 
         return Backbone.View.extend({
@@ -57,11 +57,11 @@ define(["jquery", "underscore", "backbone"]
             },
             _getFormInputFieldsAsObjectProperties: function (filterFunc) {
                 var isFieldEligibleForEditing = filterFunc || function () {
-                    return true;
-                };
+                        return true;
+                    };
                 return _.chain(this.$("div").children("input"))
                     .map(function ($inputEl) {
-                        return (isFieldEligibleForEditing($inputEl)) ? [$inputEl.id, $inputEl.value] : null;
+                        return isFieldEligibleForEditing($inputEl) ? [$inputEl.id, $inputEl.value] : null;
                     })
                     .compact() // Remove nulls
                     .object()  // Arrays to object properties

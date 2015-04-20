@@ -1,8 +1,8 @@
 /*global define*/
-define(["underscore", "backbone", "moment"]
+define(["underscore", "backbone", "moment"],
 
-    , function (_, Backbone, Moment) {
-          "use strict";
+    function (_, Backbone, Moment) {
+        "use strict";
 
         /**
          * Watch using 'Moment.js'.

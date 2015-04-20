@@ -1,12 +1,12 @@
 /* global require: false, define: false */
+
 require([
-    'underscore', 'backbone', 'jquery', 'jquery.bootstrap',
-    'app', 'app.server-push-client', 'app.router',
-    'app.statechange-admin-view', 'app.library-admin-view', 'app.user-admin-view',
-    'app.library', 'app.book-count-view', 'app.book-composite-view', 'app.book-table-view'],
+        "underscore", "backbone", "jquery", "jquery.bootstrap",
+        "app", "app.server-push-client", "app.router",
+        "app.statechange-admin-view", "app.library-admin-view", "app.user-admin-view",
+        "app.library", "app.book-count-view", "app.book-composite-view", "app.book-table-view"],
 
     function (_, Backbone, $, Bootstrap, App, PushClient, Router, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
-
         "use strict";
 
         /**
@@ -94,9 +94,7 @@ require([
 );
 
 
-define([]
-
-    , function () {
+define([], function () {
         "use strict";
 
         /**
@@ -116,6 +114,7 @@ define([]
 ///////////////////////////////////////////////////////////////////////////////
 
 // http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
+/* jshint -W098 */
 function resetFormInputFields($form) {
     "use strict";
     $form.find("input:text, input:password, input:file, select, textarea").val("");

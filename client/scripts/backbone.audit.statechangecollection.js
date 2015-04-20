@@ -1,7 +1,7 @@
 /* global define: false */
-define(["underscore", "backbone", "backbone.audit.statechange"]
+define(["underscore", "backbone", "backbone.audit.statechange"],
 
-    , function (_, Backbone, BackboneAuditStateChange) {
+    function (_, Backbone, BackboneAuditStateChange) {
         "use strict";
 
         /**

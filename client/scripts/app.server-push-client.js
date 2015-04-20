@@ -1,6 +1,7 @@
-define(["socket.io", "underscore", "backbone", "app", "app.book"]
+/* global define: false */
+define(["socket.io", "underscore", "backbone", "app", "app.book"],
 
-    , function (SocketIo, _, Backbone, App, Book) {
+    function (SocketIo, _, Backbone, App, Book) {
         "use strict";
 
         /**

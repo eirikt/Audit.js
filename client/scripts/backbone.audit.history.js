@@ -1,7 +1,7 @@
 /* global define: false */
-define([]
+define([],
 
-    , function () {
+    function () {
         "use strict";
 
         /**

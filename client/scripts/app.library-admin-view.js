@@ -1,9 +1,9 @@
 /* global define: false, prettyprintInteger: false */
 define([
-    "underscore", "backbone",
-    "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"
-]
-    , function (_, Backbone, App, Progressbar, BootstrapModalMultipleProgressbarView) {
+        "underscore", "backbone",
+        "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"],
+
+    function (_, Backbone, App, Progressbar, BootstrapModalMultipleProgressbarView) {
         "use strict";
 
         var ProgressbarCollection = Backbone.Collection.extend({
@@ -39,7 +39,8 @@ define([
                     generateBooksProgressbar.set("headerText", "Generating " + prettyprintInteger(totalCount) + " random books ...");
                 });
 
-                var stateChangeEventsProgressbar = new Progressbar({ headerText: "Creating book state change event objects ... " +
+                var stateChangeEventsProgressbar = new Progressbar({
+                    headerText: "Creating book state change event objects ... " +
                     "<span class='pull-right' style='margin-right:1rem;'><small><em>event store</em></small></span>"
                 });
                 stateChangeEventsProgressbar.listenTo(App.pushClient, "creating-statechangeevents", stateChangeEventsProgressbar.start);

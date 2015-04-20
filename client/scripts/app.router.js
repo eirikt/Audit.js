@@ -1,7 +1,7 @@
 /* global define: false */
-define(["underscore", "backbone", "app", "app.book-history"]
+define(["underscore", "backbone", "app", "app.book-history"],
 
-    , function (_, Backbone, App, BookHistory) {
+    function (_, Backbone, App, BookHistory) {
         "use strict";
 
         return Backbone.Router.extend({

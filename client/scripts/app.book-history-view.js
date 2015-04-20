@@ -1,7 +1,7 @@
-/* global define: false */
-define(["jquery", "underscore", "backbone", "moment"]
+/* global define:false, JSON:false */
+define(["jquery", "underscore", "backbone", "moment"],
 
-    , function ($, _, Backbone, Moment) {
+    function ($, _, Backbone, Moment) {
         "use strict";
 
         var BookHistoryEventView = Backbone.View.extend({

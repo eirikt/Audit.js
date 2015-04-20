@@ -1,6 +1,7 @@
-define(["underscore", "backbone", "backbone.audit.history"]
+/* global define: false */
+define(["underscore", "backbone", "backbone.audit.history"],
 
-    , function (_, Backbone, BackboneAuditHistory) {
+    function (_, Backbone, BackboneAuditHistory) {
         "use strict";
 
         var Book = Backbone.Model.extend({

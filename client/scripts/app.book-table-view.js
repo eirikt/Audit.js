@@ -1,6 +1,7 @@
-define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-pagination-view"]
+/* global define:false */
+define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-pagination-view"],
 
-    , function (_, Backbone, App, BootstrapSimpleFourButtonPaginationView) {
+    function (_, Backbone, App, BootstrapSimpleFourButtonPaginationView) {
         "use strict";
 
         var BookCountView = Backbone.View.extend({

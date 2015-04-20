@@ -127,7 +127,7 @@ module.exports = function (grunt) {
                 maxcomplexity: 8,
                 maxdepth: 4,
                 maxlen: 220,
-                maxparams: 8,
+                maxparams: 14,
                 maxstatements: 30   // Default: ...
             }
         },

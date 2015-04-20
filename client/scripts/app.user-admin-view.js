@@ -1,7 +1,7 @@
 /* global define: false */
-define(["underscore", "backbone"]
+define(["underscore", "backbone"],
 
-    , function (_, Backbone) {
+    function (_, Backbone) {
         "use strict";
 
         // TODO: Get rid of the top span as well ...

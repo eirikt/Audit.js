@@ -1,6 +1,7 @@
-define(["jquery", "underscore", "backbone", "app.book-view", "app.book-history-view"]
+/* global define:false */
+define(["jquery", "underscore", "backbone", "app.book-view", "app.book-history-view"],
 
-    , function ($, _, Backbone, BookView, BookHistoryView) {
+    function ($, _, Backbone, BookView, BookHistoryView) {
         "use strict";
 
         return Backbone.View.extend({

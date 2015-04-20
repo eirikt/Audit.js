@@ -1,10 +1,8 @@
 /* global define: false */
-define([
-    "jquery", "underscore", "backbone",
-    "backbone.simple-underscore-template-view", "backbone.timer"
-]
+define(["jquery", "underscore", "backbone",
+        "backbone.simple-underscore-template-view", "backbone.timer"],
 
-    , function ($, _, Backbone, SimpleUnderscoreView, Timer) {
+    function ($, _, Backbone, SimpleUnderscoreView, Timer) {
         "use strict";
 
         /**

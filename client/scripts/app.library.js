@@ -1,6 +1,7 @@
-define(["jquery", "underscore", "backbone", "app", "app.Book"]
+/* global define: false */
+define(["jquery", "underscore", "backbone", "app", "app.Book"],
 
-    , function ($, _, Backbone, App, Book) {
+    function ($, _, Backbone, App, Book) {
         "use strict";
 
         return Backbone.Collection.extend({

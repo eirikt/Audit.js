@@ -2,9 +2,9 @@
 /* jshint -W031 */
 define([
     "underscore", "backbone",
-    "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"
-]
-    , function (_, Backbone, App, Progressbar, BootstrapModalMultipleProgressbarView) {
+    "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view",
+
+    function (_, Backbone, App, Progressbar, BootstrapModalMultipleProgressbarView) {
         "use strict";
 
         var CqrsCheck = Backbone.Model.extend({
@@ -55,14 +55,16 @@ define([
             initialize: function () {
                 var replayStateChangeEventsProgressbar = new Progressbar({ headerText: "Replaying all state change events into application store ..." });
 
-                var mapreduceProgressbar = new Progressbar({ headerText: "Map-reducing all state change events ... " +
+                var mapreduceProgressbar = new Progressbar({
+                    headerText: "Map-reducing all state change events ... " +
                     "<span class='pull-right' style='margin-right:1rem;'><small><em>event store</em></small></span>"
                 });
                 mapreduceProgressbar.listenTo(App.pushClient, "mapreducing-events", mapreduceProgressbar.start);
                 mapreduceProgressbar.listenTo(App.pushClient, "event-mapreduced", mapreduceProgressbar.progress);
                 mapreduceProgressbar.listenTo(App.pushClient, "all-events-mapreduced", mapreduceProgressbar.finish);
 
-                var replayProgressbar = new Progressbar({ headerText: "Creating book objects (if not already created) ... " +
+                var replayProgressbar = new Progressbar({
+                    headerText: "Creating book objects (if not already created) ... " +
                     "<span class='pull-right' style='margin-right:1rem;'><em><small>event store </small>&rArr;<small> application store</small></em></span>"
                 });
                 replayProgressbar.listenTo(App.pushClient, "replaying-events", replayProgressbar.start);
@@ -116,5 +118,5 @@ define([
                 }
             }
         });
-    }
+    }]
 );
