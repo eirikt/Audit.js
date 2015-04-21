@@ -1,6 +1,8 @@
 require.config({
     paths: {
+        // Socket.IO client lib must be manually copied from node_modules
         'socket.io': 'vendor/socket.io',
+
         'jquery': '../bower_components/jquery/dist/jquery',
         'jquery.bootstrap': '../bower_components/bootstrap/dist/js/bootstrap',
         'jquery.bindwithdelay': 'vendor/jquery.bind-with-delay',
@@ -9,33 +11,26 @@ require.config({
         'moment': '../bower_components/moment/moment'
     },
     shim: {
-        // TODO: RequireJS and Socket.IO ...
-        //'socket.io': {
-        //    deps: [],
-        //    exports: 'SocketIo'
-        //},
+        jquery: {
+            exports: '$'
+        },
         'jquery.bootstrap': {
             deps: ['jquery'],
-            exports: 'Bootstrap'
+            exports: '$'
         },
         'jquery.bindwithdelay': {
             deps: ['jquery'],
             exports: 'BindWithDelay'
         },
-        'underscore': {
-            deps: [],
-            exports: '_'
-        },
-        'backbone': {
-            deps: ['underscore'],
-            exports: 'Backbone'
-        },
-        'moment': {
-            deps: [],
-            exports: 'Moment'
+        enforceDefine: true
+    },
+    config: {
+        moment: {
+            noGlobal: true
         }
     }
 });
 
 // Loading and startup
-require(['socket.io', 'jquery.bindwithdelay', 'app'], function () { });
+require(['socket.io', 'jquery.bindwithdelay', 'app'], function () {
+});

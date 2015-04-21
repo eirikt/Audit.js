@@ -1,4 +1,4 @@
-/* global define: false */
+/* global define:false */
 define(["jquery", "underscore", "backbone", "app", "app.Book"],
 
     function ($, _, Backbone, App, Book) {
@@ -36,15 +36,15 @@ define(["jquery", "underscore", "backbone", "app", "app.Book"],
             },
             _fetchByPOST: function () {
                 return Backbone.Collection.prototype.fetch.call(this, {
-                    url: this.url,
                     reset: true,
                     type: "POST",
-                    data: $.param({
+                    url: this.url,
+                    data: {
                         count: this.pagination.count,
                         index: this.pagination.currentIndex,
                         titleSubstring: this.filtering.titleSubstring,
                         authorSubstring: this.filtering.authorSubstring
-                    })
+                    }
                 });
             },
             fetch: function () {

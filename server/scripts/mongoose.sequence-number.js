@@ -18,7 +18,7 @@ var mongoose = require('mongoose'),
                 if (err) {
                     callback(err);
                 } else {
-                    callback(null, result.seq);
+                    callback(null, result.value.seq);
                 }
             }
         );

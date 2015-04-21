@@ -115,7 +115,7 @@ The initial setup is inspired by the example application in the book [_Developin
     ```
     grunt db
     ```
- 1. Start the Node-based app server configured in `server.js`
+ 1. Start the Node-based app server configured in `server.js` (via a _blocking_ Grunt task)
 
     ```
     grunt run
@@ -124,8 +124,6 @@ The initial setup is inspired by the example application in the book [_Developin
 
 
 ...
-
-This markdown is written using the [Markdown Live Editor][50]
 
 [10]: http://en.wikipedia.org/wiki/Domain-driven_design
 [11]: http://martinfowler.com/eaaDev/EventSourcing.html
@@ -147,10 +145,8 @@ This markdown is written using the [Markdown Live Editor][50]
 [30]: http://www.mongodb.org
 [31]: http://mongoosejs.com
 
-[35]: http://nodejs.org
+[35]: https://iojs.org
 [36]: http://expressjs.com
-
-[50]: http://jrmoran.com/playground/markdown-live-editor
 
 
 ...

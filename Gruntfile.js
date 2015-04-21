@@ -81,7 +81,7 @@ module.exports = function (grunt) {
                 'Gruntfile.js',
                 'server/scripts/*.js',
                 'client/scripts/*.js',
-                'test/spec/**/*.js'
+                'test/server/specs/*.js'
             ],
             options: {
                 //reporter: 'jslint',

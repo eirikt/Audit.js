@@ -137,7 +137,10 @@ var app = require('express')();
 var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
 
-app.use(bodyParser.json());
+app.use(bodyParser.json());     // To support JSON-encoded bodies
+app.use(bodyParser.urlencoded({ // To support URL-encoded bodies
+    extended: true
+}));
 app.use(require('express').static(path.join(applicationRoot, "../../client")));
 
 //server.listen(app.get('port')); // not 'app.listen'!
@@ -183,9 +186,9 @@ setInterval(function () {
  * The "CQRS usage" flag.
  * This flag indicates whether to use an <em>application store</em> in addition to the <em>event store</em>, CQRS style.
  * The alternative is to use the event store only, being considerately more ineffective ... but as a demo
- * <em>No application store is the default (at the moment).<em>
+ * <em>Using event store only is the default (at the moment), just for fun, being reactive.<em>
  */
-var useCQRS = true;
+var useCQRS = false;
 
 
 // TODO: consider some proper REST API documentation framework
@@ -255,7 +258,7 @@ app.get("/events/:entityId", function (request, response) {
  * Resource out properties : Boolean value indicating whether CQRS is activated on the server or not
  * Push messages           : -
  */
-app.get("/events/cqrs/status", function (request, response) {
+app.get("/cqrs/status", function (request, response) {
     'use strict';
     response.send(200, useCQRS);
 });
@@ -275,7 +278,7 @@ app.get("/events/cqrs/status", function (request, response) {
  * Push messages           :
  *     'cqrs' (CQRS status)
  */
-app.post("/events/cqrs/toggle", function (request, response) {
+app.post("/cqrs/toggle", function (request, response) {
     'use strict';
     response.send(202);
     if (useCQRS) {
@@ -478,7 +481,7 @@ app.post("/library/books/count", function (request, response) {
             return response.send(200, { count: count });
         });
     }
-    // No CQRS, rather scanning event store
+    // No CQRS/application store => scanning event store
     return count(eventSourcing.StateChange).then(function (count) {
         if (count <= 0) {
             return response.send(200, { count: 0 });
@@ -562,7 +565,7 @@ app.post("/library/books/projection", function (request, response) {
                 return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(
                     function (err, books) {
                         error.handle(err, { response: response });
-                        return response.send(200, { books: books, count: count, totalCount: totalCount });
+                        return response.status(200).send({ books: books, count: count, totalCount: totalCount });
                     }
                 );
             });
@@ -571,13 +574,13 @@ app.post("/library/books/projection", function (request, response) {
     } else {
         return eventSourcing.project(Book, findQuery, sortQuery, skip, limit)
             .then(
-            function (books, count, totalCount) {
-                return response.send(200, { books: books, count: count, totalCount: totalCount });
+            function (result) {
+                return response.status(200).send({ books: result.books, count: result.count, totalCount: result.totalCount });
             },
             function (err) {
                 if (err.message === "ns doesn't exist") {
                     console.warn(err);
-                    return response.send(200, { count: 0 });
+                    return response.status(200).send({ count: 0 });
                 } else {
                     return error.handle(err, { response: response });
                 }

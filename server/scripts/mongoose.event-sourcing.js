@@ -249,7 +249,11 @@ var _ = require("underscore"),
             if (changes && change.method !== "DELETE") {
                 change.changes = changes;
             }
-            console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
+            if (change.method === "CREATE" && change.changes.seq) {
+                console.log("State change event created [method=" + change.method + ", type=" + change.type + ", seq=" + change.changes.seq + ", entityId=" + change.entityId + "]");
+            } else {
+                console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
+            }
 
             return change;
         },
@@ -544,17 +548,25 @@ var _ = require("underscore"),
     project = exports.project =
         function (entityType, findConditions, sortConditions, skipValue, limitValue) {
             'use strict';
-            var dfd = new promise.Deferred();
+            var dfd = new promise.Deferred(),
+            // TODO: Very strange: the 'findConditions' argument (none nof the others it seems) disappears in the nested closures ...
+                findConditionsArgRef = findConditions;
             _find(entityType)
                 .then(
                 function (results) {
                     return results
                         .find(function (err, totalMapReducedResult) {
-                            var findConditions = _addMapReducePrefixTo(findConditions);
+                            var findConditions = _addMapReducePrefixTo(findConditionsArgRef),
+                            // TODO: Very strange: the 'totalMapReducedResultArgRef' argument disappears in the nested closures ...
+                                totalMapReducedResultArgRef = totalMapReducedResult;
                             return results
                                 .find(findConditions)
                                 .exec(function (err, projectedResult) {
-                                    var sortParams = _addMapReducePrefixTo(sortConditions);
+                                    var sortParams = _addMapReducePrefixTo(sortConditions),
+                                    // TODO: Very strange: the 'totalMapReducedResultArgRef' argument disappears in the nested closures ...
+                                        totalMapReducedResultArgRef2 = totalMapReducedResultArgRef,
+                                    // TODO: Very strange: the 'projectedResultArgRef' argument disappears in the nested closures ...
+                                        projectedResultArgRef = projectedResult;
                                     return results
                                         .find(findConditions)
                                         .sort(sortParams)
@@ -562,9 +574,9 @@ var _ = require("underscore"),
                                         .limit(limitValue)
                                         .exec(function (err, paginatedResult) {
                                             var books = paginatedResult.map(_buildObject),
-                                                count = projectedResult.length,
-                                                totalCount = totalMapReducedResult.length;
-                                            return dfd.resolve(books, count, totalCount);
+                                                count = projectedResultArgRef.length,
+                                                totalCount = totalMapReducedResultArgRef2.length;
+                                            return dfd.resolve({ count: count, books: books, totalCount: totalCount });
                                         }
                                     );
                                 }

@@ -1,17 +1,17 @@
 /* global define: false, prettyprintInteger: false */
 /* jshint -W031 */
 define([
-    "underscore", "backbone",
-    "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view",
+        "underscore", "backbone",
+        "app", "backbone.progressbar", "backbone.bootstrap.multi-progressbar-view"],
 
     function (_, Backbone, App, Progressbar, BootstrapModalMultipleProgressbarView) {
         "use strict";
 
         var CqrsCheck = Backbone.Model.extend({
-            url: "/events/cqrs/status"
+            url: "/cqrs/status"
         });
         var CqrsToggle = Backbone.Model.extend({
-            url: "/events/cqrs/toggle"
+            url: "/cqrs/toggle"
         });
         var EventStoreReplay = Backbone.Model.extend({
             url: "/events/replay"
@@ -118,5 +118,5 @@ define([
                 }
             }
         });
-    }]
+    }
 );

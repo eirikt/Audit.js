@@ -1,3 +1,6 @@
+/* global describe:false, it:false */
+/* jshint -W030, -W024, -W126 */
+
 var expect = require("chai").expect,
 
 // "SUT"
@@ -7,6 +10,7 @@ var expect = require("chai").expect,
     };
 
 describe("Trying out the test libraries", function () {
+    'use strict';
 
     describe("Mocha", function () {
         it("should just work ...", function () {
