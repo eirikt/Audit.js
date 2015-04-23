@@ -20,10 +20,11 @@ var handleError = exports.handle =
 
         if (options && options.response) {
             if (hasErrorMessage) {
-                options.response.send(500, { error: err.message });
+                options.response.status(500).send({ error: err.message });
             } else {
-                options.response.send(500, { error: err });
+                options.response.status(500).send({ error: err });
             }
+            return false;
         }
 
         if (options && options.deferred) {

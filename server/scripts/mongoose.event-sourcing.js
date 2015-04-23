@@ -12,7 +12,6 @@ var _ = require("underscore"),
 
 // Mongoose schemas
     StateChangeMongooseSchema = exports.StateChangeMongooseSchema = new mongoose.Schema({
-        //user: String
         user: { type: String, index: true },
 
         timestamp: Date,
@@ -83,7 +82,7 @@ var _ = require("underscore"),
                 return a.timestamp > b.timestamp;
             });
             if (sortedStateChanges[0].method !== "CREATE") {
-                throw new Error("First event for book with id=" + key + " is not a CREATE event, rather a " + sortedStateChanges[0].method + "\n");
+                throw new Error("First event for book with id=" + key + " is not a CREATE event, rather a " + sortedStateChanges[0].method + " (" + JSON.stringify(sortedStateChanges[0]) + "\n");
             }
             if (sortedStateChanges[sortedStateChanges.length - 1].method === "DELETE") {
                 return null;
@@ -513,6 +512,7 @@ var _ = require("underscore"),
      * @param entityType Mongoose model type
      * @param conditions Mongoose find condition object
      * @returns {Promise}
+     * @deprecated since version 0.2.0
      */
     count = exports.count =
         function (entityType, conditions) {
@@ -532,6 +532,23 @@ var _ = require("underscore"),
                     error.handle(err, { deferred: dfd });
                 });
             return dfd.promise;
+        },
+
+    rqCount = exports.rqCount =
+        function (entityType, conditions) {
+            'use strict';
+            return function requestor(callback, args) {
+                _find(entityType)
+                    .then(
+                    function (results) {
+                        return results.count(_addMapReducePrefixTo(conditions), function (err, count) {
+                            return callback(count, undefined);
+                        });
+                    },
+                    function (err) {
+                        return callback(undefined, err);
+                    });
+            };
         },
 
 

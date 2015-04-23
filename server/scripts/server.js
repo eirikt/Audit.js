@@ -1,3 +1,4 @@
+/* global JSON:false */
 /* jshint -W024 */
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -6,21 +7,17 @@
 
 // Module dependencies, external
 var applicationRoot = __dirname,
-    _ = require("underscore"),
-    promise = require("promised-io/promise"),
-    all = promise.all,
-    seq = promise.seq,
-    bodyParser = require("body-parser"),
-    path = require("path"),
+    bodyParser = require('body-parser'),
+    path = require('path'),
 
-//socketio = require("socket.io"),
+//socketio = require('socket.io'),
 // TODO: Consider replacing socket.io with sockjs: https://github.com/sockjs/sockjs-client
 // https://github.com/LearnBoost/socket.io/issues/463
-//sockjs = require("sockjs"),
+//sockjs = require('sockjs'),
 
-//http = require("http"),
+//http = require('http'),
 
-//express = require("express"),
+//express = require('express'),
 //bodyParser = require("body-parser"),
 // TODO: Consider replacing express with Koa: http://koajs.com
 //koa = require('koa'),
@@ -28,11 +25,23 @@ var applicationRoot = __dirname,
     mongodb = require("mongodb"),
     mongoose = require("mongoose"),
 
+    promise = require("promised-io/promise"),
+    all = promise.all,
+    seq = promise.seq,
+    RQ = require("async-rq"),
+    rq = require("rq-essentials"),
+    sequence = RQ.sequence,
+    parallel = RQ.parallel,
+    fallback = RQ.fallback,
+    then = rq.then,
+    go = rq.execute,
+    _ = require("underscore"),
 
 // Module dependencies, local
-    error = require("./error.js"),
-    eventSourcing = require("./mongoose.event-sourcing.js"),
-    randomBooks = require("./random-books.js"),
+    curry = require("./fun").curry,
+    error = require("./error"),
+    eventSourcing = require("./mongoose.event-sourcing"),
+    randomBooks = require("./random-books"),
 
 
 // MongoDB URL
@@ -61,14 +70,14 @@ var applicationRoot = __dirname,
 
 
 Book.collectionName = function () {
-    'use strict';
+    "use strict";
     return Book.modelName + "s".toLowerCase();
 };
 
 
-// Generic Mongoose functions
+// TODO: To be replaced by RQ equivalents
 function count(type) {
-    'use strict';
+    "use strict";
     var dfd = new promise.Deferred();
     type.count(function (err, count) {
         if (err) {
@@ -84,7 +93,7 @@ function count(type) {
 
 // Application-specific functions
 function updateBook(id, changes) {
-    'use strict';
+    "use strict";
     var dfd = new promise.Deferred();
     Book.findByIdAndUpdate(id, changes, function (err, book) {
         if (error.handle(err, { deferred: dfd })) {
@@ -98,7 +107,7 @@ function updateBook(id, changes) {
 
 
 function removeBook(id) {
-    'use strict';
+    "use strict";
     var dfd = new promise.Deferred();
     Book.findByIdAndRemove(id, function (err) {
         if (!error.handle(err, { deferred: dfd })) {
@@ -109,6 +118,90 @@ function removeBook(id) {
     return dfd.promise;
 }
 // /Application-specific functions
+
+
+
+
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-mongoose4
+function _rqMongoose4(mongooseModel, mongooseModelFunction, conditions) {
+    "use strict";
+    var func = _.isString(mongooseModelFunction) ? mongooseModel[mongooseModelFunction] : mongooseModelFunction;
+
+    return function requestor(callback, args) {
+        func.call(mongooseModel, conditions, function (err, count) {
+            if (err) {
+                return callback(undefined, err);
+                // TODO:
+                //return error.handle(err, { rqCallback: callback });
+            }
+            return callback(count, undefined);
+        });
+    };
+}
+
+var rqStateChange = curry(_rqMongoose4, eventSourcing.StateChange);
+var rqBook = curry(_rqMongoose4, Book);
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _rqDispatchResponseStatusCode(response, statusCode) {
+    "use strict";
+    return function requestor(callback, args) {
+        console.log("HTTP Response: " + statusCode);
+        response.sendStatus(statusCode);
+        return callback(args);
+    };
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _rqDispatchResponseWithBody(response, statusCode, responseKeys) {
+    "use strict";
+    return function requestor(callback, responseValues) {
+        var responseBodyPropertyKeys = _.isArray(responseKeys) ? name : [responseKeys],
+            responseBodyPropertyValues = _.isArray(responseValues) ? responseValues : [responseValues],
+            responseBody = {};
+
+        _.map(responseBodyPropertyKeys, function (responseBodyPropertyKey, index) {
+            responseBody[responseBodyPropertyKey] = responseBodyPropertyValues[index];
+        });
+        console.log(statusCode + ": " + JSON.stringify(responseBody));
+        response.status(statusCode).send(responseBody);
+        return callback(responseValues);
+    };
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _response200Ok(response) {
+    "use strict";
+    return curry(_rqDispatchResponseWithBody, response, 200);
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _response201Created(response) {
+    "use strict";
+    return curry(_rqDispatchResponseWithBody, response, 201);
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _response202Accepted(response) {
+    "use strict";
+    return curry(_rqDispatchResponseWithBody, response, 202);
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _response205ResetContent(response) {
+    "use strict";
+    return curry(_rqDispatchResponseWithBody, response, 205);
+}
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
+function _response500InternalServerError(response) {
+    "use strict";
+    return curry(_rqDispatchResponseWithBody, response, 500);
+}
+
+
+
 
 
 // Connect to database via MongoDB native driver
@@ -210,19 +303,26 @@ var useCQRS = false;
  * Push messages           : -
  */
 app.get("/events/count", function (request, response) {
-    'use strict';
-    return eventSourcing.StateChange.count({ method: "CREATE" }, function (err, createCount) {
-        return eventSourcing.StateChange.count({ method: "UPDATE" }, function (err, updateCount) {
-            return eventSourcing.StateChange.count({ method: "DELETE" }, function (err, deleteCount) {
-                return response.send(200, {
-                    createCount: createCount,
-                    updateCount: updateCount,
-                    deleteCount: deleteCount,
-                    totalCount: createCount + updateCount + deleteCount
-                });
+    "use strict";
+    //console.log("/events/count");
+    var stateChangeCount = curry(rqStateChange, "count");
+    //var stateChange = curry(rqMongoose, eventSourcing.StateChange);
+    //var mongooseCount = curry(stateChange, "count");
+    sequence([
+        parallel([
+            stateChangeCount({ method: "CREATE" }),
+            stateChangeCount({ method: "UPDATE" }),
+            stateChangeCount({ method: "DELETE" })
+        ]),
+        then(function (args) {
+            response.status(200).send({
+                createCount: args[0],
+                updateCount: args[1],
+                deleteCount: args[2],
+                totalCount: args[0] + args[1] + args[2]
             });
-        });
-    });
+        })
+    ])(go);
 });
 
 
@@ -241,7 +341,7 @@ app.get("/events/count", function (request, response) {
 app.get("/events/:entityId", function (request, response) {
     'use strict';
     return eventSourcing.getStateChangesByEntityId(request.params.entityId).then(function (stateChanges) {
-        return response.send(200, stateChanges);
+        return response.status(200).send(stateChanges);
     });
 });
 
@@ -260,7 +360,7 @@ app.get("/events/:entityId", function (request, response) {
  */
 app.get("/cqrs/status", function (request, response) {
     'use strict';
-    response.send(200, useCQRS);
+    response.status(200).send(useCQRS);
 });
 
 
@@ -280,7 +380,7 @@ app.get("/cqrs/status", function (request, response) {
  */
 app.post("/cqrs/toggle", function (request, response) {
     'use strict';
-    response.send(202);
+    response.sendStatus(202);
     if (useCQRS) {
         console.log("Bypassing application store - will use event store only!");
     } else {
@@ -368,10 +468,10 @@ app.post("/library/books/generate", function (request, response) {
         createBookWithSequenceNumber = [];
 
     if (!totalNumberOfBooksToGenerate) {
-        response.send(422, "Property 'numberOfBooks' is mandatory");
+        response.sendStatus(422, "Property 'numberOfBooks' is mandatory");
 
     } else {
-        response.send(202);
+        response.sendStatus(202);
 
         count = parseInt(totalNumberOfBooksToGenerate, 10);
         io.emit("creating-statechangeevents", totalNumberOfBooksToGenerate, startTime);
@@ -425,9 +525,9 @@ app.post("/library/books/clean", function (request, response) {
     'use strict';
     if (!useCQRS) {
         console.warn("URI '/library/books/clean' posted when no application store in use!");
-        response.send(202);
+        response.sendStatus(202);
     } else {
-        response.send(205);
+        response.sendStatus(205);
     }
     return mongoose.connection.collections[Book.collectionName()].drop(function (err) {
         if (error.handle(err, { response: response })) {
@@ -436,6 +536,19 @@ app.post("/library/books/clean", function (request, response) {
         return io.emit("all-books-removed");
     });
 });
+
+
+// TODO: To be moved to https://github.com/eirikt/RQ-essentials
+function _conditional(condition) {
+    "use strict";
+    return function requestor(callback, args) {
+        if (condition.call(this, args)) {
+            return callback(args, undefined);
+        } else {
+            return callback(undefined, "Condition not met");
+        }
+    };
+}
 
 
 /**
@@ -455,52 +568,69 @@ app.post("/library/books/clean", function (request, response) {
  * Push messages           : -
  */
 app.post("/library/books/count", function (request, response) {
-    'use strict';
+    "use strict";
     var titleSearchRegexString = request.body.titleSubstring,
         authorSearchRegexString = request.body.authorSubstring,
-        countAll = _.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString);
+        isCountingAllBooks = _.isEmpty(titleSearchRegexString) && _.isEmpty(authorSearchRegexString),
+
+        rqCountBooks = curry(rqBook, "count"),
+        countAllBooks = rqCountBooks(null), // No filtering, all books
+
+        sendCountResponse = _rqDispatchResponseWithBody(response, 200, "count"),
+        sendInternalServerErrorResponse = _rqDispatchResponseStatusCode(response, 500);
 
     // CQRS and no search criteria
-    if (countAll && useCQRS) {
-        return count(Book).then(function (count) {
-            return response.send(200, { count: count });
-        });
+    if (isCountingAllBooks && useCQRS) {
+        return fallback([
+            sequence([
+                countAllBooks,
+                sendCountResponse
+            ]),
+            sendInternalServerErrorResponse
+        ])(go);
     }
 
-    // Filtered/projection count
+    // Filtered count / count of projected books
     var searchRegexOptions = "i",
         titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions),
         authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions),
-        findQuery = { title: titleRegexp, author: authorRegexp };
+        findQuery = { title: titleRegexp, author: authorRegexp },
+        countBooksWithFilter = rqCountBooks(findQuery),
+
+        rqCountStateChanges = curry(rqStateChange, "count"),
+        countAllStateChanges = rqCountStateChanges(null), // No filtering, all state changes
+        ifLessThanOne = _conditional(function (arg) {
+            //if (arg < 1) {
+            //    console.log("arg less than one ...");
+            //}
+            return arg < 1;
+        }),
+        countAllEventSourcedBooks = eventSourcing.rqCount(Book, findQuery);
+
 
     if (useCQRS) {
-        return Book.count(findQuery, function (err, count) {
-            if (error.handle(err, { response: response })) {
-                return null;
-            }
-            return response.send(200, { count: count });
-        });
+        return fallback([
+            sequence([
+                countBooksWithFilter,
+                sendCountResponse
+            ]),
+            sendInternalServerErrorResponse
+        ])(go);
     }
     // No CQRS/application store => scanning event store
-    return count(eventSourcing.StateChange).then(function (count) {
-        if (count <= 0) {
-            return response.send(200, { count: 0 });
-        }
-        return eventSourcing.count(Book, findQuery)
-            .then(
-            function (count) {
-                response.send(200, { count: count });
-
-            }, function (err) {
-                if (err.message === "ns doesn't exist") {
-                    console.warn(err);
-                    response.send(200, { count: 0 });
-                } else {
-                    error.handle(err, { response: response });
-                }
-            }
-        );
-    });
+    return fallback([
+        sequence([
+            countAllStateChanges,
+            ifLessThanOne,
+            //rq.return(0),
+            sendCountResponse
+        ]),
+        sequence([
+            countAllEventSourcedBooks,
+            sendCountResponse
+        ]),
+        sendInternalServerErrorResponse
+    ])(go);
 });
 
 
@@ -561,13 +691,17 @@ app.post("/library/books/projection", function (request, response) {
     if (useCQRS) {
         return count(Book).then(function (totalCount) {
             return Book.count(findQuery, function (err, count) {
-                error.handle(err, { response: response });
-                return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(
-                    function (err, books) {
-                        error.handle(err, { response: response });
-                        return response.status(200).send({ books: books, count: count, totalCount: totalCount });
-                    }
-                );
+                if (!error.handle(err, { response: response })) {
+                    return Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(function (err, books) {
+                        if (!error.handle(err, { response: response })) {
+                            return response.status(200).send({
+                                books: books,
+                                count: count,
+                                totalCount: totalCount
+                            });
+                        }
+                    });
+                }
             });
         });
 
@@ -575,7 +709,11 @@ app.post("/library/books/projection", function (request, response) {
         return eventSourcing.project(Book, findQuery, sortQuery, skip, limit)
             .then(
             function (result) {
-                return response.status(200).send({ books: result.books, count: result.count, totalCount: result.totalCount });
+                return response.status(200).send({
+                    books: result.books,
+                    count: result.count,
+                    totalCount: result.totalCount
+                });
             },
             function (err) {
                 if (err.message === "ns doesn't exist") {
@@ -621,7 +759,7 @@ app.put("/library/books/:id", function (request, response) {
         }
         return eventSourcing.createStateChange("UPDATE", Book, request.params.id, changes, randomBooks.randomUser())
             .then(function (change) {
-                response.send(201, { entityId: change.entityId });
+                response.status(201).send({ entityId: change.entityId });
                 if (useCQRS) {
                     // Dispatching of asynchronous message to application store
                     return updateBook(change.entityId, change.changes).then(function (book) {
