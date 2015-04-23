@@ -1,10 +1,11 @@
 # Audit.js
 
 [![Build Status](https://travis-ci.org/eirikt/Audit.js.png?branch=master)](https://travis-ci.org/eirikt/Audit.js)
-
-[![Dependency Status](https://david-dm.org/eirikt/Audit.js.png)](https://david-dm.org/eirikt/Audit.js)
-[![devDependency Status](https://david-dm.org/eirikt/Audit.js/dev-status.png)](https://david-dm.org/eirikt/Audit.js#info=devDependencies)
-
+&nbsp;&nbsp;
+[![Dependency Status](https://www.versioneye.com/user/projects/5534217110e714f9e500139d/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5534217110e714f9e500139d)
+[![Dependency Status](https://www.versioneye.com/user/projects/5534226910e7149066001007/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5534226910e7149066001007)
+&nbsp;&nbsp;
+[![Codacy Badge](https://www.codacy.com/project/badge/4f9fda90eb834d27ae6cc2f539ae263c)](https://www.codacy.com/app/eiriktorske/Audit-js)
 
 A demo project for an _audit-friendly_ application architecture.
 This application is a JavaScript implementation.
