@@ -534,10 +534,12 @@ var _ = require("underscore"),
             return dfd.promise;
         },
 
+// TODO: Rename to count
     rqCount = exports.rqCount =
         function (entityType, conditions) {
             'use strict';
             return function requestor(callback, args) {
+                // TODO: Rewrite _find to RQ as well
                 _find(entityType)
                     .then(
                     function (results) {

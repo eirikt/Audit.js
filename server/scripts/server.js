@@ -28,13 +28,16 @@ var applicationRoot = __dirname,
     promise = require("promised-io/promise"),
     all = promise.all,
     seq = promise.seq,
+
     RQ = require("async-rq"),
     rq = require("rq-essentials"),
     sequence = RQ.sequence,
-    parallel = RQ.parallel,
     fallback = RQ.fallback,
+    parallel = RQ.parallel,
+    race = RQ.race,
     then = rq.then,
     go = rq.execute,
+
     _ = require("underscore"),
 
 // Module dependencies, local
@@ -73,6 +76,12 @@ Book.collectionName = function () {
     "use strict";
     return Book.modelName + "s".toLowerCase();
 };
+
+
+// Some curried Mongoose model requestors
+// Just add Mongoose model function and arguments, then use them in RQ pipelines
+var rqStateChange = curry(rq.mongoose, eventSourcing.StateChange);
+var rqBook = curry(rq.mongoose, Book);
 
 
 // TODO: To be replaced by RQ equivalents
@@ -118,90 +127,6 @@ function removeBook(id) {
     return dfd.promise;
 }
 // /Application-specific functions
-
-
-
-
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-mongoose4
-function _rqMongoose4(mongooseModel, mongooseModelFunction, conditions) {
-    "use strict";
-    var func = _.isString(mongooseModelFunction) ? mongooseModel[mongooseModelFunction] : mongooseModelFunction;
-
-    return function requestor(callback, args) {
-        func.call(mongooseModel, conditions, function (err, count) {
-            if (err) {
-                return callback(undefined, err);
-                // TODO:
-                //return error.handle(err, { rqCallback: callback });
-            }
-            return callback(count, undefined);
-        });
-    };
-}
-
-var rqStateChange = curry(_rqMongoose4, eventSourcing.StateChange);
-var rqBook = curry(_rqMongoose4, Book);
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _rqDispatchResponseStatusCode(response, statusCode) {
-    "use strict";
-    return function requestor(callback, args) {
-        console.log("HTTP Response: " + statusCode);
-        response.sendStatus(statusCode);
-        return callback(args);
-    };
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _rqDispatchResponseWithBody(response, statusCode, responseKeys) {
-    "use strict";
-    return function requestor(callback, responseValues) {
-        var responseBodyPropertyKeys = _.isArray(responseKeys) ? name : [responseKeys],
-            responseBodyPropertyValues = _.isArray(responseValues) ? responseValues : [responseValues],
-            responseBody = {};
-
-        _.map(responseBodyPropertyKeys, function (responseBodyPropertyKey, index) {
-            responseBody[responseBodyPropertyKey] = responseBodyPropertyValues[index];
-        });
-        console.log(statusCode + ": " + JSON.stringify(responseBody));
-        response.status(statusCode).send(responseBody);
-        return callback(responseValues);
-    };
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _response200Ok(response) {
-    "use strict";
-    return curry(_rqDispatchResponseWithBody, response, 200);
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _response201Created(response) {
-    "use strict";
-    return curry(_rqDispatchResponseWithBody, response, 201);
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _response202Accepted(response) {
-    "use strict";
-    return curry(_rqDispatchResponseWithBody, response, 202);
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _response205ResetContent(response) {
-    "use strict";
-    return curry(_rqDispatchResponseWithBody, response, 205);
-}
-
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials-express4
-function _response500InternalServerError(response) {
-    "use strict";
-    return curry(_rqDispatchResponseWithBody, response, 500);
-}
-
-
-
 
 
 // Connect to database via MongoDB native driver
@@ -304,10 +229,7 @@ var useCQRS = false;
  */
 app.get("/events/count", function (request, response) {
     "use strict";
-    //console.log("/events/count");
     var stateChangeCount = curry(rqStateChange, "count");
-    //var stateChange = curry(rqMongoose, eventSourcing.StateChange);
-    //var mongooseCount = curry(stateChange, "count");
     sequence([
         parallel([
             stateChangeCount({ method: "CREATE" }),
@@ -538,19 +460,6 @@ app.post("/library/books/clean", function (request, response) {
 });
 
 
-// TODO: To be moved to https://github.com/eirikt/RQ-essentials
-function _conditional(condition) {
-    "use strict";
-    return function requestor(callback, args) {
-        if (condition.call(this, args)) {
-            return callback(args, undefined);
-        } else {
-            return callback(undefined, "Condition not met");
-        }
-    };
-}
-
-
 /**
  * Library API :: Get total number of books (by creating/posting a count object/resource to the server)
  * (by creating and sending (posting) a "count" object/resource to the server)
@@ -576,8 +485,8 @@ app.post("/library/books/count", function (request, response) {
         rqCountBooks = curry(rqBook, "count"),
         countAllBooks = rqCountBooks(null), // No filtering, all books
 
-        sendCountResponse = _rqDispatchResponseWithBody(response, 200, "count"),
-        sendInternalServerErrorResponse = _rqDispatchResponseStatusCode(response, 500);
+        sendCountResponse = rq.dispatchResponse(response, 200, "count"),
+        sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(response, 500);
 
     // CQRS and no search criteria
     if (isCountingAllBooks && useCQRS) {
@@ -599,14 +508,13 @@ app.post("/library/books/count", function (request, response) {
 
         rqCountStateChanges = curry(rqStateChange, "count"),
         countAllStateChanges = rqCountStateChanges(null), // No filtering, all state changes
-        ifLessThanOne = _conditional(function (arg) {
-            //if (arg < 1) {
-            //    console.log("arg less than one ...");
-            //}
+        ifLessThanOne = rq.if(function (arg) {
+            if (arg < 1) {
+                console.log("arg less than one ...");
+            }
             return arg < 1;
         }),
-        countAllEventSourcedBooks = eventSourcing.rqCount(Book, findQuery);
-
+        countAllBookStateChanges = eventSourcing.rqCount(Book, findQuery);
 
     if (useCQRS) {
         return fallback([
@@ -622,11 +530,11 @@ app.post("/library/books/count", function (request, response) {
         sequence([
             countAllStateChanges,
             ifLessThanOne,
-            //rq.return(0),
+            //rq.return(0), // Not necessary, I guess - won't be a negative number
             sendCountResponse
         ]),
         sequence([
-            countAllEventSourcedBooks,
+            countAllBookStateChanges,
             sendCountResponse
         ]),
         sendInternalServerErrorResponse

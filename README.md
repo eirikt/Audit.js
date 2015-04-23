@@ -105,7 +105,7 @@ The initial setup is inspired by the example application in the book [_Developin
     ```
     npm install
     ```
- 1. Retrieve all client-side dependencies using Bower
+ 1. Retrieve all client-side dependencies using Bower (via a Grunt task)
 
     ```
     grunt install:client
