@@ -1,5 +1,4 @@
 /* global require: false, define: false */
-
 require([
         "underscore", "backbone", "jquery", "jquery.bootstrap",
         "app", "app.server-push-client", "app.router",
@@ -24,7 +23,13 @@ require([
                     updateCount: 0,
                     deleteCount: 0
                 },
-                url: "/events/count"
+                url: "/events/count",
+                fetch: function () {
+                    return Backbone.Model.prototype.fetch.call(this, {
+                        type: "POST",
+                        url: this.url
+                    });
+                }
             });
             App.stateChangeCount = new StateChangeCount();
 
@@ -66,7 +71,10 @@ require([
 
 
             // Views
-            App.stateChangeAdminView = new StateChangeAdminView({ el: "#stateChangeAdmin", model: App.stateChangeCount });
+            App.stateChangeAdminView = new StateChangeAdminView({
+                el: "#stateChangeAdmin",
+                model: App.stateChangeCount
+            });
             App.libraryAdminView = new LibraryAdminView({ el: "#libraryAdmin" });
             App.userAdminView = new UserAdminView({ el: "#userAdmin", model: App.userCount });
             App.bookCountView = new BookCountView({ el: "#libraryBookCount", model: App.bookCount });

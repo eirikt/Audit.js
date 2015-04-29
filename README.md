@@ -5,7 +5,7 @@
 [![Dependency Status](https://www.versioneye.com/user/projects/5534217110e714f9e500139d/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5534217110e714f9e500139d)
 [![Dependency Status](https://www.versioneye.com/user/projects/5534226910e7149066001007/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5534226910e7149066001007)
 &nbsp;&nbsp;
-[![Codacy Badge](https://www.codacy.com/project/badge/4f9fda90eb834d27ae6cc2f539ae263c)](https://www.codacy.com/app/eiriktorske/Audit-js)
+[![Codacy Badge](https://www.codacy.com/project/badge/69b2d4cca39a44bd966fbc90cfe4e35e)](https://www.codacy.com/app/eiriktorske/Audit-js)
 
 A demo project for an _audit-friendly_ application architecture.
 This application is a JavaScript implementation.
@@ -116,7 +116,7 @@ The initial setup is inspired by the example application in the book [_Developin
     ```
     grunt db
     ```
- 1. Start the Node-based app server configured in `server.js` (via a _blocking_ Grunt task)
+ 1. Start the Express-based app server configured in `express.routes.js` (via a _blocking_ Grunt task)
 
     ```
     grunt run

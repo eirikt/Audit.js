@@ -9,7 +9,7 @@ var expect = require("chai").expect,
         return "Hello world!";
     };
 
-describe("Trying out the test libraries", function () {
+describe("Test library", function () {
     'use strict';
 
     describe("Mocha", function () {

@@ -59,7 +59,7 @@ module.exports = function (grunt) {
                 },
                 command: [
                     'echo Starting Node.js',
-                    'node server/scripts/server.js'
+                    'node server/scripts/express.routes.js'
                 ].join('&&')
             }
         },
@@ -71,7 +71,7 @@ module.exports = function (grunt) {
                     reporter: 'spec'
                 },
                 src: [
-                    'test/server/specs/test.spec.js'
+                    'test/server/specs/*.spec.js'
                 ]
             }
         },

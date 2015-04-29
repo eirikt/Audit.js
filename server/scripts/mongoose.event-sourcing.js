@@ -1,17 +1,28 @@
-// Module dependencies, external
+/* global JSON:false */
+
 var _ = require("underscore"),
     promise = require("promised-io/promise"),
     mongoose = require("mongoose"),
 
+    RQ = require("async-rq"),
+    rq = require("rq-essentials"),
+    sequence = RQ.sequence,
+    fallback = RQ.fallback,
+    parallel = RQ.parallel,
+    race = RQ.race,
+    then = rq.then,
+    cancel = rq.cancel,
+    go = rq.execute,
+    mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
-// Module dependencies, local
     sequenceNumber = require("./mongoose.sequence-number.js"),
     error = require("./error.js"),
+    curry = require("./fun").curry,
     utils = require("./utils.js"),
 
 
 // Mongoose schemas
-    StateChangeMongooseSchema = exports.StateChangeMongooseSchema = new mongoose.Schema({
+    StateChangeMongooseSchema = module.exports.StateChangeMongooseSchema = new mongoose.Schema({
         user: { type: String, index: true },
 
         timestamp: Date,
@@ -31,18 +42,18 @@ var _ = require("underscore"),
 
 
 // Mongoose models (design rule: lower-case collection names)
-    Uuid = exports.Uuid = mongoose.model("uuid", mongoose.Schema({})),
-    StateChange = exports.StateChange = mongoose.model("statechange", StateChangeMongooseSchema),
+    Uuid = module.exports.Uuid = mongoose.model("uuid", mongoose.Schema({})),
+    StateChange = module.exports.StateChange = mongoose.model("statechange", StateChangeMongooseSchema),
 
 
 // Generic Mongoose helper functions
-    createUuid = exports.createUuid =
+    createUuid = module.exports.createUuid =
         function () {
             'use strict';
             return new Uuid()._id;
         },
 
-    collectionName = exports.collectionName =
+    collectionName = module.exports.collectionName =
         function (type) {
             'use strict';
             return type.modelName + "s".toLowerCase();
@@ -158,24 +169,6 @@ var _ = require("underscore"),
         },
 
 
-/**
- * @private
- */
-//_isNotNull2 = function (obj) {
-//    'use strict';
-//    return obj != null && obj.value != null;
-//},
-
-
-/**
- * @private
- */
-//_isNotNull = function (obj) {
-//    'use strict';
-//    return obj != null;
-//},
-
-
     /**
      * @returns {Object} Shallow cloned version of given object with all properties prefixed with "value."
      * @private
@@ -197,26 +190,50 @@ var _ = require("underscore"),
 // Private event sourcing functions
 //////////////////////////////////////
 
+/**
+ * Retrieves all entities of given type by map-reducing all state change state entities.
+ *
+ * @param entityType Mongoose model type
+ * @returns {Promise} of Mongoose Query function
+ * @private
+ * @deprecated Will suddenly disappear
+ */
+/*
+ _find =
+ function (entityType) {
+ 'use strict';
+ var dfd = new promise.Deferred();
+ StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
+ if (error.handle(err, { deferred: dfd })) {
+ return null;
+ }
+ // TODO: how to filter out null objects in mapreduce step?
+ // Removing deleted entities => value set to null in reduce step above
+ return dfd.resolve(results.find({ value: { "$ne": null } }));
+ });
+ return dfd.promise;
+ },
+ */
     /**
      * Retrieves all entities of given type by map-reducing all state change state entities.
      *
      * @param entityType Mongoose model type
-     * @returns {Promise} of Mongoose Query function
      * @private
      */
     _find =
         function (entityType) {
             'use strict';
-            var dfd = new promise.Deferred();
-            StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
-                if (error.handle(err, { deferred: dfd })) {
-                    return null;
-                }
-                // TODO: how to filter out null objects in mapreduce step?
-                // Removing deleted entities => value set to null in reduce step above
-                return dfd.resolve(results.find({ value: { "$ne": null } }));
-            });
-            return dfd.promise;
+            return function requestor(callback, args) {
+                StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
+                    if (err) {
+                        console.error(err.name + ' :: ' + err.message);
+                        return callback(undefined, err);
+                    }
+                    // TODO: how to filter out null objects in mapreduce step?
+                    // Removing deleted entities => value set to null in reduce step above
+                    return callback(results.find({ value: { "$ne": null } }), undefined);
+                });
+            };
         },
 
 
@@ -364,6 +381,66 @@ var _ = require("underscore"),
             }
             return dfd.promise;
         },
+    _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
+        function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength, callback, args) {
+            'use strict';
+            var reducedEntityChangeEvents,
+                count,
+
+                validArguments = true,//arguments.length >= 2 && arguments[0] && arguments[1],
+                eligibleForServerPush = true,//arguments.length >= 7 && arguments[2] && arguments[3] && arguments[4] && arguments[5] && arguments[6],
+                doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
+                    utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressValue) {
+                        console.log("event-replayed");
+                        io.emit("event-replayed", count, startTime, progressValue);
+                    });
+                    //if (index >= count - 1) {
+                    //    console.log("all-events-replayed");
+                    //    io.emit("all-events-replayed");
+                    //}
+                };
+
+            //entityType = arguments[0];
+            reducedEntityChangeEvents = arguments[1];
+
+            //io = arguments[2];
+            //startTime = arguments[3];
+            //numberOfServerPushEmits = arguments[4];
+            //index = arguments[5];
+            count = arguments[6];
+
+            //if (!validArguments) {
+            //    console.error("'createSequenceNumberEntity()' arguments is not valid");
+            //    callback(undefined, "'createSequenceNumberEntity()' arguments is not valid");
+
+            //} else {
+            if (_.isEmpty(reducedEntityChangeEvents.value)) {
+                return console.log("Replaying object: #" + index + ": " + entityType.modelName + " " + reducedEntityChangeEvents._id + " has no state changes!? ... probably DELETED");
+
+            } else {
+                entityType.findById(reducedEntityChangeEvents._id, function (err, entity) {
+                    if (entity) {
+                        console.log("Replaying " + entityType.modelName + "s : #" + index + ": " + entityType.modelName + " no " + entity.seq + " \"" + entity.title + "\" already present! {_id:" + entity._id + "}");
+                        if (eligibleForServerPush) {
+                            doServerPush(startTime, numberOfServerPushEmits, index, count);
+                        }
+                        return callback(arguments, undefined);
+
+                    } else {
+                        return _rebuildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents)
+                            .then(
+                            function () {
+                                if (eligibleForServerPush) {
+                                    doServerPush(startTime, numberOfServerPushEmits, index, count);
+                                }
+                                return callback(arguments, undefined);
+                            }
+                        );
+                    }
+                });
+            }
+            //}
+        },
 
 
 //////////////////////////////////////
@@ -380,7 +457,7 @@ var _ = require("underscore"),
      * @param user the user issuing the change
      * @returns {Promise} StateChange object
      */
-    createStateChange = exports.createStateChange =
+    createStateChange = module.exports.createStateChange =
         function (method, entityType, entityId, changes, user) {
             'use strict';
             var dfd = new promise.Deferred();
@@ -415,7 +492,7 @@ var _ = require("underscore"),
      * @param [count] Server push session: total count
      * @returns {Promise}
      */
-    createSequenceNumberEntity = exports.createSequenceNumberEntity =
+    createSequenceNumberEntity = module.exports.createSequenceNumberEntity =
         function () {
             'use strict';
             var dfd = new promise.Deferred(),
@@ -468,7 +545,7 @@ var _ = require("underscore"),
      * @param entityId the entity id
      * @returns {Promise}
      */
-    getStateChangesByEntityId = exports.getStateChangesByEntityId =
+    getStateChangesByEntityId = module.exports.getStateChangesByEntityId =
         function (entityId) {
             'use strict';
             var dfd = new promise.Deferred();
@@ -483,6 +560,18 @@ var _ = require("underscore"),
                 });
             return dfd.promise;
         },
+    rqGetStateChangesByEntityId = module.exports.rqGetStateChangesByEntityId =
+        function (entityId) {
+            'use strict';
+            return function requestor(callback, args) {
+                StateChange
+                    .find({ entityId: entityId })
+                    .sort({ timestamp: "asc" })
+                    .exec(function (err, stateChanges) {
+                        callback(stateChanges, undefined);
+                    });
+            };
+        },
 
 
     /**
@@ -492,7 +581,7 @@ var _ = require("underscore"),
      * @param entityId the entity id
      * @returns The rebuilt entity
      */
-    rebuild = exports.rebuild =
+    rebuild = module.exports.rebuild =
         function (EntityType, entityId) {
             'use strict';
             var obj = new EntityType({ _id: entityId });
@@ -510,102 +599,110 @@ var _ = require("underscore"),
      * Counts all entities of given type.
      *
      * @param entityType Mongoose model type
-     * @param conditions Mongoose find condition object
-     * @returns {Promise}
-     * @deprecated since version 0.2.0
+     * @param conditions Mongoose Query condition object
      */
-    count = exports.count =
-        function (entityType, conditions) {
-            'use strict';
-            var dfd = new promise.Deferred();
-            _find(entityType)
-                .then(
-                function (results) {
-                    return results.count(_addMapReducePrefixTo(conditions), function (err, count) {
-                        if (error.handle(err, { deferred: dfd })) {
-                            return null;
-                        }
-                        return dfd.resolve(count);
-                    });
-                },
-                function (err) {
-                    error.handle(err, { deferred: dfd });
-                });
-            return dfd.promise;
-        },
-
-// TODO: Rename to count
-    rqCount = exports.rqCount =
+    _count = module.exports.count =
         function (entityType, conditions) {
             'use strict';
             return function requestor(callback, args) {
-                // TODO: Rewrite _find to RQ as well
-                _find(entityType)
-                    .then(
-                    function (results) {
-                        return results.count(_addMapReducePrefixTo(conditions), function (err, count) {
-                            return callback(count, undefined);
-                        });
-                    },
-                    function (err) {
-                        return callback(undefined, err);
-                    });
+                var mapReducePrefixedConditions = _addMapReducePrefixTo(conditions),
+                    thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);
+
+                return fallback([
+                    sequence([
+                        _find(entityType),
+                        thenFilterResult,
+                        then(callback)
+                    ]),
+                    cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                ])(go);
             };
         },
 
 
-    /**
-     * Makes a projection/search for entities of given type and conditions.
-     *
-     * @param entityType Mongoose model type
-     * @param findConditions Mongoose find condition object
-     * @param sortConditions Mongoose find condition object
-     * @param skipValue Mongoose find condition value
-     * @param limitValue Mongoose find condition value
-     * @returns {Promise}
-     */
-    project = exports.project =
-        function (entityType, findConditions, sortConditions, skipValue, limitValue) {
+    project = module.exports.project =
+        function (entityType, projectionConditions, sortConditions, skipValue, limitValue) {
             'use strict';
-            var dfd = new promise.Deferred(),
-            // TODO: Very strange: the 'findConditions' argument (none nof the others it seems) disappears in the nested closures ...
-                findConditionsArgRef = findConditions;
-            _find(entityType)
-                .then(
-                function (results) {
-                    return results
-                        .find(function (err, totalMapReducedResult) {
-                            var findConditions = _addMapReducePrefixTo(findConditionsArgRef),
-                            // TODO: Very strange: the 'totalMapReducedResultArgRef' argument disappears in the nested closures ...
-                                totalMapReducedResultArgRef = totalMapReducedResult;
-                            return results
-                                .find(findConditions)
-                                .exec(function (err, projectedResult) {
-                                    var sortParams = _addMapReducePrefixTo(sortConditions),
-                                    // TODO: Very strange: the 'totalMapReducedResultArgRef' argument disappears in the nested closures ...
-                                        totalMapReducedResultArgRef2 = totalMapReducedResultArgRef,
-                                    // TODO: Very strange: the 'projectedResultArgRef' argument disappears in the nested closures ...
-                                        projectedResultArgRef = projectedResult;
-                                    return results
-                                        .find(findConditions)
-                                        .sort(sortParams)
-                                        .skip(skipValue)
-                                        .limit(limitValue)
-                                        .exec(function (err, paginatedResult) {
-                                            var books = paginatedResult.map(_buildObject),
-                                                count = projectedResultArgRef.length,
-                                                totalCount = totalMapReducedResultArgRef2.length;
-                                            return dfd.resolve({ count: count, books: books, totalCount: totalCount });
-                                        }
-                                    );
+            return function requestor(callback, args) {
+                var mapReducePrefixedConditions = _addMapReducePrefixTo(projectionConditions),
+                    sortParams = _addMapReducePrefixTo(sortConditions),
+
+                    totalCountRequestor = function (callback, cursor) {
+                        return cursor
+                            .input
+                            .find(function (err, totalMapReducedResult) {
+                                if (err) {
+                                    // TODO: Figure out all those 'MongoError :: cursor killed or timed out'!
+                                    console.error(err.name + ' :: ' + err.message);
+                                    return callback(undefined, err);
                                 }
-                            );
+                                cursor.totalCount = totalMapReducedResult.length;
+                                return callback(cursor, undefined);
+                            });
+                    },
+                    countRequestor = function (callback, cursor) {
+                        return cursor
+                            .input
+                            .find(mapReducePrefixedConditions)
+                            .exec(function (err, projectedResult) {
+                                if (err) {
+                                    console.error(err.name + ' :: ' + err.message);
+                                    return callback(undefined, err);
+                                }
+                                cursor.count = projectedResult.length;
+                                return callback(cursor, undefined);
+                            });
+                    },
+                    booksRequestor = function (callback, cursor) {
+                        return cursor
+                            .input
+                            .find(mapReducePrefixedConditions)
+                            .sort(sortParams)
+                            .skip(skipValue)
+                            .limit(limitValue)
+                            .exec(function (err, paginatedResult) {
+                                if (err) {
+                                    console.error(err.name + ' :: ' + err.message);
+                                    return callback(undefined, err);
+                                }
+                                cursor.books = paginatedResult.map(_buildObject);
+                                return callback(cursor, undefined);
+                            });
+                    };
+
+                return fallback([
+                    sequence([
+                        _find(entityType),
+
+                        // TODO: Crashes ... for some strange reason
+                        //       => Seems like the order of the requestors counts ...
+                        /*
+                         parallel([
+                         totalCountRequestor,
+                         countRequestor,
+                         booksRequestor,
+                         ]),
+                         */
+
+                        // Workaround A: Build argument holder and pass it sequentially along ...
+                        function (callback2, results) {
+                            var result = { input: results, books: null, count: null, totalCount: null };
+                            return callback2(result, undefined);
+                        },
+                        totalCountRequestor,
+                        countRequestor,
+                        booksRequestor,
+
+                        // Workaround B: Remove input from argument and return it!
+                        function (callback2, results) {
+                            delete results.input;
+                            callback2(results, undefined);
+                            return callback(results, undefined);
                         }
-                    );
-                }, function (err) {
-                    error.handle(err, { deferred: dfd });
-                });
-            return dfd.promise;
+                    ]),
+                    cancel(callback, "Audit.js :: Projecting '" + entityType.modelName + "s' via map-reducing event store failed!")
+                ])(go);
+            };
         },
 
 
@@ -661,8 +758,8 @@ var _ = require("underscore"),
      *     'event-replayed'        (the total number, start timestamp, current progress)
      *     'all-events-replayed'   ()
      */
-    replayAllStateChanges = exports.replayAllStateChanges =
-        function (type, io, db) {
+    replayAllStateChanges = module.exports.replayAllStateChanges =
+        function (entityType, io, db) {
             'use strict';
             console.log("Replaying entire event store / state change log ...");
             var startTime = Date.now(),
@@ -670,49 +767,56 @@ var _ = require("underscore"),
                 intervalInMillis = 50,
                 mongoDBMapReduceStatisticsSocketIoEmitter = new _MongoDBMapReduceStatisticsSocketIoEmitter(io, db, startTime);
 
+            console.log("mapreducing-events ...");
             io.emit("mapreducing-events", null, startTime);
             mongoDBMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
 
-            return _find(type)
-                .then(
-                function (results) {
+            return sequence([
+                _find(entityType),
+                function (callback, args) {
                     mongoDBMapReduceStatisticsSocketIoEmitter.stop();
-
-                    return results.find(function (err, cursor) {
+                    return callback(args, undefined);
+                },
+                function (callback, results) {
+                    results.find(function (err, cursor) {
+                        console.log("all-events-mapreduced ...");
                         io.emit("all-events-mapreduced", cursor.length, startTime);
-
-                        if (cursor.length >= 1) {
-                            io.emit("replaying-events", cursor.length, startTime);
-                        }
-                        var arrayOfConditionalRecreateFunctions = [], index = 0;
-                        for (; index < cursor.length; index += 1) {
-                            arrayOfConditionalRecreateFunctions.push(
-                                _.partial(_rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere,
-                                    type,
-                                    cursor[index],
-                                    io,
-                                    startTime,
-                                    numberOfServerPushEmits,
-                                    index,
-                                    cursor.length
-                                )
-                            );
-                        }
-                        return promise.all(promise.seq(arrayOfConditionalRecreateFunctions))
-                            .then(
-                            function () {
-                                io.emit("all-events-replayed");
-                            }
-                        );
+                        //if (cursor.length >= 1) {
+                        console.log("replaying-events ...");
+                        io.emit("replaying-events", cursor.length, startTime);
+                        //}
+                        return callback(cursor, undefined);
                     });
+                },
+                function (callback, cursor) {
+                    var arrayOfConditionalRecreateFunctions = [],
+                        curriedFunc,
+                        index = 0;
 
-                }, function (err) {
-                    if (err.message === "ns doesn't exist") {
-                        console.warn(err);
-                        return io.emit("all-events-replayed");
-                    } else {
-                        return error.handle(err);
+                    if (cursor.length < 1) {
+                        //console.log("all-events-replayed!");
+                        //io.emit("all-events-replayed");
+                        //return callback(cursor, undefined);
+                        return then(callback);
                     }
+                    for (; index < cursor.length; index += 1) {
+                        curriedFunc = curry(_rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere,
+                            entityType,
+                            cursor[index],
+                            io,
+                            startTime,
+                            numberOfServerPushEmits,
+                            index,
+                            cursor.length);
+
+                        arrayOfConditionalRecreateFunctions.push(curriedFunc);
+                    }
+                    sequence(arrayOfConditionalRecreateFunctions)(go);
+                },
+                function (callback, results) {
+                    console.log("all-events-replayed!");
+                    io.emit("all-events-replayed");
+                    return callback(results, undefined);
                 }
-            );
+            ])(go);
         };

@@ -1,8 +1,7 @@
 // Generic helper functions
 
-
 /** @returns {string} The percentage with the given precision */
-var getPercentage = exports.getPercentage =
+var _getPercentage = exports.getPercentage =
         function (number, totalNumber, precision) {
             'use strict';
             return (number / totalNumber * 100).toFixed(precision || 1);
@@ -17,7 +16,7 @@ var getPercentage = exports.getPercentage =
      * @param totalIterationNo total number of events expected
      * @param callback function with progress percentage value as parameter
      */
-    throttleEvents = exports.throttleEvents =
+    _throttleEvents = exports.throttleEvents =
         function (numberOfThrottledEvents, iterationNo, totalIterationNo, callback) {
             'use strict';
             var skippingInterval,
@@ -34,7 +33,7 @@ var getPercentage = exports.getPercentage =
 
             if (doEmit && callback) {
                 if (numberOfThrottledEvents > 100) {
-                    progressValueProgressInPercent = getPercentage(iterationNo, totalIterationNo);
+                    progressValueProgressInPercent = _getPercentage(iterationNo, totalIterationNo);
                 } else {
                     progressValueProgressInPercent = Math.ceil(iterationNo / totalIterationNo * 100);
                 }
