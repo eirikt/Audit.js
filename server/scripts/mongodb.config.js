@@ -15,7 +15,8 @@ var
 mongodb.MongoClient.connect(dbUrl, function (err, mongodb) {
     'use strict';
     if (err) {
-        throw new Error('Could not connect to \'' + dbUrl + '\'!');
+        console.error('MongoDB native driver connected to \'' + dbUrl + '\' ...');
+        //throw new Error('Could not connect to \'' + dbUrl + '\'!');
     }
     console.log('MongoDB native driver connected to \'' + dbUrl + '\' ...');
     db = exports.db = mongodb;

@@ -1,7 +1,8 @@
 var httpServer = require('./express.config').httpServer,
 
 // Establish Server Push / Socket.IO manager
-    serverPush = exports.serverPush = require('socket.io').listen(httpServer);
+    socketio = require('socket.io'),
+    serverPush = exports.serverPush = socketio.listen(httpServer);
 
 
 // User connection counter.
@@ -9,7 +10,7 @@ var userCounter = 0;
 
 serverPush.on('connection', function (socket) {
     'use strict';
-    console.log('Socket.io: User connected ...');
+    console.log('Socket._clientSidePublisher: User connected ...');
     userCounter += 1;
     socket.on('disconnect', function () {
         console.log('Socket.io: User disconnected!');

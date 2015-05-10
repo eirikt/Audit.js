@@ -1,4 +1,4 @@
-/* global define: false */
+/* global define:false, JSON:false */
 define(["socket.io", "underscore", "backbone", "app", "app.book"],
 
     function (SocketIo, _, Backbone, App, Book) {
@@ -14,7 +14,7 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
                 connected: false
             },
 
-            createPushMessage: function () {
+            createLogMessage: function () {
                 var msg = arguments[0],
                     pushMsgArgs = _.rest(arguments),
                     hasMsgArgs = !_.isEmpty(pushMsgArgs),
@@ -49,7 +49,7 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
                         return _.isObject(arg) ? JSON.stringify(arg) : arg;
                     });
 
-                    console.log(self.createPushMessage.apply(self, marshalledArgs));
+                    console.log(self.createLogMessage.apply(self, marshalledArgs));
 
                     self.trigger.apply(self, marshalledArgs);
 

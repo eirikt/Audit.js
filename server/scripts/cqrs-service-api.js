@@ -1,10 +1,17 @@
-var mongodb = require("./mongodb.config"),
-    mongoose = mongodb.mongoose,
+/* jshint -W024 */
+var RQ = require("async-rq"),
+    sequence = RQ.sequence,
+    firstSuccessfulOf = RQ.fallback,
+    rq = require("rq-essentials"),
+    then = rq.then,
+    go = rq.execute,
 
-    serverPush = require("./socketio.config").serverPush,
+    utils = require("./utils"),
+    mongodb = require("./mongodb.config"),
 
-    eventSourcing = require("./mongoose.event-sourcing"),
     library = require("./library-model"),
+
+    doLog = true, doNotLog = false,
 
 
 // Internal state
@@ -21,20 +28,28 @@ var mongodb = require("./mongodb.config"),
 
 // Public JavaScript API
 
-    _getCqrsStatus = exports.getCqrsStatus = function () {
-        'use strict';
-        return _useCQRS;
-    },
+    _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsActivated = exports.hasCqrsActivated = exports.cqrs =
+        function () {
+            'use strict';
+            return _useCQRS;
+        },
+
+    _isCqrsNotActive = exports.isNotActivated = exports.isCqrsNotActivated =
+        function () {
+            'use strict';
+            return _useCQRS;
+        },
 
     /**
      * For Testing
      * @private
      */
-    _setCqrsStatus = exports._setCqrsStatus = function (newCqrsStatus) {
-        'use strict';
-        console.warn("Manipulating CQRS status should be done via 'toggle' REST service call only!");
-        _useCQRS = newCqrsStatus;
-    },
+    _setCqrsStatus = exports._setCqrsStatus =
+        function (newCqrsStatus) {
+            'use strict';
+            console.warn("Manipulating CQRS status should be done via 'toggle' REST service call only!");
+            _useCQRS = newCqrsStatus;
+        },
 
 
 // Public REST API
@@ -47,17 +62,35 @@ var mongodb = require("./mongodb.config"),
      * HTTP method                  : GET
      * Resource properties incoming : -
      * Status codes                 : 200 OK
+     *                                405 Method Not Allowed (if not a GET request)
      * Resource properties outgoing : Boolean value indicating whether CQRS is activated on the server or not
      * Push messages                : -
      */
     _status = exports.status =
         function (request, response) {
             'use strict';
-            if (request.method !== 'GET') {
-                return response.sendStatus(405);
-            }
-            response.status(200).send(_useCQRS);
+
+            var sendOkResponse = rq.dispatchResponseWithScalarBody(doLog, 200, response),
+                sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
+                sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
+                notGetMethod = function () {
+                    return request.method !== 'GET';
+                };
+
+            firstSuccessfulOf([
+                sequence([
+                    rq.if(notGetMethod),
+                    rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
+                    sendMethodNotAllowedResponse
+                ]),
+                sequence([
+                    rq.value(_useCQRS),
+                    sendOkResponse
+                ]),
+                sendInternalServerErrorResponse
+            ])(go);
         },
+
 
     /**
      * Admin API :: Switch the "CQRS usage" (in-memory) flag
@@ -68,25 +101,42 @@ var mongodb = require("./mongodb.config"),
      * HTTP method                  : POST
      * Resource properties incoming : -
      * Status codes                 : 202 Accepted
+     *                                405 Method Not Allowed (if not a GET request)
      * Resource properties outgoing : -
      * Push messages                : 'cqrs' (CQRS status)
      */
     _toggle = exports.toggle =
         function (request, response) {
             'use strict';
-            if (request.method !== 'POST') {
-                return response.sendStatus(405);
-            }
-            response.sendStatus(202);
-            if (_useCQRS) {
-                console.warn('Bypassing application store - will use event store only!');
-            } else {
-                console.log('Activating application store ...');
-            }
-            _useCQRS = !_useCQRS;
-            serverPush.emit('cqrs', _useCQRS);
-            if (_useCQRS) {
-                // TODO: Get rid of library coupling
-                eventSourcing.replayAllStateChanges(library.Book, serverPush, mongodb.db);
-            }
+            var sendOkResponse = rq.dispatchResponseStatusCode(doLog, 200, response),
+                sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
+                sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
+                notPostMethod = function () {
+                    return request.method !== 'POST';
+                },
+                toggleCqrsStatus = rq.then(function () {
+                    _useCQRS = !_useCQRS;
+                    if (_useCQRS) {
+                        console.log('Activating application store ...');
+                    } else {
+                        console.warn('Bypassing application store - will use event store only!');
+                    }
+                }),
+                thenPublishNewCqrsStatus = rq.then(function () {
+                    utils.publish('cqrs', _useCQRS);
+                });
+
+            firstSuccessfulOf([
+                sequence([
+                    rq.if(notPostMethod),
+                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                    sendMethodNotAllowedResponse
+                ]),
+                sequence([
+                    toggleCqrsStatus,
+                    thenPublishNewCqrsStatus,
+                    sendOkResponse
+                ]),
+                sendInternalServerErrorResponse
+            ])(go);
         };

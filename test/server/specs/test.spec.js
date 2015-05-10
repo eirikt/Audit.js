@@ -1,28 +1,28 @@
 /* global describe:false, it:false */
-/* jshint -W030, -W024, -W126 */
+/* jshint -W024, -W030 */
 
-var expect = require("chai").expect,
+var expect = require('chai').expect,
 
-// "SUT"
+// 'SUT'
     hello = function () {
-        "use strict";
-        return "Hello world!";
+        'use strict';
+        return 'Hello world!';
     };
 
-describe("Test library", function () {
+describe('Test library', function () {
     'use strict';
 
-    describe("Mocha", function () {
-        it("should just work ...", function () {
+    describe('Mocha', function () {
+        it('should just work ...', function () {
         });
     });
 
-    describe("Chai", function () {
-        it("should use 'expect' to check e.g. truthiness and equality", function () {
+    describe('Chai', function () {
+        it('should use \'expect\' to check e.g. truthiness and equality', function () {
             expect(true).to.be.OK;
             expect(true).to.be.true;
             expect(1 === 1).to.be.true;
-            expect(hello()).to.equal("Hello world!");
+            expect(hello()).to.equal('Hello world!');
             expect(
                 (function () {
                     return 1;

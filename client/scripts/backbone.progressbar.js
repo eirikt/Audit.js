@@ -20,7 +20,7 @@ define(["underscore", "backbone"],
                 // Progressbar view-model
                 active: false,
                 headerText: null,
-                footerText: "Please wait ... <br><span class='tiny'>( now what you should do is e.g. stretching your body while waiting :-)</span>"
+                footerText: "Please wait ... <br><span class='tiny'>(stretch your body while waiting! :-)</span>"
             },
             //initialize: function () {
             //    console.log("Progressbar.initialize()");

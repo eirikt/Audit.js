@@ -2,14 +2,15 @@ var clientResourceRoot = '../../client',
     applicationRoot = __dirname,
 
     http = require('http'),
-    bodyParser = require('body-parser'),
     path = require('path'),
+    bodyParser = require('body-parser'),
     express = require('express'),
 
 
 // Establish Express "app server" (routing, parsing, ...)
     port = 4711,
-    app, server;
+    app,
+    server;
 
 app = express();
 app.use(bodyParser.json());     // To support JSON-encoded bodies

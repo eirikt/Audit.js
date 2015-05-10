@@ -3,27 +3,22 @@
 
 var sinon = require('sinon'),
     expect = require('chai').expect,
-    proxyquire = require('proxyquire'),
-    rq = require("rq-essentials"),
+    rq = require('rq-essentials'),
 
-    serverPushStub = {},
+    proxyquire = require('proxyquire').noCallThru(),
+
+    mongodbStub = {},
+    utilsStub = {},
     eventSourcingStub = {},
 
     cqrsService = proxyquire('../../../server/scripts/cqrs-service-api', {
-        './mongoose.event-sourcing': eventSourcingStub,
-        './server-socketio': serverPushStub
+        './mongodb.config': mongodbStub,
+        './utils': utilsStub,
+        './mongoose.event-sourcing': eventSourcingStub
     });
-
 
 describe('CQRS service API specification\'s', function () {
     'use strict';
-
-    beforeEach(function () {
-        cqrsService._setCqrsStatus(false);
-    });
-
-    afterEach(function () {
-    });
 
 
     it('should exist', function () {
@@ -51,24 +46,29 @@ describe('CQRS service API specification\'s', function () {
         });
 
 
-        it('should only accept HTTP GET', function () {
+        it('should accept HTTP GET only', function (done) {
             var request = {
-                    method: 'POST'
+                    method: 'POST',
+                    originalUrl: 'cqrs/status'
                 },
-                responseSendStatusSpy = sinon.spy(function (statusCode) {
-                    expect(statusCode).to.be.equal(405);
+                responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: rq.identity
+                        send: assert
                     };
                 }),
                 response = {
-                    sendStatus: responseSendStatusSpy
+                    sendStatus: responseStatusSpy,
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
+                    expect(responseBody).to.be.equal('URI \'cqrs/status\' supports GET requests only');
+
+                    done();
                 };
 
             cqrsService.status(request, response);
-
-            expect(responseSendStatusSpy.calledOnce).to.be.true;
-            expect(responseSendStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
         });
 
 
@@ -88,56 +88,84 @@ describe('CQRS service API specification\'s', function () {
         });
 
 
-        it('should send response status code 200 OK', function () {
+        it('should send response status code 200 OK', function (done) {
             var request = {
                     method: 'GET'
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
-                    expect(statusCode).to.be.equal(200);
                     return {
-                        send: rq.identity
+                        send: assert
                     };
                 }),
                 response = {
+                    sendStatus: responseStatusSpy,
                     status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseStatusSpy.alwaysCalledWithExactly(200)).to.be.true;
+
+                    done();
                 };
 
             cqrsService.status(request, response);
-
-            expect(responseStatusSpy.calledOnce).to.be.true;
-            expect(responseStatusSpy.alwaysCalledWithExactly(200)).to.be.true;
         });
 
 
-        it('should send response body reflecting CQRS status flag, boolean type', function () {
+        it('should send response body reflecting CQRS status flag, boolean type false', function (done) {
             var request = {
                     method: 'GET'
                 },
-                responseSendSpy = sinon.spy(),
+                responseStatusSpy = sinon.spy(function (statusCode) {
+                    return {
+                        send: assert
+                    };
+                }),
                 response = {
-                    status: sinon.spy(function (statusCode) {
-                        return {
-                            send: responseSendSpy
-                        };
-                    })
+                    sendStatus: responseStatusSpy,
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseBody).to.be.false;
+
+                    done();
                 };
 
             expect(cqrsService.getCqrsStatus()).to.be.false;
+            expect(responseStatusSpy.called).to.be.false;
 
             cqrsService.status(request, response);
+        });
+
+
+        it('should send response body reflecting CQRS status flag, boolean type true', function (done) {
+            var request = {
+                    method: 'GET'
+                },
+                responseStatusSpy = sinon.spy(function (statusCode) {
+                    return {
+                        send: assert
+                    };
+                }),
+                response = {
+                    sendStatus: responseStatusSpy,
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseBody).to.be.true;
+
+                    done();
+                };
 
             expect(cqrsService.getCqrsStatus()).to.be.false;
-            expect(responseSendSpy.calledOnce).to.be.true;
-            expect(responseSendSpy.calledWithExactly(false)).to.be.true;
+            expect(responseStatusSpy.called).to.be.false;
 
             cqrsService._setCqrsStatus(true);
             expect(cqrsService.getCqrsStatus()).to.be.true;
 
             cqrsService.status(request, response);
-
-            expect(cqrsService.getCqrsStatus()).to.be.true;
-            expect(responseSendSpy.calledTwice).to.be.true;
-            expect(responseSendSpy.secondCall.calledWithExactly(true)).to.be.true;
         });
 
 
@@ -146,18 +174,18 @@ describe('CQRS service API specification\'s', function () {
                     method: 'GET'
                 },
                 response = {
-                    status: sinon.spy(function (statusCode) {
+                    status: function (statusCode) {
                         return {
                             send: rq.identity
                         };
-                    })
+                    }
                 };
 
-            serverPushStub.serverPush.emit = sinon.stub();
+            utilsStub.publish = sinon.spy();
 
             cqrsService.status(request, response);
 
-            expect(serverPushStub.serverPush.emit.called).to.be.false;
+            expect(utilsStub.publish.called).to.be.false;
         });
     });
 
@@ -174,30 +202,36 @@ describe('CQRS service API specification\'s', function () {
         });
 
 
-        it('should only accept HTTP POST', function () {
+        it('should accept HTTP GET only', function (done) {
             var request = {
-                    method: 'GET'
+                    method: 'GET',
+                    originalUrl: 'cqrs/toggle'
                 },
-                responseSendStatusSpy = sinon.spy(function (statusCode) {
-                    expect(statusCode).to.be.equal(405);
+                responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: rq.identity
+                        send: assert
                     };
                 }),
                 response = {
-                    sendStatus: responseSendStatusSpy
+                    sendStatus: responseStatusSpy,
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
+                    expect(responseBody).to.be.equal('URI \'cqrs/toggle\' supports POST requests only');
+
+                    done();
                 };
 
             cqrsService.toggle(request, response);
-
-            expect(responseSendStatusSpy.calledOnce).to.be.true;
-            expect(responseSendStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
         });
 
 
         it('should return nothing (standard REST)', function () {
             var request = {
-                    method: 'POST'
+                    method: 'POST',
+                    originalUrl: 'cqrs/toggle'
                 },
                 response = {
                     sendStatus: function (statusCode) {
@@ -213,84 +247,70 @@ describe('CQRS service API specification\'s', function () {
         });
 
 
-        it('should send response status code 202 Accepted', function () {
+        it('should send response status code 200 OK', function (done) {
             var request = {
                     method: 'POST'
                 },
-                responseStatusSpy = sinon.spy(function (statusCode) {
-                    expect(statusCode).to.be.equal(202);
-                    return {
-                        send: rq.identity
-                    };
-                }),
                 response = {
-                    sendStatus: responseStatusSpy
+                    sendStatus: function (statusCode) {
+                        expect(statusCode).to.be.equal(200);
+                        done();
+                    }
                 };
+
+            utilsStub.publish = sinon.spy();
 
             cqrsService._setCqrsStatus(true);
 
             cqrsService.toggle(request, response);
-
-            expect(responseStatusSpy.calledOnce).to.be.true;
-            expect(responseStatusSpy.alwaysCalledWithExactly(202)).to.be.true;
         });
 
 
-        it('should toggle CQRS status flag', function () {
+        it('should toggle CQRS status flag', function (done) {
             var request = {
                     method: 'POST'
                 },
-                responseStatusSpy = sinon.spy(function (statusCode) {
-                    expect(statusCode).to.be.equal(202);
-                    return {
-                        send: rq.identity
-                    };
-                }),
                 response = {
-                    sendStatus: responseStatusSpy
+                    sendStatus: function (statusCode) {
+                        expect(cqrsService.getCqrsStatus()).to.be.false;
+                        done();
+                    }
                 };
+
+            utilsStub.publish = sinon.spy();
 
             expect(cqrsService.getCqrsStatus()).to.be.false;
             cqrsService._setCqrsStatus(true);
             expect(cqrsService.getCqrsStatus()).to.be.true;
 
             cqrsService.toggle(request, response);
-
-            expect(cqrsService.getCqrsStatus()).to.be.false;
         });
 
 
-        it('should emit \'cqrs\' server push messages containing the current CQRS status flag value', function () {
+        // TODO: Emit message BEFORE or AFTER response??
+        it('should publish \'cqrs\' event containing the current CQRS status boolean flag value', function () {
             var request = {
                     method: 'POST'
                 },
+                responseStatusSpy = sinon.spy(function (statusCode) {
+                    expect(cqrsService.getCqrsStatus()).to.be.false;
+                    expect(utilsStub.publish.calledOnce).to.be.true;
+                    expect(utilsStub.publish.alwaysCalledWith('cqrs', cqrsService.getCqrsStatus())).to.be.true;
+                }),
                 response = {
-                    sendStatus: rq.identity
+                    sendStatus: responseStatusSpy,
+                    status: responseStatusSpy
                 };
 
-            serverPushStub.serverPush.emit = sinon.stub();
+            utilsStub.publish = sinon.spy();
+
             cqrsService._setCqrsStatus(true);
 
             cqrsService.toggle(request, response);
-
-            expect(serverPushStub.serverPush.emit.calledOnce).to.be.true;
-            expect(serverPushStub.serverPush.emit.alwaysCalledWith('cqrs', cqrsService.getCqrsStatus())).to.be.true;
         });
 
 
-        it('should replay state changes when toggling CQRS status flag from false to true', function () {
-            var request = {
-                    method: 'POST'
-                },
-                response = {
-                    sendStatus: rq.identity
-                };
-
-            eventSourcingStub.replayAllStateChanges = sinon.stub();
-
-            cqrsService.toggle(request, response);
-
-            expect(eventSourcingStub.replayAllStateChanges.calledOnce).is.true;
-        });
+        // Nope, set a an event listener, listening for 'cqrs'=true => with action replay all state change events
+        it('should replay state changes when toggling CQRS status flag from false to true');
     });
 });

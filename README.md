@@ -116,7 +116,7 @@ The initial setup is inspired by the example application in the book [_Developin
     ```
     grunt db
     ```
- 1. Start the Express-based app server configured in `express.routes.js` (via a _blocking_ Grunt task)
+ 1. Start the Express-based app server configured in `server.js` (via a _blocking_ Grunt task)
 
     ```
     grunt run

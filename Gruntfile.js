@@ -59,7 +59,7 @@ module.exports = function (grunt) {
                 },
                 command: [
                     'echo Starting Node.js',
-                    'node server/scripts/express.routes.js'
+                    'node server/scripts/server.js'
                 ].join('&&')
             }
         },
@@ -124,10 +124,10 @@ module.exports = function (grunt) {
                 strict: true,
                 trailing: true,
 
-                maxcomplexity: 8,
+                maxcomplexity: 30,  // TODO: Target should be 5 or thereabout ...
                 maxdepth: 4,
-                maxlen: 220,
-                maxparams: 14,
+                maxlen: 350,        // I have a laarge screen ...
+                maxparams: 14,      // I loove currying ...
                 maxstatements: 30   // Default: ...
             }
         },
