@@ -11,18 +11,19 @@ var mongoose = require("mongoose"),
     BookMongooseSchema = new mongoose.Schema({
         seq: Number,
 
-        //title: String,
-        title: { type: String, index: true },
+        // TODO: Does indexing help? How to measure it? Can indexes be dynamically added afterwards ...
+        title: String,
+        //title: { type: String, index: true },
 
-        //author: String,
-        author: { type: String, index: true },
+        author: String,
+        //author: { type: String, index: true },
 
         //releaseDate: Date,  // Not yet supported
 
         //coverImage: String, // Not yet supported
 
-        //keywords: [KeywordMongooseSchema]
-        keywords: { type: [KeywordMongooseSchema], index: true }
+        keywords: [KeywordMongooseSchema]
+        //keywords: { type: [KeywordMongooseSchema], index: true }
     }),
 
 
@@ -38,6 +39,7 @@ Book.collectionName = function () {
 };
 
 
+/*
 Book.update = function (id, changes) {
     "use strict";
     var dfd = new promise.Deferred();
@@ -50,16 +52,29 @@ Book.update = function (id, changes) {
     });
     return dfd.promise;
 };
+*/
+Book.update =
+    function requestor(callback, stateChanges) {
+        'use strict';
+        Book.findByIdAndUpdate(stateChanges.entityId, stateChanges, function (err, book) {
+            if (err){
+                console.error('Updating Book [id=' + stateChanges.entityId + '] failed');
+                return callback(undefined, err);
+            }
+            console.log('Book [id=' + stateChanges.entityId + '] updated ...OK');
+            return callback(book, undefined);
+        });
+    };
 
-
-Book.remove = function (id) {
-    "use strict";
-    var dfd = new promise.Deferred();
-    Book.findByIdAndRemove(id, function (err) {
-        if (!utils.handleError(err, { deferred: dfd })) {
-            console.log("Book [id=" + id + "] deleted ...OK");
-            dfd.resolve(id);
-        }
-    });
-    return dfd.promise;
-};
+Book.remove =
+    function requestor(callback, stateChanges) {
+        'use strict';
+        Book.findByIdAndRemove(stateChanges.entityId, function (err, book) {
+            if (err){
+                console.error('Removing Book [id=' + stateChanges.entityId + '] failed');
+                return callback(undefined, err);
+            }
+            console.log('Book [id=' + stateChanges.entityId + '] removed ...OK');
+            return callback(stateChanges, undefined);
+        });
+    };

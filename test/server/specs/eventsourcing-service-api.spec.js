@@ -3,44 +3,19 @@
 
 var sinon = require('sinon'),
     expect = require('chai').expect,
-    curry = require('../../../server/scripts/fun').curry,
 
-    events = require('events'),
-    eventEmitter = new events.EventEmitter(),
-    utils = require('../../../server/scripts/utils'),
-
-    RQ = require('async-rq'),
     rq = require('rq-essentials'),
-    sequence = RQ.sequence,
-    fallback = RQ.fallback,
-    parallel = RQ.parallel,
-    race = RQ.race,
-    then = rq.then,
-    cancel = rq.cancel,
-    go = rq.execute,
-    mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
-//eventSourcing = null,// = require("../../../server/scripts/mongoose.event-sourcing"),
-//eventSourcingModels = require('../../../server/scripts/mongoose.event-sourcing.model'),
+    messenger = require('../../../server/scripts/messaging'),
 
     proxyquire = require('proxyquire').noCallThru(),
 
     rqStub = { '@noCallThru': false },
     mongodbStub = {},
     utilsStub = { '@noCallThru': false },
-    serverPushStub = {
-        '@noCallThru': false
-        /*'@noCallThru': false*/
-        //_clientSidePublisher: {}
-    },
-    eventSourcingStub = {
-        //'@noCallThru': false
-        //mongoose: null,
-        //replayAllStateChanges: eventSourcing.replayAllStateChanges
-        //function () {
-        //    throw new Error('Not yet implemented');
-        //}
-    },
+    messengerStub = { '@noCallThru': false },
+    serverPushStub = { '@noCallThru': false },
+    eventSourcingStub = {},
     sequenceNumberStub = {},
     mongooseEventSourcingMapreduceStub = {},
     mongooseEventSourcingModelsStub = {},
@@ -52,6 +27,7 @@ var sinon = require('sinon'),
         'rq-essentials': rqStub,
         './mongodb.config': mongodbStub,
         './utils': utilsStub,
+        './messaging': messengerStub,
         './socketio.config': serverPushStub,
         './mongoose.event-sourcing': eventSourcingStub,
         './mongoose.sequence-number': sequenceNumberStub,
@@ -90,21 +66,8 @@ describe('Event Sourcing service API specification\'s', function () {
             entityId: '42'
         };
 
-
     beforeEach(function () {
-        //mongodbStub.db = {
-        //    collection: function ($cmdSysInprog) {
-        //        return function find() {
-        //            throw new Error("lkjlkjlkj lk j lkj lkj lkj lkj");
-        //        };
-        //    }
-        //};
-
-        //mongodbMapreduceStatisticsEmitterStub.MongoDBMapReduceStatisticsSocketIoEmitter = function () {};
-
-        //serverPushStub._clientSidePublisher.emit = sinon.spy();
-
-        eventSourcingStub.rqGetStateChangesByEntityId = sinon.spy(function (entityId) {
+        eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
             return function requestor(callback, args) {
                 var stateChanges = [];
 
@@ -119,17 +82,10 @@ describe('Event Sourcing service API specification\'s', function () {
         cqrsServiceStub.isNotActivated = function () {
             return false;
         };
-
-        //cqrsServiceStub.getCqrsStatus = function () {
-        //    return true;
-        //};
     });
 
 
     afterEach(function () {
-        //cqrsServiceStub._setCqrsStatus.reset();
-        //serverPushStub._clientSidePublisher.emit.reset();
-        //eventSourcingStub.rqGetStateChangesByEntityId.reset();
     });
 
 
@@ -139,7 +95,7 @@ describe('Event Sourcing service API specification\'s', function () {
     });
 
 
-    describe('count (state changes) function', function () {
+    describe('\'count\' (state changes) resource function', function () {
 
         it('should exist', function () {
             expect(eventSourcingService.count).to.exist;
@@ -492,35 +448,6 @@ describe('Event Sourcing service API specification\'s', function () {
         });
 
 
-        // TODO: Make it work ...
-        /*
-        it('should return nothing (standard REST)', function (done) {
-            var request = {
-                    method: 'POST'
-                },
-                response = {
-                    sendStatus: function (statusCode) {
-                        done();
-                    }
-                };
-
-            mongooseEventSourcingMapreduceStub.find = function (entityType) {
-                return function requestor(callback, args) {
-                    var retVal = {
-                        find: function (callback) {
-                            var err, cursor = [];
-                            callback(err, cursor);
-                        }
-                    };
-                    return callback(retVal, undefined);
-                };
-            };
-
-            expect(eventSourcingService.replay(request, response)).to.be.undefined;
-        });
-        */
-
-
         it('should send response status code 202 Accepted', function (done) {
             var request = {
                     method: 'POST'
@@ -536,6 +463,8 @@ describe('Event Sourcing service API specification\'s', function () {
         });
 
 
+        // TODO: Nope, screw this, just use event messages and delegate!
+        // => This is the responsibility of the Library app's MongoDB application store
         it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages', function (done) {
             var request = {
                     method: 'POST'
@@ -545,8 +474,6 @@ describe('Event Sourcing service API specification\'s', function () {
                         expect(statusCode).to.equal(202);
                     }
                 };
-
-            utilsStub.publish = sinon.spy(utils.publish);
 
             mongooseEventSourcingMapreduceStub.find = function (entityType) {
                 return function requestor(callback, args) {
@@ -561,20 +488,22 @@ describe('Event Sourcing service API specification\'s', function () {
                 };
             };
 
-            utils.subscribeOnce('all-events-replayed', function (origin) {
-                expect(utilsStub.publish.called).to.be.true;
-                expect(utilsStub.publish.callCount).to.be.equal(4);
+            messengerStub.publishAll = sinon.spy(messenger.publishAll);
 
-                var call1 = utilsStub.publish.getCall(0);
+            messengerStub.subscribeOnce('all-events-replayed', function () {
+                expect(messengerStub.publishAll.called).to.be.true;
+                expect(messengerStub.publishAll.callCount).to.be.equal(4);
+
+                var call1 = messengerStub.publishAll.getCall(0);
                 expect(call1.args[0]).to.be.equal('mapreducing-events');
 
-                var call2 = utilsStub.publish.getCall(1);
+                var call2 = messengerStub.publishAll.getCall(1);
                 expect(call2.args[0]).to.be.equal('all-events-mapreduced');
 
-                var call3 = utilsStub.publish.getCall(2);
+                var call3 = messengerStub.publishAll.getCall(2);
                 expect(call3.args[0]).to.be.equal('replaying-events');
 
-                var call4 = utilsStub.publish.getCall(3);
+                var call4 = messengerStub.publishAll.getCall(3);
                 expect(call4.args[0]).to.be.equal('all-events-replayed');
 
                 done();

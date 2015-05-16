@@ -1,4 +1,4 @@
-/* global JSON:false, _:false, promise:false */
+/* global JSON:false */
 /* jshint -W024 */
 
 var __ = require("underscore"),
@@ -18,27 +18,31 @@ var __ = require("underscore"),
 
     mongodb = require("./mongodb.config"),
     serverPush = require("./socketio.config").serverPush,
+    messenger = require("./messaging"),
 
     eventSourcing = require("./mongoose.event-sourcing"),
     eventSourcingModel = require("./mongoose.event-sourcing.model"),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
-    mongooseEventSourcingModels = require("./mongoose.event-sourcing.model"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
     cqrsService = require("./cqrs-service-api"),
     library = require("./library-model"),
 
-    doLog = true, doNotLog = false,
 
-
+///////////////////////////////////////////////////////////////////////////////
 // Internal state
+///////////////////////////////////////////////////////////////////////////////
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Public JavaScript API
+///////////////////////////////////////////////////////////////////////////////
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Public REST API
 // TODO: consider some proper REST API documentation framework
+///////////////////////////////////////////////////////////////////////////////
 
 // TODO: consider counting the READs as well as these ...
     /**
@@ -55,22 +59,23 @@ var __ = require("underscore"),
      *                                "updateCount"             (the number of UPDATE state change events (HTTP PUTs)
      *                                "deleteCount"             (the number of DELETE state change events (HTTP DELETEs)
      *                                "totalCount"              (the total number of state change events in event store
-     * Push messages                : -
+     * Event messages emitted       : -
      */
     _allStateChangesCount = exports.count = function (request, response) {
         'use strict';
-        var stateChangeCount = curry(rq.mongoose, eventSourcingModel.StateChange, 'count'),
-            sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-            sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-            notPostMethod = function () {
-                return request.method !== 'POST';
-            };
-
+         var stateChangeCount = curry(rq.mongoose, eventSourcingModel.StateChange, 'count');//,
+         /*
+         sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
+         sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
+         notPostMethod = function () {
+         return request.method !== 'POST';
+         };
+         */
         firstSuccessfulOf([
             sequence([
-                rq.if(notPostMethod),
+                rq.if(utils.notHttpMethod('POST', request)),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                sendMethodNotAllowedResponse
+                utils.send405MethodNotAllowedResponseWithArgAsBody(response)
             ]),
             sequence([
                 parallel([
@@ -87,7 +92,7 @@ var __ = require("underscore"),
                     });
                 })
             ]),
-            sendInternalServerErrorResponse
+            utils.send500InternalServerErrorResponse(response)
         ])(go);
     },
 
@@ -103,42 +108,39 @@ var __ = require("underscore"),
      *                                400 Bad Request           (missing "entityId" parameter)
      *                                405 Method Not Allowed    (not a GET)
      * Resource properties outgoing : Array of 'StateChangeMongooseSchema' objects/resources
-     * Push messages                : -
+     * Event messages emitted       : -
      */
-    _AllStateChangesByEntityId = exports.events = function (request, response) {
+    _allStateChangesByEntityId = exports.events = function (request, response) {
         'use strict';
         var entityId = request.params.entityId,
-            sendOkResponse = rq.dispatchResponseWithScalarBody(doLog, 200, response),
-            sendBadRequestResponse = rq.dispatchResponseWithScalarBody(doLog, 400, response),
-            sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-            sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-            notGetMethod = function () {
-                return request.method !== 'GET';
-            },
             entityIdMissing = function () {
                 return !entityId && entityId !== 0;
             };
 
         firstSuccessfulOf([
             sequence([
-                rq.if(notGetMethod),
+                rq.if(utils.notHttpMethod('GET', request)),
                 rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                sendMethodNotAllowedResponse
+                utils.send405MethodNotAllowedResponseWithArgAsBody(response)
             ]),
             sequence([
                 rq.if(entityIdMissing),
+                // TODO: Switch to:
+                //rq.if(utils.isMissing('entityId')),
+
                 rq.value('Mandatory parameter \'entityId\' is missing'),
-                sendBadRequestResponse
+                utils.send400BadRequestResponseWithArgAsBody(response)
             ]),
             sequence([
-                eventSourcing.rqGetStateChangesByEntityId(entityId),
-                sendOkResponse
+                eventSourcing.getStateChangesByEntityId(entityId),
+                utils.send200OkResponseWithArgAsBody(response)
             ]),
-            sendInternalServerErrorResponse
+            utils.send500InternalServerErrorResponse(response)
         ])(go);
     },
 
 
+// TODO: Move to Libray app MongoDB application store logic
     /**
      * Rebuilds entity based on structure from reduced <em>event store</em> objects.
      * Then save it in its default MongoDB collection (designated the <em>application store</em>).
@@ -165,6 +167,7 @@ var __ = require("underscore"),
         },
 
 
+// TODO: Move to Libray app MongoDB application store logic
     _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
         function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength) {
             'use strict';
@@ -231,18 +234,18 @@ var __ = require("underscore"),
         },
 
 
+// TODO: Move to Libray app MongoDB application store logic
     /**
      * Rebuilds <em>all entities</em> by replaying all StateChange objects from the <em>event store</em> chronologically,
      * and then save them into the <em>application store</em>.
      *
-     * Push messages :
-     *     'mapreducing-events'    (the total number, start timestamp)
-     *     'event-mapreduced'      (the total number, start timestamp, current progress)
-     *     'all-events-mapreduced' ()
+     * Event messages emitted : "mapreducing-events"    (the total number, start timestamp)
+     *                          "event-mapreduced"      (the total number, start timestamp, current progress)
+     *                          "all-events-mapreduced" ()
      *
-     *     'replaying-events'      (the total number, start timestamp)
-     *     'event-replayed'        (the total number, start timestamp, current progress)
-     *     'all-events-replayed'   ()
+     *                          "replaying-events"      (the total number, start timestamp)
+     *                          "event-replayed"        (the total number, start timestamp, current progress)
+     *                          "all-events-replayed"   ()
      *
      * @param entityType
      * @param io
@@ -261,7 +264,7 @@ var __ = require("underscore"),
 
                 //console.log('mapreducing-events ...');
                 //_clientSidePublisher.emit('mapreducing-events', null, startTime);
-                utils.publish('mapreducing-events', null, startTime);
+                messenger.publishAll('mapreducing-events', null, startTime);
                 mongoDBMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
 
                 // TODO: Clean up these requestors ...
@@ -276,20 +279,30 @@ var __ = require("underscore"),
                     },
 
                     function (callback2, query) {
+                        if (__.isEmpty(query)) {
+                            console.warn('Nothing returned from database, continuing with zero items ...');
+                            messenger.publishAll('all-events-mapreduced', 0, startTime);
+                            messenger.publishAll('replaying-events', 0, startTime);
+                            return callback2({
+                                cursor: {
+                                    length: 0
+                                }
+                            }, undefined);
+                        }
                         query.find(function (err, cursor) {
                             //console.log('all-events-mapreduced ...');
                             //_clientSidePublisher.emit('all-events-mapreduced', cursor.length, startTime);
-                            utils.publish('all-events-mapreduced', cursor.length, startTime);
-                            utils.publish('replaying-events', cursor.length, startTime);
+                            messenger.publishAll('all-events-mapreduced', cursor.length, startTime);
+                            messenger.publishAll('replaying-events', cursor.length, startTime);
 
                             //if (cursor.length < 1) {
-                                //console.log('replaying-events ...');
-                                //_clientSidePublisher.emit('replaying-events', cursor.length, startTime);
-                                //} else {
-                                //console.log('all-events-replayed!');
-                                //_clientSidePublisher.emit('all-events-replayed');
-                                //callback2(cursor, undefined);
-                                //return callback(args, undefined);
+                            //console.log('replaying-events ...');
+                            //_clientSidePublisher.emit('replaying-events', cursor.length, startTime);
+                            //} else {
+                            //console.log('all-events-replayed!');
+                            //_clientSidePublisher.emit('all-events-replayed');
+                            //callback2(cursor, undefined);
+                            //return callback(args, undefined);
                             //    utils.publish('all-events-replayed');
                             //    callback(args, undefined);
                             //}
@@ -330,7 +343,7 @@ var __ = require("underscore"),
                     function (callback2, results) {
                         //console.log('all-events-replayed!');
                         //_clientSidePublisher.emit('all-events-replayed');
-                        utils.publish('all-events-replayed');
+                        messenger.publishAll('all-events-replayed');
                         return callback2(results, undefined);
                     },
 
@@ -359,7 +372,7 @@ var __ = require("underscore"),
      *                                403 Forbidden             (resource posted when no application store is in use)
      *                                405 Method Not Allowed    (not a POST)
      * Resource properties outgoing : -
-     * Push messages                : "mapreducing-events"      (the total number, start timestamp)
+     * Event messages emitted       : "mapreducing-events"      (the total number, start timestamp)
      *                                "event-mapreduced"        (the total number, start timestamp, current progress)
      *                                "all-events-mapreduced"   ()
      *
@@ -367,50 +380,51 @@ var __ = require("underscore"),
      *                                "event-replayed"          (the total number, start timestamp, current progress)
      *                                "all-events-replayed"     ()
      */
-    _replayAll = exports.replay = function (request, response) {
+    _replay = exports.replay = function (request, response) {
         'use strict';
+        /*
         var sendAcceptedResponse = rq.dispatchResponseStatusCode(doLog, 202, response),
             sendForbiddenResponse = rq.dispatchResponseWithScalarBody(doLog, 403, response),
             sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-            sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-            notHttpMethod = function (httpMethod, request) {
-                return function () {
-                    return request.method !== httpMethod;
-                };
-            };
+            sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response);
+            */
 
         firstSuccessfulOf([
             sequence([
-                //rq.if(notPostMethod),
-                rq.if(notHttpMethod('POST', request)),
-                rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                sendMethodNotAllowedResponse
+                rq.if(utils.notHttpMethod('POST', request)),
+                rq.return('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                utils.send405MethodNotAllowedResponseWithArgAsBody(response)
             ]),
             sequence([
                 rq.if(cqrsService.isNotActivated),
-                rq.value('URI \'' + request.originalUrl + '\' posted when no application store in use (CQRS not activated)'),
-                sendForbiddenResponse
+                rq.return('URI \'' + request.originalUrl + '\' posted when no application store in use (CQRS not activated)'),
+                utils.send403ForbiddenResponseWithArgAsBody(response)
             ]),
             sequence([
-                sendAcceptedResponse,
+               utils.send202AcceptedResponse(response),
 
-                // TODO: Get rid of library domain coupling => request.param('entityType')
-                _replayAllStateChanges(library.Book, serverPush, mongodb.db)//,
+                // TODO: Get rid of library domain coupling => request.param('entityType', with some kind of mapping)
+                _replayAllStateChanges(library.Book, serverPush, mongodb.db)
+                // ... Or just use messaging
+                //,rq.then(messenger.publishAll('replay-all-events'))
             ]),
-            sendInternalServerErrorResponse
+            utils.send500InternalServerErrorResponse(response)
         ])
         (go);
     };
 
 
+// TODO: Move to Libray app MongoDB application store logic
 ///////////////////////////////////////////////////////////////////////////////
-// Register application listeners
+// Register application subscriptions
 ///////////////////////////////////////////////////////////////////////////////
 
-// Replay all Book state change events
-utils.subscribe(['cqrs', 'all-statechangeevents-created'], function () {
+// Replay all Book state change events when new state changes have been created
+//utils.subscribe(['cqrs', 'all-statechangeevents-created'], function () {
+messenger.subscribe(['cqrs', 'all-statechangeevents-created'], function () {
+//messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function () {
     'use strict';
-    console.log('on :: all-statechangeevents-created');
+    console.log('all-statechangeevents-created :: subscription message received');
     if (cqrsService.isCqrsActivated()) {
         sequence([
             _replayAllStateChanges(library.Book, serverPush, mongodb.db)

@@ -1,5 +1,5 @@
 /* global describe:false, it:false */
-/* jshint -W024, -W030 */
+/* jshint -W024, -W030, -W126, -W116 */
 
 var expect = require('chai').expect,
 
@@ -8,6 +8,7 @@ var expect = require('chai').expect,
         'use strict';
         return 'Hello world!';
     };
+
 
 describe('Test library', function () {
     'use strict';
@@ -29,5 +30,23 @@ describe('Test library', function () {
                 }())
             ).to.equal(1);
         });
+    });
+});
+
+
+describe('Test "falseyness"', function () {
+    'use strict';
+
+    it('should treat these as false by type coercion', function () {
+        expect(true == false).to.be.false;
+
+        expect(false == false).to.be.true;
+        expect('' == false).to.be.true;
+        expect('  ' == false).to.be.true;
+        expect(0 == false).to.be.true;
+        expect([] == false).to.be.true;
+
+        // NB!
+        expect({} == false).to.be.false;
     });
 });

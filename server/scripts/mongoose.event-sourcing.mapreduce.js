@@ -164,8 +164,14 @@ var _ = require('underscore'),
                 //console.log('4!');
                 mongooseEventSourcingModels.StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
                     if (err) {
-                        console.error(err.name + ' :: ' + err.message);
-                        return callback(undefined, err);
+                        if (err.message === "ns doesn't exist") {
+                            console.log(err.name + ' :: ' + err.message + ' - probably empty database, continuing ...');
+                            // Special treatment: empty cursor means empty database ...
+                            return callback({}, undefined);
+                        } else {
+                            console.error(err.name + ' :: ' + err.message);
+                            return callback(undefined, err);
+                        }
                     }
                     // TODO: how to filter out null objects in mapreduce step?
                     // Removing deleted entities => value set to null in reduce step above

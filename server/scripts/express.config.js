@@ -1,3 +1,6 @@
+/* global JSON:false */
+/* jshint -W024 */
+
 var clientResourceRoot = '../../client',
     applicationRoot = __dirname,
 

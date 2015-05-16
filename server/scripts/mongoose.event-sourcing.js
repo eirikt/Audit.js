@@ -7,7 +7,7 @@ var __ = require("underscore"),
     RQ = require("async-rq"),
     rq = require("rq-essentials"),
     sequence = RQ.sequence,
-    fallback = RQ.fallback,
+    firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
     then = rq.then,
@@ -97,14 +97,23 @@ var __ = require("underscore"),
             change.type = entityType.modelName;
             change.entityId = change.method === "CREATE" ? createUuid() : entityId;
 
-            // If an UPDATE, add the changes if given: the domain object changes a.k.a. "the diff"/"the delta"
-            if (changes && change.method !== "DELETE") {
-                change.changes = changes;
+            if (changes) {
+                // Remove MongoDB/Mongoose id property "_id" if exists
+                // Frameworks like Backbone need the id property present to do a PUT, and not a CREATE ...
+                if (changes._id) {
+                    delete changes._id;
+                }
+                // If a CREATE or an UPDATE, add the changes if given: the domain object changes a.k.a. "the diff"/"the delta"
+                if (__.contains(['CREATE', 'UPDATE'], change.method)) {
+                    change.changes = changes;
+                }
             }
+
             if (change.method === "CREATE" && change.changes.seq) {
                 console.log("State change event created [method=" + change.method + ", type=" + change.type + ", seq=" + change.changes.seq + ", entityId=" + change.entityId + "]");
             } else {
-                console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
+                //console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
+                console.log('State change event created [' + JSON.stringify(change) + ']');
             }
 
             return change;
@@ -238,7 +247,7 @@ var __ = require("underscore"),
     _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
         function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength) {
             'use strict';
-            return function (callback, args) {
+            return function requestor(callback, args) {
                 var reducedEntityChangeEvents,
                     count,
 
@@ -311,11 +320,25 @@ var __ = require("underscore"),
      * @param method CREATE, UPDATE, or DELETE
      * @param entityType Mongoose model type
      * @param entityId Entity id
-     * @param changes the changes object
+     * @param stateChanges the changes object
      * @param user the user issuing the change
      * @returns {Promise} StateChange object
      */
-    createStateChange = module.exports.createStateChange =
+    _createAndSaveStateChangeRequestorFactory = exports.createAndSaveStateChange =
+        function (method, entityType, entityId, stateChanges, user) {
+            'use strict';
+            return function requestor(callback, args) {
+                _createStateChange(method, entityType, entityId, stateChanges, user)
+                    .save(function (err, savedStateChange) {
+                        //console.log('State change event saved ...OK [entityId=' + savedStateChanges.entityId + ']');
+                        console.log('State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
+                        return callback(savedStateChange, undefined);
+                    });
+            };
+        },
+
+// TODO: To be removed ...
+    createStateChange =
         function (method, entityType, entityId, changes, user) {
             'use strict';
             var dfd = new promise.Deferred();
@@ -350,7 +373,7 @@ var __ = require("underscore"),
      * @param [count] Server push session: total count
      * @returns {Promise}
      */
-    createSequenceNumberEntity = module.exports.createSequenceNumberEntity =
+    createSequenceNumberEntity = exports.createSequenceNumberEntity =
         function () {
             'use strict';
             var dfd = new promise.Deferred(),
@@ -401,24 +424,8 @@ var __ = require("underscore"),
      * Retrieves all state change events having given entity id.
      *
      * @param entityId the entity id
-     * @returns {Promise}
      */
-    getStateChangesByEntityId = module.exports.getStateChangesByEntityId =
-        function (entityId) {
-            'use strict';
-            var dfd = new promise.Deferred();
-            mongooseEventSourcingModels.StateChange
-                .find({ entityId: entityId })
-                .sort({ timestamp: 'asc' })
-                .exec(function (err, stateChanges) {
-                    if (err) {
-                        return dfd.reject(err);
-                    }
-                    return dfd.resolve(stateChanges);
-                });
-            return dfd.promise;
-        },
-    rqGetStateChangesByEntityId = module.exports.rqGetStateChangesByEntityId =
+    _getStateChangesByEntityId = exports.getStateChangesByEntityId =
         function (entityId) {
             'use strict';
             return function requestor(callback, args) {
@@ -426,7 +433,10 @@ var __ = require("underscore"),
                     .find({ entityId: entityId })
                     .sort({ timestamp: 'asc' })
                     .exec(function (err, stateChanges) {
-                        callback(stateChanges, undefined);
+                        if (err) {
+                            return callback(undefined, err);
+                        }
+                        return callback(stateChanges, undefined);
                     });
             };
         },
@@ -443,7 +453,7 @@ var __ = require("underscore"),
         function (EntityType, entityId) {
             'use strict';
             var obj = new EntityType({ _id: entityId });
-            getStateChangesByEntityId(entityId)
+            _getStateChangesByEntityId(entityId)
                 .then(
                 function (stateChanges) {
                     obj.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(null, stateChanges));
@@ -454,19 +464,39 @@ var __ = require("underscore"),
 
 
     /**
+     * Rebuilds an entity by replaying all given state changes.
+     */
+    rebuildEntity = exports.rebuildEntity =
+        function (EntityType, entityId) {
+            'use strict';
+            return function requestor(callback, stateChanges) {
+                //var entityId2 = entityId;
+                //var entityId3 = entityId2.toString();
+                //var id = new mongooseEventSourcingModels.Uuid(entityId3);
+                //var id = entityId3;
+
+                //var entity = new EntityType({ _id: id });
+                var entity = new EntityType({ _id: entityId });
+                entity.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(entityId, stateChanges));
+                return callback(entity, undefined);
+            };
+        },
+
+
+    /**
      * Counts all entities of given type.
      *
      * @param entityType Mongoose model type
      * @param conditions Mongoose Query condition object
      */
-    _count = module.exports.count =
+    _count = exports.count =
         function (entityType, conditions) {
             'use strict';
             return function requestor(callback, args) {
                 var mapReducePrefixedConditions = _addMapReducePrefixTo(conditions),
                     thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);
 
-                return fallback([
+                return firstSuccessfulOf([
                     sequence([
                         //_find(entityType),
                         mongooseEventSourcingMapreduce.find(entityType),
@@ -479,41 +509,41 @@ var __ = require("underscore"),
         },
 
 
-    project = module.exports.project =
+    project = exports.project =
         function (entityType, projectionConditions, sortConditions, skipValue, limitValue) {
             'use strict';
             return function requestor(callback, args) {
                 var mapReducePrefixedConditions = _addMapReducePrefixTo(projectionConditions),
                     sortParams = _addMapReducePrefixTo(sortConditions),
 
-                    totalCountRequestor = function (callback, cursor) {
+                    totalCountRequestor = function requestor(callback, args) {
                         //console.log('totalCountRequestor');
-                        return cursor.input
+                        return args.cursor
                             .count(function (err, totalMapReducedResultCount) {
                                 if (err) {
                                     console.error(err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
-                                cursor.totalCount = totalMapReducedResultCount;
-                                return callback(cursor, undefined);
+                                args.totalCount = totalMapReducedResultCount;
+                                return callback(args, undefined);
                             });
                     },
-                    countRequestor = function (callback, cursor) {
+                    countRequestor = function requestor(callback, args) {
                         //console.log('countRequestor');
-                        return cursor.input
+                        return args.cursor
                             .count(mapReducePrefixedConditions)
                             .exec(function (err, projectedResultCount) {
                                 if (err) {
                                     console.error(err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
-                                cursor.count = projectedResultCount;
-                                return callback(cursor, undefined);
+                                args.count = projectedResultCount;
+                                return callback(args, undefined);
                             });
                     },
-                    booksRequestor = function (callback, cursor) {
+                    entitiesRequestor = function requestor(callback, args) {
                         //console.log('booksRequestor');
-                        return cursor.input
+                        return args.cursor
                             .find(mapReducePrefixedConditions)
                             .sort(sortParams)
                             .skip(skipValue)
@@ -523,12 +553,12 @@ var __ = require("underscore"),
                                     console.error(err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
-                                cursor.books = paginatedResult.map(_buildObject);
-                                return callback(cursor, undefined);
+                                args.books = paginatedResult.map(_buildObject);
+                                return callback(args, undefined);
                             });
                     };
 
-                return fallback([
+                return firstSuccessfulOf([
                     sequence([
                         //_find(entityType),
                         mongooseEventSourcingMapreduce.find(entityType),
@@ -548,20 +578,28 @@ var __ = require("underscore"),
                          }
                          */
 
-                        // Workaround A: Build argument holder and pass it sequentially along ...
+                        // Workaround A: Build holder argument and pass it sequentially along ...
                         function (callback2, cursor) {
-                            var result = { input: cursor, books: null, count: null, totalCount: null };
+                            var result = { cursor: cursor, books: null, count: null, totalCount: null };
+
+                            // Special treatment: empty cursor means empty database ...
+                            if (Object.keys(cursor).length === 0) {
+                                return callback(result, undefined);
+                                // Nope, just stop further processing here
+                                //return callback2(undefined, 'No \'' + entityType.modelName + 's\' entities found in database ...');
+                                //return callback2(result, undefined);
+                            }
                             return callback2(result, undefined);
                         },
                         totalCountRequestor,
                         countRequestor,
-                        booksRequestor,
+                        entitiesRequestor,
 
-                        // Workaround B: Remove input from argument and return it!
-                        function (callback2, cursor) {
-                            delete cursor.input;
-                            callback2(cursor, undefined);
-                            return callback(cursor, undefined);
+                        // Workaround B: Remove cursor from argument and return it!
+                        function (callback2, args) {
+                            delete args.cursor;
+                            callback2(args, undefined);
+                            return callback(args, undefined);
                         }
                     ]),
                     cancel(callback, "Audit.js :: Projecting '" + entityType.modelName + "s' via map-reducing event store failed!")

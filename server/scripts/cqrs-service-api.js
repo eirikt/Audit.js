@@ -1,20 +1,25 @@
+/* global JSON:false */
 /* jshint -W024 */
-var RQ = require("async-rq"),
+
+var RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
-    rq = require("rq-essentials"),
+    rq = require('rq-essentials'),
     then = rq.then,
     go = rq.execute,
 
-    utils = require("./utils"),
-    mongodb = require("./mongodb.config"),
+    fun = require('./fun'),
+    curry = fun.curry,
+    utils = require('./utils'),
+    mongodb = require('./mongodb.config'),
+    messenger = require('./messaging'),
 
-    library = require("./library-model"),
-
-    doLog = true, doNotLog = false,
+    library = require('./library-model'),
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Internal state
+///////////////////////////////////////////////////////////////////////////////
 
     /**
      * The "CQRS usage" flag.
@@ -26,7 +31,9 @@ var RQ = require("async-rq"),
     _useCQRS = false,
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Public JavaScript API
+///////////////////////////////////////////////////////////////////////////////
 
     _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsActivated = exports.hasCqrsActivated = exports.cqrs =
         function () {
@@ -34,10 +41,10 @@ var RQ = require("async-rq"),
             return _useCQRS;
         },
 
-    _isCqrsNotActive = exports.isNotActivated = exports.isCqrsNotActivated =
+    _isCqrsNotActive = exports.isCqrsNotActivated = exports.isNotActivated =
         function () {
             'use strict';
-            return _useCQRS;
+            return !_useCQRS;
         },
 
     /**
@@ -52,7 +59,9 @@ var RQ = require("async-rq"),
         },
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Public REST API
+///////////////////////////////////////////////////////////////////////////////
 
     /**
      * Admin API :: Get the "CQRS usage" flag (in-memory)
@@ -64,30 +73,46 @@ var RQ = require("async-rq"),
      * Status codes                 : 200 OK
      *                                405 Method Not Allowed (if not a GET request)
      * Resource properties outgoing : Boolean value indicating whether CQRS is activated on the server or not
-     * Push messages                : -
+     * Event messages emitted       : -
      */
     _status = exports.status =
         function (request, response) {
             'use strict';
-
-            var sendOkResponse = rq.dispatchResponseWithScalarBody(doLog, 200, response),
-                sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-                sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-                notGetMethod = function () {
-                    return request.method !== 'GET';
-                };
-
             firstSuccessfulOf([
                 sequence([
-                    rq.if(notGetMethod),
-                    rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                    sendMethodNotAllowedResponse
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    },
+                    rq.if(utils.notHttpMethod('GET', request)),
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    },
+                    rq.return('URI \'' + request.originalUrl + '\' supports GET requests only'),
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    },
+                    utils.send405MethodNotAllowedResponseWithArgAsBody(response)
                 ]),
                 sequence([
-                    rq.value(_useCQRS),
-                    sendOkResponse
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    },
+                    rq.return(_useCQRS),
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    },
+                    utils.send200OkResponseWithArgAsBody(response),
+                    function (callback, args) {
+                        //callback.call(this, args, undefined);
+                        callback(args, undefined);
+                    }
                 ]),
-                sendInternalServerErrorResponse
+                utils.send500InternalServerErrorResponse(response)
             ])(go);
         },
 
@@ -96,47 +121,40 @@ var RQ = require("async-rq"),
      * Admin API :: Switch the "CQRS usage" (in-memory) flag
      * (by creating and sending (posting) a "toggle" object/resource to the server)
      *
-     * CQRS Query
+     * CQRS Command
      *
      * HTTP method                  : POST
      * Resource properties incoming : -
-     * Status codes                 : 202 Accepted
+     * Status codes                 : 200 OK
      *                                405 Method Not Allowed (if not a GET request)
-     * Resource properties outgoing : -
-     * Push messages                : 'cqrs' (CQRS status)
+     * Resource properties outgoing : Boolean value with the new CQRS status
+     * Event messages emitted       : 'cqrs' (CQRS status)
      */
     _toggle = exports.toggle =
         function (request, response) {
             'use strict';
-            var sendOkResponse = rq.dispatchResponseStatusCode(doLog, 200, response),
-                sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-                sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-                notPostMethod = function () {
-                    return request.method !== 'POST';
-                },
-                toggleCqrsStatus = rq.then(function () {
-                    _useCQRS = !_useCQRS;
-                    if (_useCQRS) {
-                        console.log('Activating application store ...');
-                    } else {
-                        console.warn('Bypassing application store - will use event store only!');
-                    }
-                }),
-                thenPublishNewCqrsStatus = rq.then(function () {
-                    utils.publish('cqrs', _useCQRS);
-                });
+
+            var toggleCqrsStatus = function () {
+                _useCQRS = !_useCQRS;
+                if (_useCQRS) {
+                    console.log('Activating application store ...');
+                } else {
+                    console.warn('Bypassing application store - will use event store only!');
+                }
+            };
 
             firstSuccessfulOf([
                 sequence([
-                    rq.if(notPostMethod),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    sendMethodNotAllowedResponse
+                    rq.if(utils.notHttpMethod('POST', request)),
+                    rq.return('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                    utils.send405MethodNotAllowedResponseWithArgAsBody(response)
                 ]),
                 sequence([
-                    toggleCqrsStatus,
-                    thenPublishNewCqrsStatus,
-                    sendOkResponse
+                    rq.do(toggleCqrsStatus),
+                    rq.value(_getCqrsStatus),
+                    utils.send200OkResponseWithArgAsBody(response),
+                    rq.then(curry(messenger.publishAll, 'cqrs'))
                 ]),
-                sendInternalServerErrorResponse
+                utils.send500InternalServerErrorResponse(response)
             ])(go);
         };

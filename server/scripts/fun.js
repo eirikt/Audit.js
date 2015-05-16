@@ -1,6 +1,9 @@
 /* global define:false */
 /* jshint -W121, -W126 */
 
+// TODO: Move to 'utils.js' (and maybe somewhere else afterwards ...)
+
+// TODO: Remove boilerplate for CommonJS and AMD support - this will be Node stuff only
 // Boilerplate for CommonJS and AMD support (no RequireJS shimming required)
 // => https://blog.codecentric.de/en/2014/02/cross-platform-javascript/
 // => http://www.2ality.com/2011/11/module-gap.html
@@ -40,6 +43,10 @@
             _isArray = Array.isArray || function (obj) {
                     return Object.prototype.toString.call(obj) === '[object Array]';
                 },
+
+            _isObject = function (obj) {
+                return obj === Object(obj) && !_isArray(obj);
+            },
 
             /**
              * @see https://github.com/loop-recur/FunctionalJS/blob/master/functional.js/
@@ -95,6 +102,7 @@
             isDate: _isDate,
             isFunction: _isFunction,
             isArray: _isArray,
+            isObject: _isObject,
             toArray: _toArray,
             curry: _curry
         };
