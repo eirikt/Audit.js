@@ -111,7 +111,6 @@ var __ = require("underscore"),
             // ...and then execute them strictly sequentially
             seq(createBookWithSequenceNumber).then(
                 function () {
-                    //utils.publish('all-statechangeevents-created');
                     messenger.publishAll('all-statechangeevents-created');
                 }
             );
@@ -129,23 +128,43 @@ var __ = require("underscore"),
      * Resource properties incoming : -
      * Status codes                 : 202 Accepted            (when no application store is in use)
      *                                205 Reset Content       (when application store is is use)
+     *                                405 Method Not Allowed  (not a POST)
      * Resource properties outgoing : -
      * Event messages emitted       : "all-books-removed"
      */
-    _purgeBooks = exports.purgeBooks = function (request, response) {
+    _purgeAllBooks = exports.purgeBooks = function (request, response) {
         'use strict';
-        if (!cqrsService.isCqrsActivated()) {
-            console.warn('URI "library/books/clean" posted when no application store in use!');
-            response.sendStatus(202);
-        } else {
-            response.sendStatus(205);
-        }
-        return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
-            if (utils.handleError(err, { response: response })) {
-                return null;
-            }
-            return messenger.publishAll('all-books-removed');
-        });
+        /*
+         if (!cqrsService.isCqrsActivated()) {
+         console.warn('URI "library/books/clean" posted when no application store in use!');
+         response.sendStatus(202);
+         } else {
+         response.sendStatus(205);
+         }
+         return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
+         if (utils.handleError(err, { response: response })) {
+         return null;
+         }
+         return messenger.publishAll('all-books-removed');
+         });
+         */
+        firstSuccessfulOf
+        ([
+            sequence([
+                rq.if(utils.notHttpMethod('POST', request)),
+                rq.return('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                utils.send405MethodNotAllowedResponseWithArgAsBody(response)
+            ]),
+            sequence([
+                rq.if(cqrsService.isCqrsNotActivated),
+                rq.return('URI \'library/books/clean\' posted when no application store in use'),
+                utils.send202AcceptedResponseWithArgAsBody(response)
+            ]),
+            sequence([
+                utils.send205ResetContentResponse(response),
+                rq.then(curry(messenger.publishAll, 'all-books-removed'))
+            ])
+        ])(go);
     },
 
 
@@ -171,19 +190,13 @@ var __ = require("underscore"),
         var rqCountBooks = curry(rqMongooseJsonBook, 'count');
         var countAllBooks = rqCountBooks(null); // No filtering, all books
 
-        //var doLog = true, doNotLog = false;
-        //var sendCountResponse = rq.dispatchResponseWithScalarBody(doLog, 200, response);
-        //var sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response);
-
         // CQRS and no search criteria
         if (isCountingAllBooks && cqrsService.isCqrsActivated()) {
             return firstSuccessfulOf([
                 sequence([
                     countAllBooks,
-                    //sendCountResponse
                     utils.send200OkResponseWithArgAsBody(response)
                 ]),
-                //sendInternalServerErrorResponse
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
         }
@@ -214,10 +227,8 @@ var __ = require("underscore"),
             return firstSuccessfulOf([
                 sequence([
                     countBooksWithFilter,
-                    //sendCountResponse
                     utils.send200OkResponseWithArgAsBody(response)
                 ]),
-                //sendInternalServerErrorResponse
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
 
@@ -228,15 +239,12 @@ var __ = require("underscore"),
                     countAllStateChanges,
                     continueIf(countPropertyLessThanOne),
                     //rq.return(0), // Not necessary, I guess - won't be a negative number
-                    //sendCountResponse
                     utils.send200OkResponseWithArgAsBody(response)
                 ]),
                 sequence([
                     countAllBookStateChanges,
-                    //sendCountResponse
                     utils.send200OkResponseWithArgAsBody(response)
                 ]),
-                //sendInternalServerErrorResponse
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
         }
@@ -295,11 +303,7 @@ var __ = require("underscore"),
             titleRegexp = null,
             authorRegexp = null,
             findQuery = null,
-            sortQuery = { seq: 'asc' };//,
-
-            //doLog = true,
-            //sendOkResponse = rq.dispatchResponseWithScalarBody(doLog, 200, response),
-            //sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response);
+            sortQuery = { seq: 'asc' };
 
         if (doPaginate) {
             limit = parseInt(numberOfBooksForEachPage, 10);
@@ -336,10 +340,8 @@ var __ = require("underscore"),
             return firstSuccessfulOf([
                 sequence([
                     eventSourcing.project(library.Book, findQuery, sortQuery, skip, limit),
-                    //sendOkResponse
                     utils.send200OkResponseWithArgAsBody(response)
                 ]),
-                //sendInternalServerErrorResponse
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
         }

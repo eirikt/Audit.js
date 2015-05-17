@@ -63,14 +63,9 @@ var __ = require("underscore"),
      */
     _allStateChangesCount = exports.count = function (request, response) {
         'use strict';
-         var stateChangeCount = curry(rq.mongoose, eventSourcingModel.StateChange, 'count');//,
-         /*
-         sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-         sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response),
-         notPostMethod = function () {
-         return request.method !== 'POST';
-         };
-         */
+
+        var stateChangeCount = curry(rq.mongoose, eventSourcingModel.StateChange, 'count');
+
         firstSuccessfulOf([
             sequence([
                 rq.if(utils.notHttpMethod('POST', request)),
@@ -124,10 +119,7 @@ var __ = require("underscore"),
                 utils.send405MethodNotAllowedResponseWithArgAsBody(response)
             ]),
             sequence([
-                rq.if(entityIdMissing),
-                // TODO: Switch to:
-                //rq.if(utils.isMissing('entityId')),
-
+                rq.if(utils.isMissing(entityId)),
                 rq.value('Mandatory parameter \'entityId\' is missing'),
                 utils.send400BadRequestResponseWithArgAsBody(response)
             ]),
@@ -382,13 +374,6 @@ var __ = require("underscore"),
      */
     _replay = exports.replay = function (request, response) {
         'use strict';
-        /*
-        var sendAcceptedResponse = rq.dispatchResponseStatusCode(doLog, 202, response),
-            sendForbiddenResponse = rq.dispatchResponseWithScalarBody(doLog, 403, response),
-            sendMethodNotAllowedResponse = rq.dispatchResponseWithScalarBody(doLog, 405, response),
-            sendInternalServerErrorResponse = rq.dispatchResponseStatusCode(doLog, 500, response);
-            */
-
         firstSuccessfulOf([
             sequence([
                 rq.if(utils.notHttpMethod('POST', request)),
@@ -401,12 +386,8 @@ var __ = require("underscore"),
                 utils.send403ForbiddenResponseWithArgAsBody(response)
             ]),
             sequence([
-               utils.send202AcceptedResponse(response),
-
-                // TODO: Get rid of library domain coupling => request.param('entityType', with some kind of mapping)
-                _replayAllStateChanges(library.Book, serverPush, mongodb.db)
-                // ... Or just use messaging
-                //,rq.then(messenger.publishAll('replay-all-events'))
+                utils.send202AcceptedResponse(response),
+                rq.then(curry(messenger.publishAll, 'replay-all-events'))
             ]),
             utils.send500InternalServerErrorResponse(response)
         ])
@@ -420,7 +401,6 @@ var __ = require("underscore"),
 ///////////////////////////////////////////////////////////////////////////////
 
 // Replay all Book state change events when new state changes have been created
-//utils.subscribe(['cqrs', 'all-statechangeevents-created'], function () {
 messenger.subscribe(['cqrs', 'all-statechangeevents-created'], function () {
 //messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function () {
     'use strict';

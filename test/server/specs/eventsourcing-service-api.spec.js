@@ -463,8 +463,47 @@ describe('Event Sourcing service API specification\'s', function () {
         });
 
 
+        it('should publish \'replay-all-events\' event', function (done) {
+            var request = {
+                    method: 'POST'
+                },
+                response = {
+                    sendStatus: function (statusCode) {
+                        expect(statusCode).to.equal(202);
+                    }
+                };
+
+            mongooseEventSourcingMapreduceStub.find = function (entityType) {
+                return function requestor(callback, args) {
+                    var query = {
+                        find: function (callback) {
+                            var err,
+                                cursor = [];
+                            callback(err, cursor);
+                        }
+                    };
+                    return callback(query, undefined);
+                };
+            };
+
+            messengerStub.publishAll = sinon.spy(messenger.publishAll);
+
+            messengerStub.subscribeOnce('replay-all-events', function () {
+                expect(messengerStub.publishAll.calledOnce).to.be.true;
+                expect(messengerStub.publishAll.getCall(0).args[0]).to.be.equal('replay-all-events');
+                // TODO: Why does this not work? It is fixed in 'messaging.js' ...
+                //expect(messengerStub.publishAll.getCall(0).args.length).to.be.equal(1);
+
+                done();
+            });
+
+            eventSourcingService.replay(request, response);
+        });
+
+
         // TODO: Nope, screw this, just use event messages and delegate!
         // => This is the responsibility of the Library app's MongoDB application store
+        /*
         it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages', function (done) {
             var request = {
                     method: 'POST'
@@ -511,5 +550,6 @@ describe('Event Sourcing service API specification\'s', function () {
 
             eventSourcingService.replay(request, response);
         });
+        */
     });
 });

@@ -44,7 +44,7 @@ var RQ = require('async-rq'),
     _isCqrsNotActive = exports.isCqrsNotActivated = exports.isNotActivated =
         function () {
             'use strict';
-            return !_useCQRS;
+            return !_getCqrsStatus();
         },
 
     /**
@@ -80,37 +80,13 @@ var RQ = require('async-rq'),
             'use strict';
             firstSuccessfulOf([
                 sequence([
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    },
                     rq.if(utils.notHttpMethod('GET', request)),
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    },
                     rq.return('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    },
                     utils.send405MethodNotAllowedResponseWithArgAsBody(response)
                 ]),
                 sequence([
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    },
                     rq.return(_useCQRS),
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    },
-                    utils.send200OkResponseWithArgAsBody(response),
-                    function (callback, args) {
-                        //callback.call(this, args, undefined);
-                        callback(args, undefined);
-                    }
+                    utils.send200OkResponseWithArgAsBody(response)
                 ]),
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
