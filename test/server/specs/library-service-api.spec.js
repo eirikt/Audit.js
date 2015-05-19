@@ -4,7 +4,7 @@
 var sinon = require('sinon'),
     expect = require('chai').expect,
 
-    messenger = require('../../../server/scripts/messaging'),
+    messageBus = require('../../../server/scripts/messaging'),
 
     rq = require('rq-essentials'),
 
@@ -13,7 +13,7 @@ var sinon = require('sinon'),
     rqStub = { '@noCallThru': false },
     mongodbStub = {},
     utilsStub = { '@noCallThru': false },
-    messengerStub = { '@noCallThru': false },
+    messageBusStub = { '@noCallThru': false },
     serverPushStub = { '@noCallThru': false },
     eventSourcingStub = { '@noCallThru': false },
     sequenceNumberStub = {},
@@ -27,7 +27,7 @@ var sinon = require('sinon'),
         'rq-essentials': rqStub,
         './mongodb.config': mongodbStub,
         './utils': utilsStub,
-        './messaging': messengerStub,
+        './messaging': messageBusStub,
         './socketio.config': serverPushStub,
         './mongoose.event-sourcing': eventSourcingStub,
         './mongoose.sequence-number': sequenceNumberStub,
@@ -79,73 +79,20 @@ describe('Library service API specification\'s', function () {
         recreatedMongooseIdObject = null;
 
 
-    before(function () {
-        recreatedMongooseIdObject = mongooseEventSourcingModelsStub.createMongooseIdObject(stateChange1.changes._id);
-    });
-
-
-    beforeEach(function () {
-        messenger.resetMessenger();
-
-        cqrsServiceStub.isCqrsActivated = function () {
-            return false;
-        };
-
-        cqrsServiceStub.isCqrsNotActivated = function () {
-            return true;
-        };
-
-        eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
-            return function requestor(callback, args) {
-                var stateChanges = [];
-
-                stateChanges.push(stateChange1);
-                stateChanges.push(stateChange2);
-                stateChanges.push(stateChange3);
-
-                return callback(stateChanges, undefined);
-            };
-        });
-
-        eventSourcingStub.createAndSaveStateChange = sinon.spy(function (method, entityType, entityId, changes, user) {
-            return function requestor(callback, args) {
-                console.log('eventSourcingStub.createAndSaveStateChange(' + method + ', ..., ' + entityId + ', ' + JSON.stringify(changes) + ')');
-                if (method === "UPDATE" && changes) {
-                    // Remove MongoDB/Mongoose id property "_id" if exists
-                    // Frameworks like Backbone need the id property present to do a PUT, and not a CREATE ...
-                    if (changes._id) {
-                        delete changes._id;
-                    }
-                }
-                var savedChanges = {
-                    entityId: entityId,
-                    changes: changes
-                };
-                return callback(savedChanges, undefined);
-            };
-        });
-    });
-
-
-    afterEach(function () {
-    });
-
-
     it('should exist', function () {
         expect(libraryService).to.exist;
         expect(libraryService).to.be.an('object');
     });
 
 
-    describe('\'purgeAllBooks\' resource function', function () {
-
+    describe('\'removeAllBooksFromCache\' resource function', function () {
         it('should exist', function () {
-            expect(libraryService.purgeBooks).to.exist;
+            expect(libraryService.removeAllBooksFromCache).to.exist;
         });
 
 
         it('should be a function', function () {
-            expect(libraryService.purgeBooks).to.be.a('function');
+            expect(libraryService.removeAllBooksFromCache).to.be.a('function');
         });
 
 
@@ -169,11 +116,11 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            libraryService.purgeBooks(request, response);
+            libraryService.removeAllBooksFromCache(request, response);
         });
 
 
-        it('should send response status code 202 Accepted if CQRS is not activated', function (done) {
+        it('should send response status code 202 Accepted if CQRS is disabled', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/clean'
@@ -192,7 +139,11 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            libraryService.purgeBooks(request, response);
+            cqrsServiceStub.isCqrsDisabled = function () {
+                return true;
+            };
+
+            libraryService.removeAllBooksFromCache(request, response);
         });
 
 
@@ -208,17 +159,17 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            messengerStub.publishAll = sinon.spy();
+            messageBusStub.publishAll = sinon.spy();
 
-            cqrsServiceStub.isCqrsNotActivated = function () {
+            cqrsServiceStub.isCqrsDisabled = function () {
                 return false;
             };
 
-            libraryService.purgeBooks(request, response);
+            libraryService.removeAllBooksFromCache(request, response);
         });
 
 
-        it('should publish \'all-books-removed\' message', function (done) {
+        it('should publish \'remove-all-books\' message, server-side only', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/clean'
@@ -227,29 +178,64 @@ describe('Library service API specification\'s', function () {
                     sendStatus: rq.identity
                 };
 
-            cqrsServiceStub.isCqrsNotActivated = function () {
+            cqrsServiceStub.isCqrsDisabled = function () {
                 return false;
             };
 
-            messengerStub.publishAll = sinon.spy(messenger.publishAll);
+            messageBusStub.publishServerSide = sinon.spy(messageBus.publishServerSide);
 
-            messenger.subscribeOnce('all-books-removed', function () {
+            messageBus.subscribeOnce('remove-all-books', function () {
                 expect(arguments.length).to.be.equal(0);
 
-                expect(messengerStub.publishAll.calledOnce).to.be.true;
-                expect(messengerStub.publishAll.getCall(0).args[0]).to.be.equal('all-books-removed');
+                expect(messageBusStub.publishServerSide.calledOnce).to.be.true;
+                expect(messageBusStub.publishServerSide.getCall(0).args[0]).to.be.equal('remove-all-books');
                 // TODO: Why does this not work? It is fixed in 'messaging.js' ...
-                //expect(messengerStub.publishAll.getCall(0).args.length).to.be.equal(1);
+                //expect(messageBusStub.publishServerSide.getCall(0).args.length).to.be.equal(1);
 
                 done();
             });
 
-            libraryService.purgeBooks(request, response);
+            libraryService.removeAllBooksFromCache(request, response);
         });
     });
 
 
     describe('\'updateBook\' resource function', function () {
+
+        beforeEach(function () {
+
+            eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var stateChanges = [];
+
+                    stateChanges.push(stateChange1);
+                    stateChanges.push(stateChange2);
+                    stateChanges.push(stateChange3);
+
+                    return callback(stateChanges, undefined);
+                };
+            });
+
+
+            eventSourcingStub.createAndSaveStateChange = sinon.spy(function (method, entityType, entityId, changes, user) {
+                return function requestor(callback, args) {
+                    console.log('eventSourcingStub.createAndSaveStateChange(' + method + ', ..., ' + entityId + ', ' + JSON.stringify(changes) + ')');
+                    if (method === "UPDATE" && changes) {
+                        // Remove MongoDB/Mongoose id property "_id" if exists
+                        // Frameworks like Backbone need the id property present to do a PUT, and not a CREATE ...
+                        if (changes._id) {
+                            delete changes._id;
+                        }
+                    }
+                    var savedChanges = {
+                        entityId: entityId,
+                        changes: changes
+                    };
+                    return callback(savedChanges, undefined);
+                };
+            });
+        });
+
 
         it('should exist', function () {
             expect(libraryService.updateBook).to.exist;
@@ -414,9 +400,9 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            messengerStub.publish = sinon.spy(messenger.publish);
+            messageBusStub.publishAll = sinon.spy(messageBus.publishAll);
 
-            messenger.subscribeOnce('book-updated', function (updatedBook) {
+            messageBus.subscribeOnce('book-updated', function (updatedBook) {
                 expect(eventSourcingStub.createAndSaveStateChange.calledOnce).to.be.true;
 
                 var call = eventSourcingStub.createAndSaveStateChange.getCall(0);
@@ -462,7 +448,7 @@ describe('Library service API specification\'s', function () {
                 };
 
             // TODO: Should not be necessary - but needed for 'should update application store if applicable, and when completed, publish \'book-updated\' message' spec below to work ...
-            cqrsServiceStub.isCqrsActivated = function () {
+            cqrsServiceStub.isCqrsEnabled = function () {
                 return true;
             };
 
@@ -487,21 +473,22 @@ describe('Library service API specification\'s', function () {
                             send: rq.identity
                         };
                     }
-                };
+                },
+                recreatedMongooseIdObject = mongooseEventSourcingModelsStub.createMongooseIdObject(stateChange1.changes._id);
 
             // Update application store
             libraryModelStub.Book.update = sinon.spy(function (callback, stateChange) {
                 return callback(stateChange, undefined);
             });
 
-            messengerStub.publishAll = sinon.spy(messenger.publishAll);
+            messageBusStub.publishAll = sinon.spy(messageBus.publishAll);
 
-            messenger.subscribeOnce('book-updated', function (updatedBook) {
+            messageBus.subscribeOnce('book-updated', function (updatedBook) {
                 // CQRS: false
                 expect(libraryModelStub.Book.update.called).is.false;
 
-                expect(messengerStub.publishAll.calledOnce).to.be.true;
-                expect(messengerStub.publishAll.getCall(0).args[0]).to.be.equal('book-updated');
+                expect(messageBusStub.publishAll.calledOnce).to.be.true;
+                expect(messageBusStub.publishAll.getCall(0).args[0]).to.be.equal('book-updated');
 
                 // "entityId" is metadata located in the state change object, and should not be included in the entity objects.
                 // The id property in MongoDB/Mongoose is "_id"
@@ -526,74 +513,35 @@ describe('Library service API specification\'s', function () {
 
             libraryService.updateBook(request, response);
         });
-
-
-        /* Nope, screw this, just use event messages and delegate!
-         it('should update application store if applicable, and when completed, publish \'book-updated\' message', function (done) {
-         var requestBody = {
-         _id: '55542f4556a413fc0b7fa066',
-         title: 'In the Dust of this Planet'
-         },
-         request = {
-         method: 'PUT',
-         originalUrl: 'library/books/55542f4556a413fc0b7fa066',
-         params: { entityId: '55542f4556a413fc0b7fa066' },
-         body: requestBody
-         },
-         response = {
-         status: function (responseStatusCode) {
-         return {
-         send: rq.identity
-         };
-         }
-         };
-
-         cqrsServiceStub.isCqrsActivated = function () {
-         return true;
-         };
-
-         // Updating application store
-         libraryModelStub.Book.update = sinon.spy(function (callback, stateChange) {
-         return callback(stateChange, undefined);
-         });
-
-         messengerStub.publishAll = sinon.spy(messenger.publishAll);
-
-         messenger.subscribeOnce('book-updated', function (updatedBook) {
-         // CQRS: true
-         expect(libraryModelStub.Book.update.calledOnce).is.true;
-
-         expect(messengerStub.publishAll.calledOnce).to.be.true;
-         expect(messengerStub.publishAll.getCall(0).args[0]).to.be.equal('book-updated');
-
-         // "entityId" is metadata located in the state change object, and should not be included in the entity objects.
-         // The id property in MongoDB/Mongoose is "_id"
-         expect(updatedBook.entityId).to.be.undefined;
-
-         // The id property in MongoDB/Mongoose is a Mongoose schema-based object
-         expect(JSON.stringify(updatedBook._id)).to.be.equal(JSON.stringify(recreatedMongooseIdObject._id));
-
-         // The "author" property is added when "replaying" all state changes for this entity, as is done for the "book-updated" event"
-         expect(updatedBook.author).to.be.equal(stateChange2.changes.author);
-
-         // The "title" property is in fact being updated, and therefore included in the request body
-         expect(updatedBook.title).to.be.equal(requestBody.title);
-
-         // The "keyword" property is added when "replaying" all state changes for this entity, as is done for the "book-updated" event"
-         // It is an array Mongoose schema-based objects, but empty
-         expect(updatedBook.keywords).to.exist;
-         expect(updatedBook.keywords.length).to.be.equal(0);
-
-         done();
-         });
-
-         libraryService.updateBook(request, response);
-         });
-         */
     });
 
 
     describe('\'deleteBook\' resource function', function () {
+
+        beforeEach(function () {
+
+            cqrsServiceStub.isCqrsEnabled = function () {
+                return false;
+            };
+
+            cqrsServiceStub.isCqrsDisabled = function () {
+                return true;
+            };
+
+            eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var stateChanges = [];
+
+                    stateChanges.push(stateChange1);
+                    stateChanges.push(stateChange2);
+                    stateChanges.push(stateChange3);
+
+                    return callback(stateChanges, undefined);
+                };
+            });
+        });
+
+
         it('should exist', function () {
             expect(libraryService.removeBook).to.exist;
         });
@@ -627,8 +575,8 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        // TODO: Include it?
         /*
+         // TODO: Include it?
          it('should return nothing (standard REST)', function () {
          var request = {
          method: 'DELETE',
@@ -756,81 +704,23 @@ describe('Library service API specification\'s', function () {
                 };
             });
 
-            // Updating application store
-            //libraryModelStub.Book.remove = sinon.spy(function (callback, stateChange) {
-            //    return callback(stateChange, undefined);
-            //});
+            messageBusStub.publishAll = sinon.spy(messageBus.publishAll);
 
-            messengerStub.publishAll = sinon.spy(messenger.publishAll);
-
-            messenger.subscribeOnce('book-removed', function (entityIdOfRemovedBook) {
+            messageBus.subscribeOnce('book-removed', function (entityIdOfRemovedBook) {
                 // CQRS: false
                 //expect(libraryModelStub.Book.remove.called).is.false;
 
                 expect(entityIdOfRemovedBook).to.be.equal(request.params.entityId);
 
-                expect(messengerStub.publishAll.calledOnce).to.be.true;
-                expect(messengerStub.publishAll.getCall(0).args.length).to.be.equal(2);
-                expect(messengerStub.publishAll.getCall(0).args[0]).to.be.equal('book-removed');
-                expect(messengerStub.publishAll.getCall(0).args[1]).to.be.equal(request.params.entityId);
+                expect(messageBusStub.publishAll.calledOnce).to.be.true;
+                expect(messageBusStub.publishAll.getCall(0).args.length).to.be.equal(2);
+                expect(messageBusStub.publishAll.getCall(0).args[0]).to.be.equal('book-removed');
+                expect(messageBusStub.publishAll.getCall(0).args[1]).to.be.equal(request.params.entityId);
 
                 done();
             });
 
             libraryService.removeBook(request, response);
         });
-
-
-        /* Nope, screw this, just use event messages and delegate!
-         it('should update application store if applicable, and when completed, publish \'book-deleted\' message', function (done) {
-         var request = {
-         method: 'DELETE',
-         originalUrl: 'library/books/55542f4556a413fc0b7fa066',
-         params: { entityId: '55542f4556a413fc0b7fa066' }
-         },
-         response = {
-         status: function (responseStatusCode) {
-         return {
-         send: rq.identity
-         };
-         }
-         };
-
-         cqrsServiceStub.isCqrsActivated = function () {
-         return true;
-         };
-
-         eventSourcingStub.createAndSaveStateChange = sinon.spy(function (method, entityType, entityId, changes, user) {
-         return function requestor(callback, args) {
-         var savedChanges = {
-         entityId: entityId
-         };
-         return callback(savedChanges, undefined);
-         };
-         });
-
-         // Updating application store
-         libraryModelStub.Book.remove = sinon.spy(function (callback, stateChange) {
-         return callback(stateChange, undefined);
-         });
-
-         messengerStub.publish = sinon.spy(messenger.publish);
-
-         messenger.subscribeOnce('book-removed', function (entityIdOfRemovedBook) {
-         // CQRS: true
-         // TODO: Fix! Nope, screw this, just use event messages and delegate!
-         //expect(libraryModelStub.Book.remove.calledOnce).is.true;
-
-         expect(messengerStub.publish.calledOnce).to.be.true;
-         expect(messengerStub.publish.getCall(0).args.length).to.be.equal(1);
-         expect(messengerStub.publish.getCall(0).args[0]).to.be.equal('book-removed');
-         expect(entityIdOfRemovedBook).to.be.equal(request.params.entityId);
-
-         done();
-         });
-
-         libraryService.removeBook(request, response);
-         });
-         */
     });
 });

@@ -8,122 +8,6 @@ var //_events = require('events'),
     doLog = exports.doLog = true,
     doNotLog = exports.doNotLog = false,
 
-//_slice = Array.prototype.slice,
-//_isArray = _fun.isArray,
-
-/*
- ///////////////////////////////////////////////////////////////////////////////
- // Common global event hub
- ///////////////////////////////////////////////////////////////////////////////
-
- _serverSidePublisher = new _events.EventEmitter(),
- _clientSidePublisher = _socketio.serverPush,
-
- _resetMessenger = exports.resetMessenger =
- function () {
- 'use strict';
- _serverSidePublisher.removeAllListeners('book-updated');
- console.log('All \'book-updated\' listeners removed ...');
-
- _serverSidePublisher.removeAllListeners('book-removed');
- console.log('All \'book-removed\' listeners removed ...');
- },
-
- // Registering of server-side listener subscriptions
- _subscribe = exports.subscribe =
- function (messageNames, handler) {
- 'use strict';
- if (!_isArray(messageNames)) {
- messageNames = [messageNames];
- }
- messageNames.forEach(function (messageName) {
- console.log('\'' + messageName + '\' listener registered ...');
- _serverSidePublisher.on(messageName, handler);
- });
- },
-
- // Registering of server-side listener subscriptions, one message only
- _subscribeOnce = exports.subscribeOnce =
- function (messageNames, handler) {
- 'use strict';
- if (!_isArray(messageNames)) {
- messageNames = [messageNames];
- }
- messageNames.forEach(function (messageName) {
- console.log('\'' + messageName + '\' listener registered for one action only ...');
- _serverSidePublisher.once(messageName, handler);
- });
- },
-
- _unSubcribeServerSide = exports.unSubcribeServerSide =
- function (messageName) {
- 'use strict';
- console.log('All \'' + messageName + '\' listeners removed ...');
- _serverSidePublisher.removeAllListeners(messageName);
- },
-
- _publish = exports.publish =
- function () {
- 'use strict';
- var messageArgs = _slice.call(arguments, 0),
- messageId = messageArgs[0],
- messageArguments = _slice.call(arguments, 1),
- argumentsLogMessage = null;
-
- // TODO: Limited to 3 event message arguments ... Rewrite using apply with arguments, struggling to make that work :-\
- switch (messageArguments.length) {
- case 0:
- _serverSidePublisher.emit(messageId);
- _clientSidePublisher.emit(messageId);
- break;
- case 1:
- _serverSidePublisher.emit(messageId, messageArguments[0]);
- _clientSidePublisher.emit(messageId, messageArguments[0]);
- argumentsLogMessage = JSON.stringify(messageArguments[0]);
- break;
- case 2:
- _serverSidePublisher.emit(messageId, messageArguments[0], messageArguments[1]);
- _clientSidePublisher.emit(messageId, messageArguments[0], messageArguments[1]);
- argumentsLogMessage = JSON.stringify(messageArguments[0] + ', ' + messageArguments[1]);
- break;
- case 3:
- _serverSidePublisher.emit(messageId, messageArguments[0], messageArguments[1], messageArguments[2]);
- _clientSidePublisher.emit(messageId, messageArguments[0], messageArguments[1], messageArguments[2]);
- argumentsLogMessage = JSON.stringify(messageArguments[0] + ', ' + messageArguments[1] + ', ' + messageArguments[2]);
- break;
- default:
- break;
- }
-
- console.log('\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
- },
-
- _publishClientSide = exports.publishClientSide =
- function (messageName, messageBody) {
- 'use strict';
- //var messageArgs = Array.prototype.slice.call(arguments, 1);
- _clientSidePublisher.emit(arguments);
- console.log('\'' + messageName + '\' published (client-side only) ...');
- },
-
- _publishServerSide = exports.publishServerSide =
- function (messageName, messageBody) {
- 'use strict';
- //var messageArgs = Array.prototype.slice.call(arguments, 1);
- _serverSidePublisher.emit(arguments);
- console.log('\'' + messageName + '\' published (server-side only) ...');
- },
-
- _rqPublish = exports.rqPublish =
- function (messageId) {
- 'use strict';
- return function requestor(callback, messageArguments) {
- _publish(messageId, messageArguments);
- callback(messageArguments, undefined);
- };
- },
- */
-
 
 // TODO: Move to 'app.config.js'?
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,16 +16,16 @@ var //_events = require('events'),
 ///////////////////////////////////////////////////////////////////////////////
 
     _send200OkResponse = exports.send200OkResponse = curry(rq.dispatchResponseStatusCode, doLog, 200),
-    _send200OkResponseWithArgAsBody = exports.send200OkResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 200),
-    _send201CreatedResponseWithArgAsBody = exports.send201CreatedResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 201),
-    _send201CreatedResponse = exports.send201CreatedResponse = curry(rq.dispatchResponseWithJsonBody, doLog, 201),
+    _send200OkResponseWithArgumentAsBody = exports.send200OkResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 200),
+    _send201CreatedResponseWithArgumentAsBody = exports.send201CreatedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 201),
+    _send201CreatedResponseWithBodyConsistingOf = exports.send201CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doLog, 201),
     _send202AcceptedResponse = exports.send202AcceptedResponse = curry(rq.dispatchResponseStatusCode, doLog, 202),
-    _send202AcceptedResponseWithArgAsBody = exports.send202AcceptedResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 202),
+    _send202AcceptedResponseWithArgumentAsBody = exports.send202AcceptedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 202),
     _send205ResetContentResponse = exports.send205ResetContentResponse = curry(rq.dispatchResponseStatusCode, doLog, 205),
-    _send400BadRequestResponseWithArgAsBody = exports.send400BadRequestResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 400),
-    _send403ForbiddenResponseWithArgAsBody = exports.send403ForbiddenResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 403),
-    _send404NotFoundResponseWithArgAsBody = exports.send404NotFoundResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 404),
-    _send405MethodNotAllowedResponseWithArgAsBody = exports.send405MethodNotAllowedResponseWithArgAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 405),
+    _send400BadRequestResponseWithArgumentAsBody = exports.send400BadRequestResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 400),
+    _send403ForbiddenResponseWithArgumentAsBody = exports.send403ForbiddenResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 403),
+    _send404NotFoundResponseWithArgumentAsBody = exports.send404NotFoundResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 404),
+    _send405MethodNotAllowedResponseWithArgumentAsBody = exports.send405MethodNotAllowedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 405),
     _send500InternalServerErrorResponse = exports.send500InternalServerErrorResponse = curry(rq.dispatchResponseStatusCode, doLog, 500),
 
 

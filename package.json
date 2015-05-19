@@ -1,6 +1,6 @@
 {
     "name": "Audit.js",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "A prototype/demo web app (for a simple library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "license": "MIT",
@@ -29,7 +29,7 @@
         "chai": "~2.3.0",
         "proxyquire": "~1.4.0",
         "grunt-contrib-jshint": "~0.11.2",
-        "grunt-jsdoc": "~0.5.8"
+        "grunt-jsdoc": "~0.6.3"
     },
     "scripts": {
         "postinstall": "npm install grunt-cli",

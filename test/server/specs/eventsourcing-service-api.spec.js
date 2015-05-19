@@ -42,52 +42,6 @@ var sinon = require('sinon'),
 describe('Event Sourcing service API specification\'s', function () {
     'use strict';
 
-    var stateChange1 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'CREATE',
-            type: 'Book',
-            entityId: '42',
-            changes: { prop1: 'prop1Value', prop2: 'prop2Value' }
-        },
-        stateChange2 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'UPDATE',
-            type: 'Book',
-            entityId: '42',
-            changes: { prop1: 'newProp1Value', prop2: 'newProp2Value' }
-        },
-        stateChange3 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'DELETE',
-            type: 'Book',
-            entityId: '42'
-        };
-
-    beforeEach(function () {
-        eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
-            return function requestor(callback, args) {
-                var stateChanges = [];
-
-                stateChanges.push(stateChange1);
-                stateChanges.push(stateChange2);
-                stateChanges.push(stateChange3);
-
-                return callback(stateChanges, undefined);
-            };
-        });
-
-        cqrsServiceStub.isNotActivated = function () {
-            return false;
-        };
-    });
-
-
-    afterEach(function () {
-    });
-
 
     it('should exist', function () {
         expect(eventSourcingService).to.exist;
@@ -165,7 +119,6 @@ describe('Event Sourcing service API specification\'s', function () {
                     method: 'POST'
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
-                    //response.statusCode = statusCode;
                     return {
                         send: assert
                     };
@@ -175,7 +128,6 @@ describe('Event Sourcing service API specification\'s', function () {
                 },
                 assert = function () {
                     expect(responseStatusSpy.called).to.be.true;
-                    //expect(response.statusCode).to.equal(200);
                     expect(responseStatusSpy.alwaysCalledWithExactly(200)).to.be.true;
 
                     done();
@@ -265,6 +217,49 @@ describe('Event Sourcing service API specification\'s', function () {
 
 
     describe('get all state changes for a particular entity function', function () {
+
+        var stateChange1 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'CREATE',
+                type: 'Book',
+                entityId: '42',
+                changes: { prop1: 'prop1Value', prop2: 'prop2Value' }
+            },
+            stateChange2 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'UPDATE',
+                type: 'Book',
+                entityId: '42',
+                changes: { prop1: 'newProp1Value', prop2: 'newProp2Value' }
+            },
+            stateChange3 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'DELETE',
+                type: 'Book',
+                entityId: '42'
+            };
+
+        beforeEach(function () {
+            eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var stateChanges = [];
+
+                    stateChanges.push(stateChange1);
+                    stateChanges.push(stateChange2);
+                    stateChanges.push(stateChange3);
+
+                    return callback(stateChanges, undefined);
+                };
+            });
+
+            cqrsServiceStub.isDisabled = function () {
+                return false;
+            };
+        });
+
 
         it('should exist', function () {
             expect(eventSourcingService.events).to.exist;
@@ -392,6 +387,49 @@ describe('Event Sourcing service API specification\'s', function () {
 
     describe('replay all state change events for all entities', function () {
 
+        var stateChange1 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'CREATE',
+                type: 'Book',
+                entityId: '42',
+                changes: { prop1: 'prop1Value', prop2: 'prop2Value' }
+            },
+            stateChange2 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'UPDATE',
+                type: 'Book',
+                entityId: '42',
+                changes: { prop1: 'newProp1Value', prop2: 'newProp2Value' }
+            },
+            stateChange3 = {
+                user: 'user',
+                timestamp: Date.now(),
+                method: 'DELETE',
+                type: 'Book',
+                entityId: '42'
+            };
+
+        beforeEach(function () {
+            eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var stateChanges = [];
+
+                    stateChanges.push(stateChange1);
+                    stateChanges.push(stateChange2);
+                    stateChanges.push(stateChange3);
+
+                    return callback(stateChanges, undefined);
+                };
+            });
+
+            cqrsServiceStub.isDisabled = function () {
+                return false;
+            };
+        });
+
+
         it('should exist', function () {
             expect(eventSourcingService.replay).to.exist;
         });
@@ -440,7 +478,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     }
                 };
 
-            cqrsServiceStub.isNotActivated = function () {
+            cqrsServiceStub.isDisabled = function () {
                 return true;
             };
 
@@ -504,52 +542,52 @@ describe('Event Sourcing service API specification\'s', function () {
         // TODO: Nope, screw this, just use event messages and delegate!
         // => This is the responsibility of the Library app's MongoDB application store
         /*
-        it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages', function (done) {
-            var request = {
-                    method: 'POST'
-                },
-                response = {
-                    sendStatus: function (statusCode) {
-                        expect(statusCode).to.equal(202);
-                    }
-                };
+         it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages', function (done) {
+         var request = {
+         method: 'POST'
+         },
+         response = {
+         sendStatus: function (statusCode) {
+         expect(statusCode).to.equal(202);
+         }
+         };
 
-            mongooseEventSourcingMapreduceStub.find = function (entityType) {
-                return function requestor(callback, args) {
-                    var query = {
-                        find: function (callback) {
-                            var err,
-                                cursor = [];
-                            callback(err, cursor);
-                        }
-                    };
-                    return callback(query, undefined);
-                };
-            };
+         mongooseEventSourcingMapreduceStub.find = function (entityType) {
+         return function requestor(callback, args) {
+         var query = {
+         find: function (callback) {
+         var err,
+         cursor = [];
+         callback(err, cursor);
+         }
+         };
+         return callback(query, undefined);
+         };
+         };
 
-            messengerStub.publishAll = sinon.spy(messenger.publishAll);
+         messengerStub.publishAll = sinon.spy(messenger.publishAll);
 
-            messengerStub.subscribeOnce('all-events-replayed', function () {
-                expect(messengerStub.publishAll.called).to.be.true;
-                expect(messengerStub.publishAll.callCount).to.be.equal(4);
+         messengerStub.subscribeOnce('all-events-replayed', function () {
+         expect(messengerStub.publishAll.called).to.be.true;
+         expect(messengerStub.publishAll.callCount).to.be.equal(4);
 
-                var call1 = messengerStub.publishAll.getCall(0);
-                expect(call1.args[0]).to.be.equal('mapreducing-events');
+         var call1 = messengerStub.publishAll.getCall(0);
+         expect(call1.args[0]).to.be.equal('mapreducing-events');
 
-                var call2 = messengerStub.publishAll.getCall(1);
-                expect(call2.args[0]).to.be.equal('all-events-mapreduced');
+         var call2 = messengerStub.publishAll.getCall(1);
+         expect(call2.args[0]).to.be.equal('all-events-mapreduced');
 
-                var call3 = messengerStub.publishAll.getCall(2);
-                expect(call3.args[0]).to.be.equal('replaying-events');
+         var call3 = messengerStub.publishAll.getCall(2);
+         expect(call3.args[0]).to.be.equal('replaying-events');
 
-                var call4 = messengerStub.publishAll.getCall(3);
-                expect(call4.args[0]).to.be.equal('all-events-replayed');
+         var call4 = messengerStub.publishAll.getCall(3);
+         expect(call4.args[0]).to.be.equal('all-events-replayed');
 
-                done();
-            });
+         done();
+         });
 
-            eventSourcingService.replay(request, response);
-        });
-        */
+         eventSourcingService.replay(request, response);
+         });
+         */
     });
 });

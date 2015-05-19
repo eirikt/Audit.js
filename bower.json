@@ -3,12 +3,12 @@
     "description": "A prototype/demo web app (for a simple library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "dependencies": {
-        "requirejs": "2.1.17",
-        "bootstrap": "3.3.4",
-        "backbone": "1.1.2",
-        "moment": "2.10.2",
-        "mocha": "2.2.4",
-        "chai": "2.3.0",
-        "sinon": "1.14.1"
+        "requirejs": "~2.1.17",
+        "bootstrap": "~3.3.4",
+        "backbone": "~1.1.2",
+        "moment": "~2.10.3",
+        "mocha": "~2.2.5",
+        "chai": "~2.3.0",
+        "sinon": "~1.14.1"
     }
 }

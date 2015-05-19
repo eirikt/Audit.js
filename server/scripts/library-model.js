@@ -39,42 +39,29 @@ Book.collectionName = function () {
 };
 
 
-/*
-Book.update = function (id, changes) {
-    "use strict";
-    var dfd = new promise.Deferred();
-    Book.findByIdAndUpdate(id, changes, function (err, book) {
-        if (utils.handleError(err, { deferred: dfd })) {
-            return null;
-        }
-        console.log("Book '" + book.title + "' [id=" + book._id + "] updated ...OK");
-        return dfd.resolve(book);
-    });
-    return dfd.promise;
-};
-*/
 Book.update =
-    function requestor(callback, stateChanges) {
+    function requestor(callback, updatedBook) {
         'use strict';
-        Book.findByIdAndUpdate(stateChanges.entityId, stateChanges, function (err, book) {
+        Book.findByIdAndUpdate(updatedBook._id, updatedBook, function (err, book) {
             if (err){
-                console.error('Updating Book [id=' + stateChanges.entityId + '] failed');
+                console.error('Updating Book [id=' + updatedBook._id + '] failed [' + err.name + ':' + err.message + ']');
                 return callback(undefined, err);
             }
-            console.log('Book [id=' + stateChanges.entityId + '] updated ...OK');
+            console.log('Book [id=' + updatedBook._id + '] updated ...OK');
             return callback(book, undefined);
         });
     };
 
+
 Book.remove =
-    function requestor(callback, stateChanges) {
+    function requestor(callback, entityId) {
         'use strict';
-        Book.findByIdAndRemove(stateChanges.entityId, function (err, book) {
+        Book.findByIdAndRemove(entityId, function (err, book) {
             if (err){
-                console.error('Removing Book [id=' + stateChanges.entityId + '] failed');
+                console.error('Removing Book [id=' + entityId + '] failed');
                 return callback(undefined, err);
             }
-            console.log('Book [id=' + stateChanges.entityId + '] removed ...OK');
-            return callback(stateChanges, undefined);
+            console.log('Book [id=' + book._id + '] removed ...OK');
+            return callback(entityId, undefined);
         });
     };

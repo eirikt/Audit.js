@@ -87,6 +87,7 @@ var __ = require("underscore"),
     _createStateChange =
         function (method, entityType, entityId, changes, user) {
             'use strict';
+
             // Create state change event
             var change = new mongooseEventSourcingModels.StateChange();
 
@@ -130,6 +131,7 @@ var __ = require("underscore"),
      * @private
      * @deprecated Will suddenly disappear ...
      */
+        /*
     _rebuildEntityAndSaveInApplicationStore =
         function (EntityType, reducedEntityChangeEvents) {
             'use strict';
@@ -146,6 +148,7 @@ var __ = require("underscore"),
             });
             return dfd.promise;
         },
+        */
     _rqBuildEntityAndSaveInApplicationStore =
         function (EntityType, reducedEntityChangeEvents) {
             'use strict';
@@ -183,6 +186,7 @@ var __ = require("underscore"),
      * @private
      * @deprecated will suddenly disappear ...
      */
+        /*
     _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
         function () {
             'use strict';
@@ -243,7 +247,10 @@ var __ = require("underscore"),
             }
             return dfd.promise;
         },
+        */
 
+
+    /*
     _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
         function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength) {
             'use strict';
@@ -308,6 +315,7 @@ var __ = require("underscore"),
                 }
             };
         },
+        */
 
 
 //////////////////////////////////////
@@ -352,7 +360,6 @@ var __ = require("underscore"),
                 });
             return dfd.promise;
         },
-
 
     /**
      * Create entity with sequence number.
@@ -421,7 +428,7 @@ var __ = require("underscore"),
 
 
     /**
-     * Retrieves all state change events having given entity id.
+     * Requestor: Retrieves all state change events having given entity id.
      *
      * @param entityId the entity id
      */
@@ -470,12 +477,6 @@ var __ = require("underscore"),
         function (EntityType, entityId) {
             'use strict';
             return function requestor(callback, stateChanges) {
-                //var entityId2 = entityId;
-                //var entityId3 = entityId2.toString();
-                //var id = new mongooseEventSourcingModels.Uuid(entityId3);
-                //var id = entityId3;
-
-                //var entity = new EntityType({ _id: id });
                 var entity = new EntityType({ _id: entityId });
                 entity.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(entityId, stateChanges));
                 return callback(entity, undefined);
@@ -498,7 +499,6 @@ var __ = require("underscore"),
 
                 return firstSuccessfulOf([
                     sequence([
-                        //_find(entityType),
                         mongooseEventSourcingMapreduce.find(entityType),
                         thenFilterResult,
                         then(callback)
@@ -560,7 +560,6 @@ var __ = require("underscore"),
 
                 return firstSuccessfulOf([
                     sequence([
-                        //_find(entityType),
                         mongooseEventSourcingMapreduce.find(entityType),
 
                         // TODO: Crashes ... for some strange reason
@@ -605,105 +604,4 @@ var __ = require("underscore"),
                     cancel(callback, "Audit.js :: Projecting '" + entityType.modelName + "s' via map-reducing event store failed!")
                 ])(go);
             };
-        };//,
-
-
-/**
- * Rebuilds <em>all entities</em> by replaying all StateChange objects from the <em>event store</em> chronologically,
- * and then save them into the <em>application store</em>.
- *
- * Push messages :
- *     'mapreducing-events'    (the total number, start timestamp)
- *     'event-mapreduced'      (the total number, start timestamp, current progress)
- *     'all-events-mapreduced' ()
- *
- *     'replaying-events'      (the total number, start timestamp)
- *     'event-replayed'        (the total number, start timestamp, current progress)
- *     'all-events-replayed'   ()
- *
- * @param entityType
- * @param io
- * @param db
- */
-/*
- replayAllStateChanges = module.exports.replayAllStateChanges =
- function (entityType, _clientSidePublisher, db) {
- 'use strict';
- return function requestor(callback, args) {
- console.log('Replaying entire event store / state change log ...');
- var startTime = Date.now(),
- numberOfServerPushEmits = 1000,
- intervalInMillis = 50,
- mongoDBMapReduceStatisticsSocketIoEmitter = new mongodbMapReduceStatisticsEmitter.MongoDBMapReduceStatisticsSocketIoEmitter(_clientSidePublisher, db, startTime);
-
- console.log('mapreducing-events ...');
- _clientSidePublisher.emit('mapreducing-events', null, startTime);
- mongoDBMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
-
- // TODO: Clean up these requestors ...
- return sequence([
- //_find(entityType),
- mongooseEventSourcingMapreduce.find(entityType),
-
- function (callback2, query) {
- console.log('2!');
- mongoDBMapReduceStatisticsSocketIoEmitter.stop();
- return callback2(query, undefined);
- },
-
- function (callback2, query) {
- query.find(function (err, cursor) {
- console.log('all-events-mapreduced ...');
- _clientSidePublisher.emit('all-events-mapreduced', cursor.length, startTime);
- //if (cursor.length >= 1) {
- console.log('replaying-events ...');
- _clientSidePublisher.emit('replaying-events', cursor.length, startTime);
- //}
- return callback2(cursor, undefined);
- });
- },
-
- function (callback2, cursor) {
- var conditionalRecreateRequestorArray = [],
- curriedFunc,
- index = 0;
-
- if (cursor.length < 1) {
- console.log('all-events-replayed!');
- _clientSidePublisher.emit('all-events-replayed');
- callback2(cursor, undefined);
- return callback(args, undefined);
- }
- for (; index < cursor.length; index += 1) {
- curriedFunc = _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere(
- entityType,
- cursor[index],
- _clientSidePublisher,
- startTime,
- numberOfServerPushEmits,
- index,
- cursor.length);
-
- conditionalRecreateRequestorArray.push(curriedFunc);
- }
- conditionalRecreateRequestorArray.push(function (callback2, args2) {
- callback2(cursor, undefined);
- return callback(args, undefined);
- });
- sequence(conditionalRecreateRequestorArray)(go);
- },
-
- function (callback2, results) {
- console.log('all-events-replayed!');
- _clientSidePublisher.emit('all-events-replayed');
- return callback2(results, undefined);
- },
-
- function (callback2, args2) {
- callback2(args2, undefined);
- return callback(args, undefined);
- }
- ])(go);
- };
- };
- */
+        };

@@ -35,13 +35,13 @@ var RQ = require('async-rq'),
 // Public JavaScript API
 ///////////////////////////////////////////////////////////////////////////////
 
-    _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsActivated = exports.hasCqrsActivated = exports.cqrs =
+    _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsEnabled = exports.hasCqrsEnabled = exports.cqrs =
         function () {
             'use strict';
             return _useCQRS;
         },
 
-    _isCqrsNotActive = exports.isCqrsNotActivated = exports.isNotActivated =
+    _isCqrsNotActive = exports.isCqrsDisabled = exports.isDisabled =
         function () {
             'use strict';
             return !_getCqrsStatus();
@@ -81,12 +81,12 @@ var RQ = require('async-rq'),
             firstSuccessfulOf([
                 sequence([
                     rq.if(utils.notHttpMethod('GET', request)),
-                    rq.return('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgAsBody(response)
+                    rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
+                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
-                    rq.return(_useCQRS),
-                    utils.send200OkResponseWithArgAsBody(response)
+                    rq.value(_getCqrsStatus),
+                    utils.send200OkResponseWithArgumentAsBody(response)
                 ]),
                 utils.send500InternalServerErrorResponse(response)
             ])(go);
@@ -122,13 +122,13 @@ var RQ = require('async-rq'),
             firstSuccessfulOf([
                 sequence([
                     rq.if(utils.notHttpMethod('POST', request)),
-                    rq.return('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgAsBody(response)
+                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
                     rq.do(toggleCqrsStatus),
                     rq.value(_getCqrsStatus),
-                    utils.send200OkResponseWithArgAsBody(response),
+                    utils.send200OkResponseWithArgumentAsBody(response),
                     rq.then(curry(messenger.publishAll, 'cqrs'))
                 ]),
                 utils.send500InternalServerErrorResponse(response)

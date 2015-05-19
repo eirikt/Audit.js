@@ -32,4 +32,4 @@ app.put("/library/books/:entityId", libraryService.updateBook);
 app.delete("/library/books/:entityId", libraryService.removeBook);
 
 app.post("/library/books/generate", libraryService.generateBooks);
-app.post("/library/books/clean", libraryService.purgeBooks);
+app.post("/library/books/clean", libraryService.removeAllBooksFromCache);
