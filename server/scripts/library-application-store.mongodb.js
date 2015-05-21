@@ -6,24 +6,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 var __ = require("underscore"),
+
     RQ = require("async-rq"),
     sequence = RQ.sequence,
-    firstSuccessfulOf = RQ.fallback,
-    parallel = RQ.parallel,
-    race = RQ.race,
 
     rq = require("rq-essentials"),
     then = rq.then,
-    go = rq.execute,
+    go = rq.go,
 
     utils = require('./utils'),
-    curry = require('./fun').curry,
 
     mongodb = require("./mongodb.config"),
     serverPush = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
-
-    app = require("./express.config").appServer,
 
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
@@ -152,17 +147,18 @@ var __ = require("underscore"),
      * @param entityType
      * @param io
      * @param db
+     * @param eventMessageName
      * @private
      */
     _replayAllStateChanges =
-        function (entityType, io, db) {
+        function (entityType, io, db, eventMessageName) {
             'use strict';
             //return function requestor(callback, args) {
             console.log('Replaying entire event store / state change log ...');
             var startTime = Date.now(),
                 numberOfServerPushEmits = 1000,
                 intervalInMillis = 50,
-                mongoDBMapReduceStatisticsSocketIoEmitter = new mongodbMapReduceStatisticsEmitter.MongoDBMapReduceStatisticsSocketIoEmitter(io, db, startTime);
+                mongoDBMapReduceStatisticsSocketIoEmitter = new mongodbMapReduceStatisticsEmitter.MongoDBMapReduceStatisticsSocketIoEmitter(io, db, startTime, eventMessageName);
 
             //console.log('mapreducing-events ...');
             //_clientSidePublisher.emit('mapreducing-events', null, startTime);
@@ -263,13 +259,21 @@ var __ = require("underscore"),
 ///////////////////////////////////////////////////////////////////////////////
 
 // Replay all Book state change events when new state changes have been created
-// TODO: Consider doing keeping apllication stores in sync in a somewhat more incremental manner ...
+// TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
 messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
     'use strict';
-    console.log('\'all-statechangeevents-created\' :: subscription message received');
-    if (cqrsService.isCqrsEnabled()) {
-        _replayAllStateChanges(library.Book, serverPush, mongodb.db);
-    }
+    sequence([
+        rq.do(function () {
+            console.log('\'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
+        }),
+        rq.continueIf(cqrsService.isCqrsEnabled),
+        rq.then(function () {
+            _replayAllStateChanges(library.Book, serverPush, mongodb.db, 'event-mapreduced');
+        }),
+        rq.then(function () {
+            console.log('MongoDB application store: All entities replayed from Event Store');
+        })
+    ])(go);
 });
 
 
@@ -280,7 +284,7 @@ messenger.subscribe(['book-updated'], function (updatedBook) {
             console.log('\'book-updated\' :: subscription message received');
         }),
         rq.continueIf(cqrsService.isCqrsEnabled),
-        rq.return(updatedBook),
+        rq.value(updatedBook),
         library.Book.update,
         rq.then(function () {
             console.log('MongoDB application store: Book updated');
@@ -296,7 +300,7 @@ messenger.subscribe(['book-removed'], function (entityId) {
             console.log('\'book-removed\' :: subscription message received');
         }),
         rq.continueIf(cqrsService.isCqrsEnabled),
-        rq.return(entityId),
+        rq.value(entityId),
         library.Book.remove,
         rq.then(function () {
             console.log('MongoDB application store: Book removed');
