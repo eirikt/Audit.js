@@ -76,7 +76,7 @@ var __ = require("underscore"),
                     stateChangeCount({ method: 'DELETE' })
                 ]),
                 then(function (args) {
-                    response.status(200).send({
+                    response.status(200).json({
                         createCount: args[0],
                         updateCount: args[1],
                         deleteCount: args[2],

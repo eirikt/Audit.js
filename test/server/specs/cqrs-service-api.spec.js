@@ -22,17 +22,15 @@ var sinon = require('sinon'),
 describe('CQRS service API specification\'s', function () {
     'use strict';
 
-    before(function () {
-    });
+    //before(function () {});
 
 
-    beforeEach(function () {
-        messenger.resetMessenger();
-    });
+    //beforeEach(function () {
+    //    messenger.resetMessenger();
+    //});
 
 
-    afterEach(function () {
-    });
+    //afterEach(function () {});
 
 
     it('should exist', function () {
@@ -46,6 +44,7 @@ describe('CQRS service API specification\'s', function () {
         expect(cqrsService.getCqrsStatus).to.be.a('function');
         expect(cqrsService.getCqrsStatus()).to.be.false;
     });
+
 
     describe('\'status\' resource function', function () {
         it('should exist', function () {
@@ -65,7 +64,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -90,7 +89,7 @@ describe('CQRS service API specification\'s', function () {
                 response = {
                     status: function (statusCode) {
                         return {
-                            send: rq.identity
+                            json: rq.identity
                         };
                     }
                 };
@@ -105,7 +104,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -128,7 +127,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -154,7 +153,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -186,7 +185,7 @@ describe('CQRS service API specification\'s', function () {
          response = {
          status: function (statusCode) {
          return {
-         send: rq.identity
+         json: rq.identity
          };
          }
          };
@@ -220,7 +219,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -249,7 +248,7 @@ describe('CQRS service API specification\'s', function () {
          response = {
          sendStatus: function (statusCode) {
          return {
-         send: rq.identity
+         json: rq.identity
          };
          }
          };
@@ -270,7 +269,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -299,7 +298,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -329,7 +328,7 @@ describe('CQRS service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: rq.identity
+                        json: rq.identity
                     };
                 }),
                 response = {

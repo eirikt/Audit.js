@@ -42,7 +42,6 @@ var sinon = require('sinon'),
 describe('Event Sourcing service API specification\'s', function () {
     'use strict';
 
-
     it('should exist', function () {
         expect(eventSourcingService).to.exist;
         expect(eventSourcingService).to.be.an('object');
@@ -68,7 +67,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -98,7 +97,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 responseStatusSendSpy = sinon.spy(function (statusCode) {
                     expect(statusCode).to.be.equal(200);
                     return {
-                        send: rq.identity
+                        json: rq.identity
                     };
                 }),
                 response = {
@@ -120,7 +119,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -148,7 +147,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 response = {
                     status: function () {
                         return {
-                            send: assert
+                            json: assert
                         };
                     }
                 },
@@ -196,7 +195,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 response = {
                     status: function () {
                         return {
-                            send: assert
+                            json: assert
                         };
                     }
                 },
@@ -281,7 +280,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     status: function (statusCode) {
                         expect(statusCode).to.equal(405);
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports GET requests only');
                                 done();
                             }
@@ -301,7 +300,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 response = {
                     status: function (statusCode) {
                         return {
-                            send: rq.identity
+                            json: rq.identity
                         };
                     }
                 };
@@ -319,7 +318,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     status: function (statusCode) {
                         expect(statusCode).to.equal(400);
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseBody).to.equal('Mandatory parameter \'entityId\' is missing');
                                 done();
                             }
@@ -338,7 +337,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 },
                 responseStatusSpy = sinon.spy(function (statusCode) {
                     return {
-                        send: assert
+                        json: assert
                     };
                 }),
                 response = {
@@ -363,7 +362,7 @@ describe('Event Sourcing service API specification\'s', function () {
                 response = {
                     status: function () {
                         return {
-                            send: assert
+                            json: assert
                         };
                     }
                 },
@@ -449,7 +448,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     status: function (statusCode) {
                         expect(statusCode).to.equal(405);
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports POST requests only');
                                 done();
                             }
@@ -470,7 +469,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     status: function (statusCode) {
                         expect(statusCode).to.equal(403);
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' posted when no application store in use (CQRS not activated)');
                                 done();
                             }
@@ -539,55 +538,8 @@ describe('Event Sourcing service API specification\'s', function () {
         });
 
 
-        // TODO: Nope, screw this, just use event messages and delegate!
+        //it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages');
+        // Nope, just use event messages and delegate!
         // => This is the responsibility of the Library app's MongoDB application store
-        /*
-         it('should always emit \'mapreducing-events\' and \'all-events-mapreduced\' server push messages', function (done) {
-         var request = {
-         method: 'POST'
-         },
-         response = {
-         sendStatus: function (statusCode) {
-         expect(statusCode).to.equal(202);
-         }
-         };
-
-         mongooseEventSourcingMapreduceStub.find = function (entityType) {
-         return function requestor(callback, args) {
-         var query = {
-         find: function (callback) {
-         var err,
-         cursor = [];
-         callback(err, cursor);
-         }
-         };
-         return callback(query, undefined);
-         };
-         };
-
-         messengerStub.publishAll = sinon.spy(messenger.publishAll);
-
-         messengerStub.subscribeOnce('all-events-replayed', function () {
-         expect(messengerStub.publishAll.called).to.be.true;
-         expect(messengerStub.publishAll.callCount).to.be.equal(4);
-
-         var call1 = messengerStub.publishAll.getCall(0);
-         expect(call1.args[0]).to.be.equal('mapreducing-events');
-
-         var call2 = messengerStub.publishAll.getCall(1);
-         expect(call2.args[0]).to.be.equal('all-events-mapreduced');
-
-         var call3 = messengerStub.publishAll.getCall(2);
-         expect(call3.args[0]).to.be.equal('replaying-events');
-
-         var call4 = messengerStub.publishAll.getCall(3);
-         expect(call4.args[0]).to.be.equal('all-events-replayed');
-
-         done();
-         });
-
-         eventSourcingService.replay(request, response);
-         });
-         */
     });
 });

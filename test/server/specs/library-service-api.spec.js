@@ -74,9 +74,9 @@ describe('Library service API specification\'s', function () {
             changes: {
                 title: 'In the Dust of this Planet'
             }
-        },
+        };//,
 
-        recreatedMongooseIdObject = null;
+        //recreatedMongooseIdObject = null;
 
 
     it('should exist', function () {
@@ -106,7 +106,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.be.equal(405);
                                 expect(responseBody).to.be.equal('URI \'library/books/clean\' supports POST requests only');
 
@@ -128,7 +128,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(202);
                                 expect(responseBody).to.exist;
                                 expect(responseBody).to.be.equal('URI \'library/books/clean\' posted when no application store in use');
@@ -257,7 +257,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.be.equal(405);
                                 expect(responseBody).to.be.equal('URI \'library/books/55542f4556a413fc0b7fa066\' supports PUT requests only');
 
@@ -285,7 +285,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
                                 expect(responseBody).to.equal('Mandatory resource element \'entityId\' is missing');
 
@@ -309,7 +309,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
                                 expect(responseBody).to.equal('Mandatory request body is missing');
 
@@ -333,7 +333,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
                                 expect(responseBody).to.equal('Mandatory request body is not valid');
 
@@ -361,7 +361,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(404);
                                 expect(responseBody).to.equal('No entity with entityId=\'55542f4556a413fc0b7fa066\' found');
 
@@ -395,7 +395,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: rq.identity
+                            json: rq.identity
                         };
                     }
                 };
@@ -433,7 +433,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(201);
                                 expect(responseBody).to.exist;
                                 expect(responseBody.entityId).to.be.equal('55542f4556a413fc0b7fa066');
@@ -470,7 +470,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: rq.identity
+                            json: rq.identity
                         };
                     }
                 },
@@ -519,7 +519,6 @@ describe('Library service API specification\'s', function () {
     describe('\'deleteBook\' resource function', function () {
 
         beforeEach(function () {
-
             cqrsServiceStub.isCqrsEnabled = function () {
                 return false;
             };
@@ -561,7 +560,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.be.equal(405);
                                 expect(responseBody).to.be.equal('URI \'library/books/55542f4556a413fc0b7fa066\' supports DELETE requests only');
 
@@ -586,7 +585,7 @@ describe('Library service API specification\'s', function () {
          response = {
          status: function (statusCode) {
          return {
-         send: rq.identity
+         json: rq.identity
          };
          }
          };
@@ -604,7 +603,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
                                 expect(responseBody).to.equal('Mandatory resource element \'entityId\' is missing');
 
@@ -627,7 +626,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(404);
                                 expect(responseBody).to.equal('No entity with entityId=55542f4556a413fc0b7fa066 found');
 
@@ -656,7 +655,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(201);
                                 expect(responseBody).to.exist;
                                 expect(responseBody.entityId).to.exist;
@@ -690,7 +689,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: rq.identity
+                            json: rq.identity
                         };
                     }
                 };
