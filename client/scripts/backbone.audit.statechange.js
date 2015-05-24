@@ -1,4 +1,6 @@
 /* global define: false */
+/* jshint -W024 */
+
 define(["underscore", "backbone"],
 
     function (_, Backbone) {

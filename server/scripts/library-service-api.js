@@ -1,53 +1,126 @@
-/* global JSON:false */
-/* jshint -W024 */
+/* global app:false, JSON:false */
+/* jshint -W024, -W106 */
 
-var __ = require("underscore"),
-    promise = require("promised-io/promise"),
-    all = promise.all,
-    seq = promise.seq,
+var __ = require('underscore'),
+    httpResponse = require('statuses'),
+    httpResponseCode = httpResponse,
+    promise = require('promised-io/promise'), // Loose it!
+    seq = promise.seq, // Loose it!
 
-    RQ = require("async-rq"),
+    RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
 
-    rq = require("rq-essentials"),
-    then = rq.then,
-    continueIf = rq.if,
+    rq = require('rq-essentials'),
     go = rq.execute,
 
-    curry = require("./fun").curry,
-    utils = require("./utils"),
+    curry = require('./fun').curry,
+    utils = require('./utils'),
 
-    mongodb = require("./mongodb.config"),
-    db = mongodb.db,
-    mongoose = mongodb.mongoose,
-    app = require("./express.config").appServer,
-    io = require("./socketio.config").serverPush,
+    clientSidePublisher = require("./socketio.config").serverPush,
     messageBus = require("./messaging"),
     eventSourcing = require("./mongoose.event-sourcing"),
     eventSourcingModel = require("./mongoose.event-sourcing.model"),
     randomBooks = require("./random-books"),
 
-    cqrsService = require("./cqrs-service-api"),
-    library = require("./library-model"),
+    simpleInMemoryDb = require('./library-application-store.naive-inmemory'),
+    applicationStores = require('./library-application-store-manager'),
+    cqrs = require('./cqrs-service-api'),
+    library = require('./library-model'),
 
 
+///////////////////////////////////////////////////////////////////////////////
 // Some curried Mongoose model requestors
 // Just add Mongoose model function name and arguments, then use them in RQ pipelines
-    rqMongooseJsonStateChange = curry(rq.mongooseJson, eventSourcingModel.StateChange),
-    rqMongooseJsonBook = curry(rq.mongooseJson, library.Book),
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Internal state
 ///////////////////////////////////////////////////////////////////////////////
 
+// Event Store (MongoDB)
+    rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
 
-///////////////////////////////////////////////////////////////////////////////
-// Public JavaScript API
-///////////////////////////////////////////////////////////////////////////////
+// Application Store (In-memory)
+    rqInMemoryBookInvocation = null,
+    rqInMemoryJsonBookInvocation = null,
+    rqInMemoryFindBookInvocation = null,
+
+// Application Store (MongoDB)
+    rqMongooseBookInvocation = curry(rq.mongoose, library.Book),
+    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, library.Book),
+    rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
+
+
+// TODO: Move to 'RQ-essentials.js'
+//timedRun = function (successResponseStatusCode, successResponseBody, request, response) {
+    timedRun = function (request, response) {
+        'use strict';
+        return function (success, failure) {
+            var failureMessage,
+                successMessage,
+                uri = request.originalUrl,
+                internalServerError = 500,
+                statusCode = internalServerError;
+
+            if (success) {
+                /*if (__.isFunction(success)) {
+                 successMessage = typeof success;
+
+                 } else if (__.isObject(success)) {
+                 successMessage = 'Details: ';
+                 if (success.name) {
+                 successMessage += success.name;
+                 if (success.milliseconds) {
+                 successMessage += ' after ' + success.milliseconds + ' milliseconds';
+                 }
+                 } else {
+                 successMessage = JSON.stringify(success);
+                 }
+
+                 } else*/
+                if (__.isNumber(success)) {
+                    statusCode = success;
+                    successMessage = httpResponse[statusCode];
+                    response.status(statusCode).json(successMessage);
+
+                //} else {
+                //    successMessage = success;
+                }
+                console.log('RQ-essentials-express4 :: Resource \'' + uri + '\' processed successfully (' + successMessage + ')');
+
+                if (failure) {
+                    console.warn('RQ-essentials-express4 :: Resource \'' + uri + '\' processed successfully, but failure also present (' + failure + ')');
+                }
+
+                return;
+            }
+
+            if (failure) {
+                if (__.isFunction(failure)) {
+                    failureMessage = typeof failure;
+
+                } else if (__.isObject(failure)) {
+                    failureMessage = 'Details: ';
+                    if (failure.name) {
+                        failureMessage += failure.name;
+                        if (failure.milliseconds) {
+                            failureMessage += ' after ' + failure.milliseconds + ' milliseconds';
+                        }
+                    } else {
+                        failureMessage = JSON.stringify(failure);
+                    }
+
+                } else if (__.isNumber(failure)) {
+                    statusCode = failure;
+                    failureMessage = httpResponse[statusCode];
+
+                } else {
+                    failureMessage = failure;
+                }
+                console.error('RQ-essentials-express4 :: Resource \'' + uri + '\' failed! (' + failureMessage + ')');
+                response.status(statusCode).json(failureMessage);
+            }
+        };
+    },
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,6 +151,7 @@ var __ = require("underscore"),
      *                                "all-events-replayed"           ()
      */
         // TODO: Rewrite to RQ.js
+        // TODO: Delegate to event-sourcing lib
     _generateBooks = exports.generateBooks = function (request, response) {
         'use strict';
         var totalNumberOfBooksToGenerate = request.body.numberOfBooks,
@@ -88,7 +162,7 @@ var __ = require("underscore"),
             createBookWithSequenceNumber = [];
 
         if (!totalNumberOfBooksToGenerate) {
-            response.sendStatus(422, 'Property "numberOfBooks" is mandatory');
+            response.sendStatus(422, 'Property \'numberOfBooks\' is mandatory');
 
         } else {
             response.sendStatus(202);
@@ -103,7 +177,7 @@ var __ = require("underscore"),
                         library.Book,
                         randomBooks.createRandomBookAttributes(library.Keyword),
                         randomBooks.randomUser(),
-                        io,
+                        clientSidePublisher,
                         startTime,
                         numberOfServerPushEmits,
                         index,
@@ -125,7 +199,7 @@ var __ = require("underscore"),
      * Admin API :: Purge the entire application store(s)
      * (by creating and sending (posting) a "clean" object/resource to the server)
      *
-     * CQRS Query / Application store special
+     * CQRS Query / Application Store special command
      *
      * HTTP method                  : POST
      * Resource properties incoming : -
@@ -145,15 +219,19 @@ var __ = require("underscore"),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                rq.if(cqrsService.isCqrsDisabled),
+                rq.if(cqrs.isDisabled),
                 rq.value('URI \'library/books/clean\' posted when no application store in use'),
                 utils.send202AcceptedResponseWithArgumentAsBody(response)
             ]),
-            sequence([
-                utils.send205ResetContentResponse(response),
-                rq.then(curry(messageBus.publishServerSide, 'remove-all-books'))
-            ])
-        ])(go);
+            //sequence([
+            //rq.then(curry(messageBus.publishServerSide, 'remove-all-books'))
+            // TODO: Or
+            //rq.then(applicationStores.removeAllBooks)
+            applicationStores.removeAllBooks//,
+
+            //utils.send205ResetContentResponse(response)
+            //])
+        ], 6000)(timedRun(request, response));
     },
 
 
@@ -164,82 +242,82 @@ var __ = require("underscore"),
      * CQRS Query
      *
      * HTTP method                  : POST
-     * Resource properties incoming : "titleSubstring"      (optional, book.title filtering (in conjunction with other filtering properties))
-     *                                "authorSubstring"     (optional, book.author filtering (in conjunction with other filtering properties))
+     * Resource properties incoming : -
      * Status codes                 : 200 OK
-     * Resource properties outgoing : "count"               (total number of book entities)
+     *                                405 Method Not Allowed    (not a POST)
+     * Resource properties outgoing : "count"                   (total number of book entities)
      * Event messages emitted       : -
      */
-        // TODO: Complete the rewriting to RQ.js
-    _countBooks = exports.countBooks = function (request, response) {
+    _countAllBooks = exports.countAllBooks = function (request, response) {
         'use strict';
-        var titleSearchRegexString = request.body.titleSubstring;
-        var authorSearchRegexString = request.body.authorSubstring;
-        var isCountingAllBooks = __.isEmpty(titleSearchRegexString) && __.isEmpty(authorSearchRegexString);
+        var countAllQuery = null,
+            eventStore_CountAllStateChanges = rqMongooseJsonStateChangeInvocation('count', countAllQuery),
+            eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery),
+            appStore_InMemory_CountAllBooks = simpleInMemoryDb.count(),
+            appStore_MongoDb_CountAllBooks = rqMongooseJsonBookInvocation('count', countAllQuery);
 
-        var rqCountBooks = curry(rqMongooseJsonBook, 'count');
-        var countAllBooks = rqCountBooks(null); // No filtering, all books
-
-        // CQRS and no search criteria
-        if (isCountingAllBooks && cqrsService.isCqrsEnabled()) {
-            return firstSuccessfulOf([
-                sequence([
-                    countAllBooks,
-                    utils.send200OkResponseWithArgumentAsBody(response)
-                ]),
-                utils.send500InternalServerErrorResponse(response)
-            ])(go);
-        }
-
-        // Filtered count / count of projected books
-        var searchRegexOptions = 'i';
-        var titleRegexp = new RegExp(titleSearchRegexString, searchRegexOptions);
-        var authorRegexp = new RegExp(authorSearchRegexString, searchRegexOptions);
-        var findQuery = { title: titleRegexp, author: authorRegexp };
-        var countBooksWithFilter = rqCountBooks(findQuery);
-
-        var rqCountStateChanges = curry(rqMongooseJsonStateChange, 'count');
-        var countAllStateChanges = rqCountStateChanges(null); // No filtering, all state changes
-
-        // TODO: Create common predicate util functions while looking for a decent third-party predicate js lib
-        var countPropertyLessThanOne = function (arg) {
-            //if (arg.count < 1) {
-            //    console.log('arg less than one ...');
-            //} else {
-            //    console.log('arg NOT less than one ...');
-            //}
-            return arg.count < 1;
-        };
-
-        var countAllBookStateChanges = eventSourcing.count(library.Book, findQuery);
-
-        // TODO: If several standalone application stores available, a RQ "race" is appropriate
-        if (cqrsService.isCqrsEnabled()) {
-            return firstSuccessfulOf([
-                sequence([
-                    countBooksWithFilter,
-                    utils.send200OkResponseWithArgumentAsBody(response)
-                ]),
-                utils.send500InternalServerErrorResponse(response)
-            ])(go);
-
-        } else {
-            // No CQRS/application store => scanning event store
-            return firstSuccessfulOf([
-                sequence([
-                    countAllStateChanges,
-                    continueIf(countPropertyLessThanOne),
-                    //rq.value(0), // Not necessary, I guess - won't be a negative number
-                    utils.send200OkResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    countAllBookStateChanges,
-                    utils.send200OkResponseWithArgumentAsBody(response)
-                ]),
-                utils.send500InternalServerErrorResponse(response)
-            ])(go);
-        }
+        firstSuccessfulOf([
+            sequence([
+                rq.if(utils.notHttpMethod('POST', request)),
+                rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+            ]),
+            sequence([
+                rq.if(cqrs.isEnabled),
+                applicationStores.countAllBooks,//(),
+                //rq.then(applicationStores.countAllBooks),
+                utils.send200OkResponseWithArgumentAsBody(response)
+            ]),
+            // Just a demo, not particular useful ...
+            sequence([
+                eventStore_CountAllStateChanges,
+                rq.push,
+                rq.pick('count'),
+                rq.continueIf(utils.predicates.lessThanOne),
+                rq.pop,
+                utils.send200OkResponseWithArgumentAsBody(response)
+            ]),
+            sequence([
+                rq.pop, // Cleaning: If reached this final sequence, the stacked value is not pop'ed - so just pop it and move on
+                eventStore_CountAllBooks,
+                utils.send200OkResponseWithArgumentAsBody(response)
+            ])
+            //], 4000)(run(request, response));
+        ], 60000)(timedRun(request, response));
     },
+
+/*
+ run = function (request, response) {
+ 'use strict';
+ return function (success, failure) {
+ var failureMessage,
+ uri = request.originalUrl,
+ internalServerError = 500;
+
+ if (failure) {
+ if (__.isFunction(failure)) {
+ failureMessage = typeof failure;
+
+ } else if (__.isObject(failure)) {
+ failureMessage = 'Details: ';
+ if (failure.name) {
+ failureMessage += failure.name;
+ if (failure.milliseconds) {
+ failureMessage += ' after ' + failure.milliseconds + ' milliseconds';
+ }
+ } else {
+ failureMessage = JSON.stringify(failure);
+ }
+
+ } else {
+ failureMessage = failure;
+ }
+ console.error('RQ-essentials-express4 :: Resource \'' + uri + '\' failed! (' + failureMessage + ')');
+ response.status(internalServerError).send(failureMessage);
+ }
+ };
+ },
+ '*/
 
 
     /**
@@ -278,8 +356,11 @@ var __ = require("underscore"),
             searchRegexOptions = null,
             titleRegexp = null,
             authorRegexp = null,
-            findQuery = null,
-            sortQuery = { seq: 'asc' };
+            findAllQuery = null,
+            findQuery = findAllQuery,
+            sortQuery = { seq: 'asc' },
+
+            rqCountBooks = curry(rqMongooseBookInvocation, 'count');
 
         if (doPaginate) {
             limit = parseInt(numberOfBooksForEachPage, 10);
@@ -294,78 +375,26 @@ var __ = require("underscore"),
             findQuery = { title: titleRegexp, author: authorRegexp };
         }
 
-        //var retVal = {};
+        var projectBooks = rqMongooseFindBookInvocation(findQuery, sortQuery, skip, limit),
+            countBooks = rqCountBooks(findQuery),
+            countAllBooks = rqCountBooks(findAllQuery);
 
-        // TODO: If several standalone application stores available, a RQ "race" is appropriate
+        // TODO: If several standalone application stores are available, a RQ "race" is appropriate
         firstSuccessfulOf([
             sequence([
-                rq.if(cqrsService.isCqrsEnabled),
-                /*
-                 function (callback, args) {
-                 library.Book.count(function (err, totalCount) {
-                 retVal.totalCount = totalCount;
-                 callback(args, undefined);
-                 });
-                 },
-                 function (callback, args) {
-                 library.Book.count(findQuery, function (err, count) {
-                 retVal.count = count;
-                 callback(args, undefined);
-                 });
-                 },
-                 function (callback, args) {
-                 library.Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(function (err, books) {
-                 retVal.books = books;
-                 callback(args, undefined);
-                 });
-                 },
-                 function (callback, args) {
-                 response.status(200).send({
-                 books: retVal.books,
-                 count: retVal.count,
-                 totalCount: retVal.totalCount
-                 });
-                 callback(args, undefined);
-                 }
-                 */
+                rq.if(cqrs.isEnabled),
                 parallel([
-                    // TODO: Is it possible to use 'rqMongooseJsonBook' here?
-                    function (callback, args) {
-                        library.Book.find(findQuery).sort(sortQuery).skip(skip).limit(limit).exec(function (err, books) {
-                            //retVal.books = books;
-                            callback(books, undefined);
-                        });
-                    },
-                    // TODO: Use 'rqMongooseJsonBook'
-                    function (callback, args) {
-                        library.Book.count(findQuery, function (err, count) {
-                            //retVal.count = count;
-                            callback(count, undefined);
-                        });
-                    },
-                    // TODO: Use 'rqMongooseJsonBook'
-                    function (callback, args) {
-                        library.Book.count(function (err, totalCount) {
-                            //retVal.totalCount = totalCount;
-                            callback(totalCount, undefined);
-                        });
-                    }
+                    projectBooks,
+                    countBooks,
+                    countAllBooks
                 ]),
-                then(function (args) {
+                rq.then(function (args) {
                     response.status(200).send({
                         books: args[0],
                         count: args[1],
                         totalCount: args[2]
                     });
                 })
-                //function (callback, args) {
-                //    response.status(200).send({
-                //        books: args[0],
-                //        count: args[1],
-                //        totalCount: args[2]
-                //    });
-                //    callback(args, undefined);
-                //}
             ]),
             sequence([
                 eventSourcing.project(library.Book, findQuery, sortQuery, skip, limit),
@@ -382,13 +411,13 @@ var __ = require("underscore"),
      * CQRS Command
      *
      * HTTP method                  : PUT
-     * Resource properties incoming : (a "BookMongooseSchema" object resource)
+     * Resource properties incoming : (a "BookMongooseSchema" object resource containing properties to be updated only)
      * Status codes                 : 201 Created                       (new update event is stored)
      *                                400 Bad Request                   (when request body is empty)
      *                                404 Not Found                     (when the resource does not exist)
      *                                405 Method Not Allowed            (not a PUT)
      * Resource properties outgoing : "entityId"                        (the entity id of the deleted book)
-     *                                "stateChanges"                    (the stored state changes))
+     *                                "changes"                         (the stored state changes/updated properties)
      * Event messages emitted       : "book-updated(book)"              ("book": the updated entity)
      */
     _updateBook = exports.updateBook = function (request, response) {
@@ -456,8 +485,7 @@ var __ = require("underscore"),
         'use strict';
         var entityId = request.params.entityId;
 
-        firstSuccessfulOf
-        ([
+        firstSuccessfulOf([
             sequence([
                 rq.if(utils.notHttpMethod('DELETE', request)),
                 rq.value('URI \'' + request.originalUrl + '\' supports DELETE requests only'),

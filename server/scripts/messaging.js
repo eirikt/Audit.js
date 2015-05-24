@@ -48,7 +48,7 @@ var _events = require('events'),
                 messageNames = [messageNames];
             }
             messageNames.forEach(function (messageName) {
-                console.log('\'' + messageName + '\' listener registered ...');
+                console.log('\'' + messageName + '\' listener registered ... (' + typeof handler +')');
                 _serverSidePublisher.on(messageName, handler);
             });
         },
@@ -76,7 +76,7 @@ var _events = require('events'),
         },
 
 
-// TODO: Refactor stuff below
+// TODO: Refactor stuff below, more DRY please
     _publishAll = exports.publishAll =
         function () {
             'use strict';

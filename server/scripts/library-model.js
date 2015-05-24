@@ -33,6 +33,7 @@ var mongoose = require("mongoose"),
     Book = exports.Book = mongoose.model("book", BookMongooseSchema);
 
 
+// TODO: Move these to 'library-application-store.mongodb.js'??
 Book.collectionName = function () {
     "use strict";
     return Book.modelName + "s".toLowerCase();

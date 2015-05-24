@@ -15,13 +15,11 @@ var __ = require("underscore"),
     go = rq.execute,
     mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
-    curry = require("./fun").curry,
     utils = require("./utils.js"),
 
     sequenceNumber = require("./mongoose.sequence-number.js"),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongooseEventSourcingModels = require("./mongoose.event-sourcing.model"),
-    mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
 
     /**
@@ -121,203 +119,6 @@ var __ = require("underscore"),
         },
 
 
-    /**
-     * Rebuilds entity based on structure from reduced <em>event store</em> objects.
-     * Then save it in its default MongoDB collection (designated the <em>application store</em>).
-     *
-     * @param EntityType Mongoose model type
-     * @param reducedEntityChangeEvents The entity object reduced from the event store
-     * @returns {Promise}
-     * @private
-     * @deprecated Will suddenly disappear ...
-     */
-        /*
-    _rebuildEntityAndSaveInApplicationStore =
-        function (EntityType, reducedEntityChangeEvents) {
-            'use strict';
-            var dfd = new promise.Deferred(),
-                entity = new EntityType({ _id: reducedEntityChangeEvents._id });
-
-            entity.set(reducedEntityChangeEvents.value);
-            entity.save(function (err, entity) {
-                if (utils.handleError(err, { deferred: dfd })) {
-                    return null;
-                }
-                console.log("Entity #" + entity.seq + " '" + entity.title + "' saved ...OK (ID=" + entity._id + ")");
-                return dfd.resolve();
-            });
-            return dfd.promise;
-        },
-        */
-    _rqBuildEntityAndSaveInApplicationStore =
-        function (EntityType, reducedEntityChangeEvents) {
-            'use strict';
-            return function requestor(callback, args) {
-                var entity = new EntityType({ _id: reducedEntityChangeEvents._id });
-
-                entity.set(reducedEntityChangeEvents.value);
-                entity.save(function (err, entity) {
-                    if (err) {
-                        callback(undefined, err);
-                    }
-                    console.log('Entity #' + entity.seq + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
-                    callback(entity, undefined);
-                });
-            };
-        },
-
-    /**
-     * Rebuilds entity based on structure from reduced <em>event store</em> objects.
-     * Then save it in its default MongoDB collection (designated the <em>application store</em>).
-     * This function accepts optional session data parameters for emitting session status messages.
-     *
-     * Push messages :
-     *     'event-replayed'      (the total number, start timestamp, current progress)
-     *     'all-events-replayed' ()
-     *
-     * @param entityType Mongoose model type
-     * @param reducedEntityChangeEvents The entity object reduced from the event store
-     * @param [io] Server push session: Socket.IO manager
-     * @param [startTime] Server push session: start time
-     * @param [numberOfServerPushEmits] Server push session: number of messages to emit
-     * @param [index] Server push session: session index
-     * @param [count] Server push session: total count
-     * @returns {Promise}
-     * @private
-     * @deprecated will suddenly disappear ...
-     */
-        /*
-    _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
-        function () {
-            'use strict';
-            var dfd = new promise.Deferred(),
-
-                entityType, reducedEntityChangeEvents,
-                io, index, startTime, numberOfServerPushEmits, count,
-
-                validArguments = arguments.length >= 2 && arguments[0] && arguments[1],
-                eligibleForServerPush = arguments.length >= 7 && arguments[2] && arguments[3] && arguments[4] && arguments[5] && arguments[6],
-                doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
-                    utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressValue) {
-                        io.emit("event-replayed", count, startTime, progressValue);
-                    });
-                    if (index >= count) {
-                        io.emit("all-events-replayed");
-                    }
-                };
-
-            entityType = arguments[0];
-            reducedEntityChangeEvents = arguments[1];
-
-            io = arguments[2];
-            startTime = arguments[3];
-            numberOfServerPushEmits = arguments[4];
-            index = arguments[5];
-            count = arguments[6];
-
-            if (!validArguments) {
-                return dfd.reject("'createSequenceNumberEntity()' arguments is not valid");
-
-            } else {
-                if (__.isEmpty(reducedEntityChangeEvents.value)) {
-                    return console.log("Replaying object: #" + index + ": " + entityType.modelName + " " + reducedEntityChangeEvents._id + " has no state changes!? ... probably DELETED");
-
-                } else {
-                    entityType.findById(reducedEntityChangeEvents._id, function (err, existingEntity) {
-                        if (existingEntity) {
-                            console.log("Replaying " + entityType.modelName + "s : #" + index + ": " + entityType.modelName + " no " + existingEntity.seq + " \"" + existingEntity.title + "\" already present! {_id:" + existingEntity._id + "}");
-                            if (eligibleForServerPush) {
-                                doServerPush(startTime, numberOfServerPushEmits, index, count);
-                            }
-                            return dfd.resolve(arguments);
-
-                        } else {
-                            return _rebuildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents)
-                                .then(
-                                function () {
-                                    if (eligibleForServerPush) {
-                                        doServerPush(startTime, numberOfServerPushEmits, index, count);
-                                    }
-                                    return dfd.resolve(arguments);
-                                }
-                            );
-                        }
-                    });
-                }
-            }
-            return dfd.promise;
-        },
-        */
-
-
-    /*
-    _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
-        function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength) {
-            'use strict';
-            return function requestor(callback, args) {
-                var reducedEntityChangeEvents,
-                    count,
-
-                    validArguments = true,//arguments.length >= 2 && arguments[0] && arguments[1],
-                    eligibleForServerPush = true,//arguments.length >= 7 && arguments[2] && arguments[3] && arguments[4] && arguments[5] && arguments[6],
-                    throttledServerPushCallback = function (progressValue) {
-                        console.log('event-replayed');
-                        io.emit('event-replayed', count, startTime, progressValue);
-                    },
-                    doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
-                        utils.throttleEvents(numberOfServerPushEmits, index, count, throttledServerPushCallback);
-                        //if (index >= count - 1) {
-                        //    console.log('all-events-replayed');
-                        //    _clientSidePublisher.emit('all-events-replayed');
-                        //}
-                    };
-
-                //entityType = arguments[0];
-                reducedEntityChangeEvents = cursorIndex;//arguments[1];
-
-                //_clientSidePublisher = arguments[2];
-                //startTime = arguments[3];
-                //numberOfServerPushEmits = arguments[4];
-                //index = arguments[5];
-                count = cursorLength;//arguments[6];
-
-                //if (!validArguments) {
-                //    console.error(''createSequenceNumberEntity()' arguments is not valid');
-                //    callback(undefined, ''createSequenceNumberEntity()' arguments is not valid');
-
-                //} else {
-                if (__.isEmpty(reducedEntityChangeEvents.value)) {
-                    return console.log('Replaying object: #' + index + ': ' + entityType.modelName + ' ' + reducedEntityChangeEvents._id + ' has no state changes!? ... probably DELETED');
-
-                } else {
-                    entityType.findById(reducedEntityChangeEvents._id, function (err, existingEntity) {
-                        if (existingEntity) {
-                            console.log('Replaying ' + entityType.modelName + 's : #' + index + ': ' + entityType.modelName + ' no ' + existingEntity.seq + ' \'' + existingEntity.title + '\' already present! {_id:' + existingEntity._id + '}');
-                            if (eligibleForServerPush) {
-                                doServerPush(startTime, numberOfServerPushEmits, index, count);
-                            }
-                            return callback(arguments, undefined);
-
-                        } else {
-                            sequence([
-                                _rqBuildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents),
-                                then(function () {
-                                    if (eligibleForServerPush) {
-                                        doServerPush(startTime, numberOfServerPushEmits, index, count);
-                                    }
-                                }),
-                                then(function () {
-                                    return callback(arguments, undefined);
-                                })
-                            ])(go);
-                        }
-                    });
-                }
-            };
-        },
-        */
-
-
 //////////////////////////////////////
 // Public event sourcing functions
 //////////////////////////////////////
@@ -361,6 +162,7 @@ var __ = require("underscore"),
             return dfd.promise;
         },
 
+// TODO: Rewrite, completely!
     /**
      * Create entity with sequence number.
      * The sequence number property is hard-coded in entity as <code>seq</code>.
@@ -456,6 +258,7 @@ var __ = require("underscore"),
      * @param entityId the entity id
      * @returns The rebuilt entity
      */
+        /*
     rebuild = module.exports.rebuild =
         function (EntityType, entityId) {
             'use strict';
@@ -468,6 +271,7 @@ var __ = require("underscore"),
             );
             return obj;
         },
+        */
 
 
     /**

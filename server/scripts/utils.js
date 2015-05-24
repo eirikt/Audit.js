@@ -1,6 +1,4 @@
-var //_events = require('events'),
-    //_socketio = require("./socketio.config"),
-    _fun = require("./fun"),
+var _fun = require("./fun"),
     rq = require("rq-essentials"),
     curry = require("./fun").curry,
 
@@ -17,6 +15,7 @@ var //_events = require('events'),
 
     _send200OkResponse = exports.send200OkResponse = curry(rq.dispatchResponseStatusCode, doLog, 200),
     _send200OkResponseWithArgumentAsBody = exports.send200OkResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 200),
+    _send200CreatedResponseWithBodyConsistingOf = exports.send200CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doLog, 200),
     _send201CreatedResponseWithArgumentAsBody = exports.send201CreatedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 201),
     _send201CreatedResponseWithBodyConsistingOf = exports.send201CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doLog, 201),
     _send202AcceptedResponse = exports.send202AcceptedResponse = curry(rq.dispatchResponseStatusCode, doLog, 202),
@@ -41,7 +40,7 @@ var //_events = require('events'),
         },
 
     /**
-     * Meant for over-the-wire data ...
+     * Meant for serialized/over-the-wire-sent data ...
      */
     _isMissing = exports.isMissing =
         function (valueOrArray) {
@@ -55,7 +54,7 @@ var //_events = require('events'),
         },
 
     /**
-     * Meant for objects ...
+     * Meant for runtime objects ...
      */
     _isEmpty = exports.isEmpty =
         function (objectOrArray) {
@@ -116,7 +115,7 @@ var //_events = require('events'),
             }
         },
 
-// TODO: Revise this one for RQ ...
+// TODO: Revise this one for 'RQ.js' ...
     _handleError = exports.handleError =
         function (err, options) {
             'use strict';
@@ -154,4 +153,17 @@ var //_events = require('events'),
                 }
             }
             return true;
-        };
+        },
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Predicated
+// TODO: Find some decent third-party predicate lib ...
+///////////////////////////////////////////////////////////////////////////////
+
+    _predicates = exports.predicates = {
+        lessThanOne: function (arg) {
+            'use strict';
+            return arg < 1;
+        }
+    };

@@ -17,14 +17,30 @@ var __ = require("underscore"),
     utils = require('./utils'),
 
     mongodb = require("./mongodb.config"),
-    serverPush = require("./socketio.config").serverPush,
+    clientSidePublisher = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
 
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
-    cqrsService = require("./cqrs-service-api"),
     library = require("./library-model"),
+
+    _name = exports.name = 'Library MongoDB application store',
+    _id = exports.id = 'mongodb',
+    _state = {},
+
+
+    _getState = exports.getState = function (name) {
+        'use strict';
+        return _state[name];
+    },
+
+    _setState = function (name, value) {
+        'use strict';
+        var messageId = _id + '_' + name;
+        _state[name] = value;
+        messenger.publishAll(messageId, value);
+    },
 
 
     /**
@@ -35,7 +51,7 @@ var __ = require("underscore"),
      * @param reducedEntityChangeEvents The entity object reduced from the event store
      * @private
      */
-    _rqBuildEntityAndSaveInApplicationStore =
+    _buildEntityAndSaveInApplicationStore =
         function (EntityType, reducedEntityChangeEvents) {
             'use strict';
             return function requestor(callback, args) {
@@ -46,7 +62,7 @@ var __ = require("underscore"),
                     if (err) {
                         callback(undefined, err);
                     }
-                    console.log('Entity #' + entity.seq + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
+                    console.log('MongoDB application store :: Entity #' + entity.seq + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
                     callback(entity, undefined);
                 });
             };
@@ -66,7 +82,7 @@ var __ = require("underscore"),
      * @returns {Function}
      * @private
      */
-    _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
+    _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere =
         function (entityType, cursorIndex, io, startTime, numberOfServerPushEmits, index, cursorLength) {
             'use strict';
             return function (callback, args) {
@@ -102,12 +118,12 @@ var __ = require("underscore"),
 
                 //} else {
                 if (__.isEmpty(reducedEntityChangeEvents.value)) {
-                    return console.log('Replaying object: #' + index + ': ' + entityType.modelName + ' ' + reducedEntityChangeEvents._id + ' has no state changes!? ... probably DELETED');
+                    return console.log('MongoDB application store :: Replaying object: #' + index + ': ' + entityType.modelName + ' ' + reducedEntityChangeEvents._id + ' has no state changes!? ... probably DELETED');
 
                 } else {
                     entityType.findById(reducedEntityChangeEvents._id, function (err, existingEntity) {
                         if (existingEntity) {
-                            console.log('Replaying ' + entityType.modelName + 's : #' + index + ': ' + entityType.modelName + ' no ' + existingEntity.seq + ' \'' + existingEntity.title + '\' already present! {_id:' + existingEntity._id + '}');
+                            console.log('MongoDB application store :: Replaying ' + entityType.modelName + 's : #' + index + ': ' + entityType.modelName + ' no ' + existingEntity.seq + ' \'' + existingEntity.title + '\' already present! {_id:' + existingEntity._id + '}');
                             if (eligibleForServerPush) {
                                 doServerPush(startTime, numberOfServerPushEmits, index, count);
                             }
@@ -115,7 +131,7 @@ var __ = require("underscore"),
 
                         } else {
                             sequence([
-                                _rqBuildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents),
+                                _buildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents),
                                 then(function () {
                                     if (eligibleForServerPush) {
                                         doServerPush(startTime, numberOfServerPushEmits, index, count);
@@ -150,107 +166,143 @@ var __ = require("underscore"),
      * @param eventMessageName
      * @private
      */
-    _replayAllStateChanges =
-        function (entityType, io, db, eventMessageName) {
+    _replayAllStateChanges = exports.replayAllStateChanges =
+        function (entityType, /*io, db,*/ eventMessageName) {
             'use strict';
-            //return function requestor(callback, args) {
-            console.log('Replaying entire event store / state change log ...');
-            var startTime = Date.now(),
+            var //startTime = Date.now(),
                 numberOfServerPushEmits = 1000,
-                intervalInMillis = 50,
-                mongoDBMapReduceStatisticsSocketIoEmitter = new mongodbMapReduceStatisticsEmitter.MongoDBMapReduceStatisticsSocketIoEmitter(io, db, startTime, eventMessageName);
+                intervalInMillis = 50;//,
 
-            //console.log('mapreducing-events ...');
-            //_clientSidePublisher.emit('mapreducing-events', null, startTime);
-            messenger.publishAll('mapreducing-events', null, startTime);
-            mongoDBMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
+            return function (callback, query2) {
+                var startTime = Date.now(),
+                //numberOfServerPushEmits = 1000,
+                //intervalInMillis = 50,
+                    mongoDbMapReduceStatisticsSocketIoEmitter = new mongodbMapReduceStatisticsEmitter.MongoDbMapReduceStatisticsSocketIoEmitter(clientSidePublisher, mongodb.db, startTime, eventMessageName);
 
-            // TODO: Clean up these requestors ...
-            return sequence([
-                //_find(entityType),
-                mongooseEventSourcingMapreduce.find(entityType),
+                console.log('MongoDB application store :: Replaying entire event store / state change log ...');
 
-                function (callback2, query) {
-                    //console.log('2!');
-                    mongoDBMapReduceStatisticsSocketIoEmitter.stop();
-                    return callback2(query, undefined);
-                },
+                messenger.publishAll('mapreducing-events', null, startTime);
+                mongoDbMapReduceStatisticsSocketIoEmitter.start(intervalInMillis);
+                //mongoDbMapReduceStatisticsSocketIoEmitter.stop();
+                //return callback2(query, undefined);
+                //},
+                // TODO: Clean up these requestors ...
+                //return
+                var t = query2;
 
-                function (callback2, query) {
-                    if (__.isEmpty(query)) {
-                        console.warn('Nothing returned from database, continuing with zero items ...');
-                        messenger.publishAll('all-events-mapreduced', 0, startTime);
-                        messenger.publishAll('replaying-events', 0, startTime);
-                        return callback2({
-                            cursor: {
-                                length: 0
+                sequence([
+                    //mongooseEventSourcingMapreduce.find(entityType),
+
+                    function (callback2, query) {
+                        mongoDbMapReduceStatisticsSocketIoEmitter.stop();
+                        return callback2(t, undefined);
+                    },
+
+                    function (callback2, query) {
+                        if (__.isEmpty(query)) {
+                            console.warn('MongoDB application store :: Nothing returned from database, continuing with zero items ...');
+                            messenger.publishAll('all-events-mapreduced', 0, startTime);
+                            messenger.publishAll('replaying-events', 0, startTime);
+                            return callback2({
+                                cursor: {
+                                    length: 0
+                                }
+                            }, undefined);
+                        }
+                        query.find(function (err, cursor) {
+                            if (!cursor) {
+                                console.warn('MongoDB application store :: UNEXPECTED! Missing cursor from query ...');
+                                messenger.publishAll('all-events-mapreduced', 0, startTime);
+                                messenger.publishAll('replaying-events', 0, startTime);
+                                return callback2(cursor, undefined);
                             }
-                        }, undefined);
-                    }
-                    query.find(function (err, cursor) {
-                        //console.log('all-events-mapreduced ...');
-                        //_clientSidePublisher.emit('all-events-mapreduced', cursor.length, startTime);
-                        messenger.publishAll('all-events-mapreduced', cursor.length, startTime);
-                        messenger.publishAll('replaying-events', cursor.length, startTime);
+                            //console.log('all-events-mapreduced ...');
+                            //_clientSidePublisher.emit('all-events-mapreduced', cursor.length, startTime);
+                            messenger.publishAll('all-events-mapreduced', cursor.length, startTime);
+                            messenger.publishAll('replaying-events', cursor.length, startTime);
 
+                            //if (cursor.length < 1) {
+                            //console.log('replaying-events ...');
+                            //_clientSidePublisher.emit('replaying-events', cursor.length, startTime);
+                            //} else {
+                            //console.log('all-events-replayed!');
+                            //_clientSidePublisher.emit('all-events-replayed');
+                            //callback2(cursor, undefined);
+                            //return callback(args, undefined);
+                            //    utils.publish('all-events-replayed');
+                            //    callback(args, undefined);
+                            //}
+                            return callback2(cursor, undefined);
+                        });
+                    },
+
+                    function (callback2, cursor) {
+                        var conditionalRecreateRequestorArray = [],
+                            curriedFunc,
+                            index = 0;
+
+                        if (!cursor) {
+                            console.warn('MongoDB application store :: UNEXPECTED! Missing cursor from query ... WILL NOT REBUILD this app store');
+                            return callback2(cursor, undefined);
+                        }
                         //if (cursor.length < 1) {
-                        //console.log('replaying-events ...');
-                        //_clientSidePublisher.emit('replaying-events', cursor.length, startTime);
-                        //} else {
+                        //    console.log('all-events-replayed!');
+                        //    _clientSidePublisher.emit('all-events-replayed');
+                        //    callback2(cursor, undefined);
+                        //    return callback(args, undefined);
+                        //}
+                        for (; index < cursor.length; index += 1) {
+                            curriedFunc = _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere(
+                                entityType,
+                                cursor[index],
+                                clientSidePublisher,
+                                startTime,
+                                numberOfServerPushEmits,
+                                index,
+                                cursor.length);
+
+                            conditionalRecreateRequestorArray.push(curriedFunc);
+                        }
+                        conditionalRecreateRequestorArray.push(function (callback3, args3) {
+                            callback2(cursor, undefined);
+                            return callback3(args3, undefined);
+                        });
+                        sequence(conditionalRecreateRequestorArray)(go);
+                    },
+
+                    function (callback2, results) {
                         //console.log('all-events-replayed!');
                         //_clientSidePublisher.emit('all-events-replayed');
-                        //callback2(cursor, undefined);
-                        //return callback(args, undefined);
-                        //    utils.publish('all-events-replayed');
-                        //    callback(args, undefined);
-                        //}
-                        return callback2(cursor, undefined);
-                    });
-                },
-
-                function (callback2, cursor) {
-                    var conditionalRecreateRequestorArray = [],
-                        curriedFunc,
-                        index = 0;
-
-                    //if (cursor.length < 1) {
-                    //    console.log('all-events-replayed!');
-                    //    _clientSidePublisher.emit('all-events-replayed');
-                    //    callback2(cursor, undefined);
-                    //    return callback(args, undefined);
-                    //}
-                    for (; index < cursor.length; index += 1) {
-                        curriedFunc = _rqRebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere(
-                            entityType,
-                            cursor[index],
-                            io,
-                            startTime,
-                            numberOfServerPushEmits,
-                            index,
-                            cursor.length);
-
-                        conditionalRecreateRequestorArray.push(curriedFunc);
+                        messenger.publishAll('all-events-replayed');
+                        return callback2(results, undefined);
                     }
-                    conditionalRecreateRequestorArray.push(function (callback3, args3) {
-                        callback2(cursor, undefined);
-                        return callback3(args3, undefined);
-                    });
-                    sequence(conditionalRecreateRequestorArray)(go);
-                },
 
-                function (callback2, results) {
-                    //console.log('all-events-replayed!');
-                    //_clientSidePublisher.emit('all-events-replayed');
-                    messenger.publishAll('all-events-replayed');
-                    return callback2(results, undefined);
-                }//,
+                ])(function () {
+                    return query2;
+                });
 
-                //function (callback2, args2) {
-                //    callback2(args2, undefined);
-                //    return callback(args, undefined);
-                //}
-            ])(go);
-            //};
+                callback(query2, undefined);
+            };
+        },
+
+
+    _reset = exports.reset =
+        function requestor(callback, args) {
+            'use strict';
+            console.log('MongoDB application store :: Resetting ...');
+            _setState('consistent', false);
+            return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
+                if (err) {
+                    console.error('MongoDB application store :: Error when dropping \'' + library.Book.collectionName() + '\' :: ' + err);
+                    // TODO: Proper error handling
+                }
+                _setState('consistent', true);
+                console.warn('MongoDB application store :: \'' + library.Book.collectionName() + '\' collection purged!');
+                messenger.publishAll('all-books-removed', _id);
+                //return callback(args, undefined);
+                // return callback(_id + '_all-books-removed', undefined);
+                return callback(205, undefined);
+            });
         };
 
 
@@ -258,65 +310,67 @@ var __ = require("underscore"),
 // Register application subscriptions
 ///////////////////////////////////////////////////////////////////////////////
 
-// Replay all Book state change events when new state changes have been created
-// TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
-messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
-    'use strict';
-    sequence([
-        rq.do(function () {
-            console.log('\'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
-        }),
-        rq.continueIf(cqrsService.isCqrsEnabled),
-        rq.then(function () {
-            _replayAllStateChanges(library.Book, serverPush, mongodb.db, 'event-mapreduced');
-        }),
-        rq.then(function () {
-            console.log('MongoDB application store: All entities replayed from Event Store');
-        })
-    ])(go);
-});
+/*
+ // Replay all Book state change events when new state changes have been created
+ // TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
+ messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
+ 'use strict';
+ sequence([
+ rq.do(function () {
+ console.log('MongoDB application store :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
+ }),
+ rq.continueIf(cqrsService.isCqrsEnabled),
+ rq.then(function () {
+ _replayAllStateChanges(library.Book, serverPush, mongodb.db, 'event-mapreduced');
+ }),
+ rq.then(function () {
+ console.log('MongoDB application store :: All entities replayed from Event Store');
+ })
+ ])(go);
+ });
 
 
-messenger.subscribe(['book-updated'], function (updatedBook) {
-    'use strict';
-    sequence([
-        rq.do(function () {
-            console.log('\'book-updated\' :: subscription message received');
-        }),
-        rq.continueIf(cqrsService.isCqrsEnabled),
-        rq.value(updatedBook),
-        library.Book.update,
-        rq.then(function () {
-            console.log('MongoDB application store: Book updated');
-        })
-    ])(go);
-});
+ messenger.subscribe(['book-updated'], function (updatedBook) {
+ 'use strict';
+ sequence([
+ rq.do(function () {
+ console.log('MongoDB application store :: \'book-updated\' :: subscription message received');
+ }),
+ rq.continueIf(cqrsService.isCqrsEnabled),
+ rq.value(updatedBook),
+ library.Book.update,
+ rq.then(function () {
+ console.log('MongoDB application store :: Book updated');
+ })
+ ])(go);
+ });
 
 
-messenger.subscribe(['book-removed'], function (entityId) {
-    'use strict';
-    sequence([
-        rq.do(function () {
-            console.log('\'book-removed\' :: subscription message received');
-        }),
-        rq.continueIf(cqrsService.isCqrsEnabled),
-        rq.value(entityId),
-        library.Book.remove,
-        rq.then(function () {
-            console.log('MongoDB application store: Book removed');
-        })
-    ])(go);
-});
+ messenger.subscribe(['book-removed'], function (entityId) {
+ 'use strict';
+ sequence([
+ rq.do(function () {
+ console.log('MongoDB application store :: \'book-removed\' :: subscription message received');
+ }),
+ rq.continueIf(cqrsService.isCqrsEnabled),
+ rq.value(entityId),
+ library.Book.remove,
+ rq.then(function () {
+ console.log('MongoDB application store :: Book removed');
+ })
+ ])(go);
+ });
 
 
-messenger.subscribe(['remove-all-books'], function (message) {
-    'use strict';
-    console.log('\'remove-all-books\' :: subscription message received');
-    return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
-        if (err) {
-            console.error('Error when dropping \'' + library.Book.collectionName() + '\' :: ' + err);
-        }
-        console.warn('\'' + library.Book.collectionName() + '\' collection dropped!');
-        messenger.publishAll('all-books-removed');
-    });
-});
+ messenger.subscribe(['remove-all-books'], function (message) {
+ 'use strict';
+ console.log('MongoDB application store :: \'remove-all-books\' :: subscription message received');
+ return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
+ if (err) {
+ console.error('MongoDB application store :: Error when dropping \'' + library.Book.collectionName() + '\' :: ' + err);
+ }
+ console.warn('MongoDB application store :: \'' + library.Book.collectionName() + '\' collection dropped!');
+ messenger.publishAll('all-books-removed', 'mongodb');
+ });
+ });
+ */

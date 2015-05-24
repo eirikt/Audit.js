@@ -4,17 +4,14 @@
 var RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
+
     rq = require('rq-essentials'),
-    then = rq.then,
     go = rq.execute,
 
-    fun = require('./fun'),
-    curry = fun.curry,
+    curry = require('./fun').curry,
     utils = require('./utils'),
-    mongodb = require('./mongodb.config'),
-    messenger = require('./messaging'),
 
-    library = require('./library-model'),
+    messenger = require('./messaging'),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,7 +32,7 @@ var RQ = require('async-rq'),
 // Public JavaScript API
 ///////////////////////////////////////////////////////////////////////////////
 
-    _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsEnabled = exports.hasCqrsEnabled = exports.cqrs =
+    _getCqrsStatus = exports.getCqrsStatus = exports.isCqrsEnabled = exports.hasCqrsEnabled = exports.isEnabled = exports.cqrs =
         function () {
             'use strict';
             return _useCQRS;

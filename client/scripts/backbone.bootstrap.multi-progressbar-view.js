@@ -16,7 +16,7 @@ define(["jquery", "underscore", "backbone",
                 template: _.template('' +
                     '<table>' +
                     '  <tr><td><span style="margin-right:1rem;">Total count:</span></td><td><strong><%= prettyprintInteger(totalCount) %></strong></td></tr>' +
-                    '  <tr><td>Elapsed:</td><td><strong><%= elapsed %></strong></td></tr>' +
+                    '  <tr><td><span style="margin-right:1rem;">Time elapsed:</span></td><td><strong><%= elapsed %></strong></td></tr>' +
                     '  <tr><td>By user:</td><td><span style="color:grey;font-style:italic"><%= user %></span></td></tr>' +
                     '</table>'
                 ),

@@ -1,29 +1,24 @@
 /* global JSON:false */
 /* jshint -W024 */
 
-var __ = require("underscore"),
-
-    RQ = require("async-rq"),
+var RQ = require("async-rq"),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
+
     rq = require("rq-essentials"),
-    then = rq.then,
     go = rq.go,
 
     curry = require("./fun").curry,
     utils = require('./utils'),
-    expect = require('chai').expect,
 
-    mongodb = require("./mongodb.config"),
     messenger = require("./messaging"),
 
     eventSourcing = require("./mongoose.event-sourcing"),
     eventSourcingModel = require("./mongoose.event-sourcing.model"),
 
     cqrsService = require("./cqrs-service-api"),
-    library = require("./library-model"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,7 +70,7 @@ var __ = require("underscore"),
                     stateChangeCount({ method: 'UPDATE' }),
                     stateChangeCount({ method: 'DELETE' })
                 ]),
-                then(function (args) {
+                rq.then(function (args) {
                     response.status(200).json({
                         createCount: args[0],
                         updateCount: args[1],
@@ -102,7 +97,7 @@ var __ = require("underscore"),
      * Resource properties outgoing : Array of 'StateChangeMongooseSchema' objects/resources
      * Event messages emitted       : -
      */
-    _allStateChangesByEntityId = exports.events = function (request, response) {
+    _allStateChangesByEntityId = exports.stateChanges = function (request, response) {
         'use strict';
 
         var entityId = request.params.entityId;
@@ -144,11 +139,11 @@ var __ = require("underscore"),
      *                                405 Method Not Allowed    (not a POST)
      * Resource properties outgoing : -
      * Event messages emitted       : "mapreducing-events"      (the total number, start timestamp)
-     *                                "event-mapreduced"        (the total number, start timestamp, current progress)
+     *                                "event-mapreduced"        (the total number, start timestamp, current progress in percent)
      *                                "all-events-mapreduced"   ()
      *
      *                                "replaying-events"        (the total number, start timestamp)
-     *                                "event-replayed"          (the total number, start timestamp, current progress)
+     *                                "event-replayed"          (the total number, start timestamp, current progress in percent)
      *                                "all-events-replayed"     ()
      */
     _replay = exports.replay = function (request, response) {

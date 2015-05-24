@@ -1,25 +1,7 @@
 /* global JSON:false, emit:false */
 /* jshint -W106 */
-var _ = require('underscore'),
-    promise = require('promised-io/promise'),
-    mongoose = require('mongoose'),
 
-    RQ = require('async-rq'),
-    rq = require('rq-essentials'),
-    sequence = RQ.sequence,
-    fallback = RQ.fallback,
-    parallel = RQ.parallel,
-    race = RQ.race,
-    then = rq.then,
-    cancel = rq.cancel,
-    go = rq.execute,
-    mongooseQueryInvocation = rq.mongooseQueryInvocation,
-
-    sequenceNumber = require('./mongoose.sequence-number.js'),
-    curry = require('./fun').curry,
-    utils = require('./utils.js'),
-    mongodbMapreduceStatisticsEmitter = require('./mongodb.mapreduce-emitter'),
-    mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
+var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
 
 
 //////////////////////////////////////
@@ -159,9 +141,7 @@ var _ = require('underscore'),
     _mapreducefind = exports.find =
         function (entityType) {
             'use strict';
-            //console.log('3!');
             return function requestor(callback, args) {
-                //console.log('4!');
                 mongooseEventSourcingModels.StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
                     if (err) {
                         if (err.message === "ns doesn't exist") {

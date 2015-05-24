@@ -3,7 +3,7 @@ var utils = require("./utils.js"),
     /**
      * Constructor function for Socket._clientSidePublisher emitting statistics from MongoDB map-reduce job.
      */
-    _MongoDBMapReduceStatisticsSocketIoEmitter = exports.MongoDBMapReduceStatisticsSocketIoEmitter =
+    _MongoDbMapReduceStatisticsSocketIoEmitter = exports.MongoDbMapReduceStatisticsSocketIoEmitter =
         function (socketIoInstance, mongoDbInstance, startTime, name) {
             'use strict';
             this.isValid = socketIoInstance && mongoDbInstance && startTime && name;
