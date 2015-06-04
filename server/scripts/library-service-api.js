@@ -11,7 +11,7 @@ var __ = require('underscore'),
     parallel = RQ.parallel,
     race = RQ.race,
 
-    rq = require('rq-essentials'),
+    rq = require('RQ-essentials'),
 
     curry = require('./fun').curry,
     utils = require('./utils'),

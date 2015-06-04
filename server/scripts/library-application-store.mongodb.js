@@ -10,7 +10,7 @@ var __ = require("underscore"),
     RQ = require("async-rq"),
     sequence = RQ.sequence,
 
-    rq = require("rq-essentials"),
+    rq = require("RQ-essentials"),
 
     utils = require('./utils'),
 

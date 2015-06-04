@@ -5,7 +5,7 @@ var __ = require("underscore"),
 //mongoose = require("mongoose"),
 
     RQ = require("async-rq"),
-    rq = require("rq-essentials"),
+    rq = require("RQ-essentials"),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,

@@ -1,5 +1,5 @@
 var _fun = require("./fun"),
-    rq = require("rq-essentials"),
+    rq = require("RQ-essentials"),
     curry = require("./fun").curry,
 
 // TODO: Move to 'app.config.js'?

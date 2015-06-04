@@ -5,7 +5,7 @@ var RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
 
-    rq = require('rq-essentials'),
+    rq = require('RQ-essentials'),
 
     curry = require('./fun').curry,
     utils = require('./utils'),

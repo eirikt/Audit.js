@@ -4,7 +4,7 @@
 var sinon = require('sinon'),
     expect = require('chai').expect,
 
-    rq = require('rq-essentials'),
+    rq = require('RQ-essentials'),
 
     messenger = require('../../../server/scripts/messaging'),
 
@@ -24,7 +24,7 @@ var sinon = require('sinon'),
     libraryModelStub = { '@noCallThru': false },
 
     eventSourcingService = proxyquire('../../../server/scripts/eventsourcing-service-api', {
-        'rq-essentials': rqStub,
+        'RQ-essentials': rqStub,
         './mongodb.config': mongodbStub,
         './utils': utilsStub,
         './messaging': messengerStub,

@@ -18,7 +18,7 @@
         "body-parser": "~1.12.3",
         "promised-io": "~0.3.5",
         "async-rq": "~0.0.1",
-        "RQ-essentials": "http://github.com/eirikt/RQ-essentials/tarball/master"
+        "RQ-essentials": "eirikt/RQ-essentials"
     },
     "devDependencies": {
         "bower": "~1.4.1",

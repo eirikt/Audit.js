@@ -7,7 +7,7 @@ var sinon = require('sinon'),
 
     messageBus = require('../../../server/scripts/messaging'),
 
-    rq = require('rq-essentials'),
+    rq = require('RQ-essentials'),
 
     proxyquire = require('proxyquire').noCallThru(),
 
@@ -26,7 +26,7 @@ var sinon = require('sinon'),
     libraryModelStub = { '@noCallThru': false },
 
     libraryService = proxyquire('../../../server/scripts/library-service-api', {
-        'rq-essentials': rqStub,
+        'RQ-essentials': rqStub,
         './mongodb.config': mongodbStub,
         './utils': utilsStub,
         './messaging': messageBusStub,

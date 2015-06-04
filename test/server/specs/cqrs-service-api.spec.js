@@ -3,7 +3,7 @@
 
 var sinon = require('sinon'),
     expect = require('chai').expect,
-    rq = require('rq-essentials'),
+    rq = require('RQ-essentials'),
     messenger = require('../../../server/scripts/messaging'),
 
     proxyquire = require('proxyquire').noCallThru(),
@@ -13,7 +13,7 @@ var sinon = require('sinon'),
     messengerStub = { '@noCallThru': false },
 
     cqrsService = proxyquire('../../../server/scripts/cqrs-service-api', {
-        'rq-essentials': rqStub,
+        'RQ-essentials': rqStub,
         './utils': utilsStub,
         './messaging': messengerStub
     });
