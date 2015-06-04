@@ -59,7 +59,7 @@ module.exports = function (grunt) {
                 },
                 command: [
                     'echo Starting Node.js',
-                    'node server/scripts/server.js'
+                    'node --max-old-space-size=8192 server/scripts/server.js'
                 ].join('&&')
             }
         },
