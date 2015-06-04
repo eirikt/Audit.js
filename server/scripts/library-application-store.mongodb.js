@@ -11,8 +11,6 @@ var __ = require("underscore"),
     sequence = RQ.sequence,
 
     rq = require("rq-essentials"),
-    then = rq.then,
-    go = rq.go,
 
     utils = require('./utils'),
 
@@ -132,15 +130,15 @@ var __ = require("underscore"),
                         } else {
                             sequence([
                                 _buildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents),
-                                then(function () {
+                                rq.then(function () {
                                     if (eligibleForServerPush) {
                                         doServerPush(startTime, numberOfServerPushEmits, index, count);
                                     }
                                 }),
-                                then(function () {
+                                rq.then(function () {
                                     return callback(arguments, undefined);
                                 })
-                            ])(go);
+                            ])(rq.run);
                         }
                     });
                 }
@@ -267,7 +265,7 @@ var __ = require("underscore"),
                             callback2(cursor, undefined);
                             return callback3(args3, undefined);
                         });
-                        sequence(conditionalRecreateRequestorArray)(go);
+                        sequence(conditionalRecreateRequestorArray)(rq.run);
                     },
 
                     function (callback2, results) {
@@ -283,6 +281,50 @@ var __ = require("underscore"),
 
                 callback(query2, undefined);
             };
+        },
+
+
+    _updateBook = exports.updateBook =
+        function requestor(callback, updatedBook) {
+            'use strict';
+            sequence([
+                rq.do(function () {
+                    console.log('MongoDB application store :: Updating book (entityId=' + updatedBook.entityId + ') ...');
+                }),
+                rq.then(function () {
+                    _setState('consistent', false);
+                }),
+                rq.value(updatedBook),
+                library.Book.update,
+                rq.then(function () {
+                    _setState('consistent', true);
+                }),
+                rq.then(function () {
+                    console.log('MongoDB application store :: Book (entityId=' + updatedBook.entityId + ') updated');
+                })
+            ])(rq.run);
+        },
+
+
+    _removeBook = exports.removeBook =
+        function requestor(callback, entityId) {
+            'use strict';
+            sequence([
+                rq.do(function () {
+                    console.log('MongoDB application store :: Removing book (entityId=' + entityId + ') ...');
+                }),
+                rq.then(function () {
+                    _setState('consistent', false);
+                }),
+                rq.value(entityId),
+                library.Book.remove,
+                rq.then(function () {
+                    _setState('consistent', true);
+                }),
+                rq.then(function () {
+                    console.log('MongoDB application store :: Book (entityId=' + entityId + ') removed');
+                })
+            ])(rq.run);
         },
 
 
@@ -304,73 +346,3 @@ var __ = require("underscore"),
                 return callback(205, undefined);
             });
         };
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Register application subscriptions
-///////////////////////////////////////////////////////////////////////////////
-
-/*
- // Replay all Book state change events when new state changes have been created
- // TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
- messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('MongoDB application store :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.then(function () {
- _replayAllStateChanges(library.Book, serverPush, mongodb.db, 'event-mapreduced');
- }),
- rq.then(function () {
- console.log('MongoDB application store :: All entities replayed from Event Store');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['book-updated'], function (updatedBook) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('MongoDB application store :: \'book-updated\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.value(updatedBook),
- library.Book.update,
- rq.then(function () {
- console.log('MongoDB application store :: Book updated');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['book-removed'], function (entityId) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('MongoDB application store :: \'book-removed\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.value(entityId),
- library.Book.remove,
- rq.then(function () {
- console.log('MongoDB application store :: Book removed');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['remove-all-books'], function (message) {
- 'use strict';
- console.log('MongoDB application store :: \'remove-all-books\' :: subscription message received');
- return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
- if (err) {
- console.error('MongoDB application store :: Error when dropping \'' + library.Book.collectionName() + '\' :: ' + err);
- }
- console.warn('MongoDB application store :: \'' + library.Book.collectionName() + '\' collection dropped!');
- messenger.publishAll('all-books-removed', 'mongodb');
- });
- });
- */

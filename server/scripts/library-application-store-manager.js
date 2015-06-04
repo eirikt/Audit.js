@@ -16,15 +16,14 @@ var __ = require('underscore'),
     race = RQ.race,
 
     rq = require('rq-essentials'),
-    go = rq.execute,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
 
-    clientSidePublisher = require('./socketio.config').serverPush,
+    //clientSidePublisher = require('./socketio.config').serverPush,
     messageBus = require('./messaging'),
-    eventSourcing = require('./mongoose.event-sourcing'),
-    eventSourcingModel = require('./mongoose.event-sourcing.model'),
+    //eventSourcing = require('./mongoose.event-sourcing'),
+    //eventSourcingModel = require('./mongoose.event-sourcing.model'),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
 
     mongoDbAppStore = require('./library-application-store.mongodb'),
@@ -39,17 +38,17 @@ var __ = require('underscore'),
 ///////////////////////////////////////////////////////////////////////////////
 
 // Event Store (MongoDB)
-    rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
+    //rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
 
 // Application Store (In-memory)
-    rqInMemoryBookInvocation = null,
-    rqInMemoryJsonBookInvocation = null,
-    rqInMemoryFindBookInvocation = null,
+    //rqInMemoryBookInvocation = null,
+    //rqInMemoryJsonBookInvocation = null,
+    //rqInMemoryFindBookInvocation = null,
 
 // Application Store (MongoDB)
-    rqMongooseBookInvocation = curry(rq.mongoose, library.Book),
+    //rqMongooseBookInvocation = curry(rq.mongoose, library.Book),
     rqMongooseJsonBookInvocation = curry(rq.mongooseJson, library.Book),
-    rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
+    //rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,21 +83,22 @@ var __ = require('underscore'),
                     callback2(args, undefined);
                     callback(args, undefined);
                 }
-            ])(go);
+            ])(rq.run);
         },
 
 
     _removeAllBooks = exports.removeAllBooks =
         function (callback, args) {
             'use strict';
-            //try {
             sequence([
                 parallel([
                     naiveInMemoryAppStore.reset,
                     mongoDbAppStore.reset
                 ]),
-                // TODO: This is a generic function, generify and extract
+                // TODO: This is a generic function, generify and extract => 'RQ-essentials.js'
                 function (callback2, applicationStoreStatusCodes) {
+
+                    // TODO: Move to http predicates somewhere
                     var isResetContent = function (element, index, array) {
                             return element === httpResponseCode['Reset Content'];
                         },
@@ -114,20 +114,12 @@ var __ = require('underscore'),
                     if (applicationStoreStatusCodes.some(isResetContent)) {
                         return callback(httpResponse['Reset Content'], undefined);
                     }
+                    // TODO: More response codes, I guess ...
 
                     console.error('Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                     callback(undefined, 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                 }
-            ])(go);
-            //} catch (e) {
-            //    console.error(e);
-            //    console.error(JSON.stringify(e));
-            //    console.error(e.message);
-            //    if (e.message.toLowerCase() === 'not a function') {
-            //        return callback(undefined, 501);
-            //    }
-            //    return callback(undefined, 500);
-            //}
+            ])(rq.run);
         };
 
 
@@ -144,55 +136,42 @@ messageBus.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-event
             console.log('Application Store Manager :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
         }),
         rq.continueIf(cqrs.isEnabled),
-        // TODO: Why do these replaying of event store has to be sequential and not parallel?
         mongooseEventSourcingMapreduce.find(library.Book),
+
+        // TODO: Should be in parallel, like below - but crashes from time to time ...
         naiveInMemoryAppStore.replayAllStateChanges(library.Book, 'event-mapreduced'),
-        mongoDbAppStore.replayAllStateChanges(library.Book, 'event-mapreduced')//,
-    ])(go);
+        mongoDbAppStore.replayAllStateChanges(library.Book, 'event-mapreduced')
+    ])(rq.run);
 });
 
 
 messageBus.subscribe(['book-updated'], function (updatedBook) {
     'use strict';
+    sequence([
+        rq.do(function () {
+            console.log('Application Store Manager :: \'book-updated\' :: subscription message received');
+        }),
+        rq.continueIf(cqrs.isEnabled),
+        rq.value(updatedBook),
+        parallel([
+            naiveInMemoryAppStore.updateBook,
+            mongoDbAppStore.updateBook
+        ])
+    ])(rq.run);
 });
 
 
 messageBus.subscribe(['book-removed'], function (entityId) {
     'use strict';
+    sequence([
+        rq.do(function () {
+            console.log('Application Store Manager :: \'book-removed\' :: subscription message received');
+        }),
+        rq.continueIf(cqrs.isEnabled),
+        rq.value(entityId),
+        parallel([
+            naiveInMemoryAppStore.removeBook,
+            mongoDbAppStore.removeBook
+        ])
+    ])(rq.run);
 });
-
-
-/*
- messageBus.subscribe(['remove-all-books'], function (message) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('Application Store Manager :: \'remove-all-books\' :: subscription message received');
- }),
- rq.continueIf(cqrs.isEnabled),
- //function (callback, args) {
- //    return callback(args, undefined);
- //},
- // TODO: Why do these replaying of event store has to be sequential and not parallel?
- //rq.then(function () {
- mongooseEventSourcingMapreduce.find(library.Book),
- //}),
- //function (callback, args) {
- //    return callback(args, undefined);
- //},
- //rq.then(function () {
- naiveInMemoryAppStore.replayAllStateChanges(library.Book, 'event-mapreduced'),
- //}),
- //rq.then(function () {
- mongoDbAppStore.replayAllStateChanges(library.Book, 'event-mapreduced')//,
- //})//,
- //function (callback, args) {
- //    return callback(args, undefined);
- //}
- //rq.then(function () {
- //    naiveInMemoryAppStore.replayAllStateChanges();
- //})
- //])(run);
- ])(go);
- });
- */

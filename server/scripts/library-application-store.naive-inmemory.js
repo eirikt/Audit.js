@@ -13,8 +13,6 @@ var __ = require("underscore"),
     sequence = RQ.sequence,
 
     rq = require("rq-essentials"),
-    then = rq.then,
-    go = rq.go,
 
     utils = require('./utils'),
 
@@ -102,15 +100,15 @@ var __ = require("underscore"),
                     } else {
                         sequence([
                             _buildEntityAndSaveInApplicationStore(entityType, reducedEntityChangeEvents),
-                            then(function () {
+                            rq.then(function () {
                                 if (eligibleForServerPush) {
                                     doServerPush(startTime, numberOfServerPushEmits, index, count);
                                 }
                             }),
-                            then(function () {
+                            rq.then(function () {
                                 return callback(arguments, undefined);
                             })
-                        ])(go);
+                        ])(rq.run);
                     }
                 }
             };
@@ -218,7 +216,7 @@ var __ = require("underscore"),
                                     callback2(cursor, undefined);
                                     return callback3(args3, undefined);
                                 });
-                                sequence(conditionalRecreateRequestorArray)(go);
+                                sequence(conditionalRecreateRequestorArray)(rq.run);
                             },
 
                             function (callback2, results) {
@@ -226,7 +224,7 @@ var __ = require("underscore"),
                                 //messenger.publishAll('all-events-replayed');
                                 return callback2(results, undefined);
                             }
-                        ])(go);
+                        ])(rq.run);
                     }),
                     rq.then(function () {
                         _setState('consistent', true);
@@ -237,7 +235,7 @@ var __ = require("underscore"),
                     rq.then(function () {
                         callback(query2, undefined);
                     })
-                ])(go);
+                ])(rq.run);
             };
         },
 
@@ -281,6 +279,61 @@ var __ = require("underscore"),
         },
 
 
+     _updateBook = exports.updateBook =
+        function requestor(callback, updatedBook) {
+            'use strict';
+            sequence([
+                rq.do(function () {
+                    console.log('Naïve in-memory application store :: Updating book (entityId=' + updatedBook.entityId + ') ...');
+                }),
+                rq.then(function () {
+                    _setState('consistent', false);
+                }),
+                rq.value(updatedBook),
+                function (callback, updatedBook) {
+                    _db[updatedBook._id] = updatedBook;
+                    callback(updatedBook, undefined);
+                },
+                rq.then(function () {
+                    _setState('consistent', true);
+                }),
+                rq.then(function () {
+                    console.log('Naïve in-memory application store :: Book (entityId=' + updatedBook.entityId + ') updated');
+                })
+            ])(rq.run);
+        },
+
+
+    _removeBook = exports.removeBook =
+        function requestor(callback, entityId) {
+            'use strict';
+            sequence([
+                rq.do(function () {
+                    console.log('Naïve in-memory application store :: Removing book (entityId=' + entityId + ') ...');
+                }),
+                rq.then(function () {
+                    _setState('consistent', false);
+                }),
+                rq.value(entityId),
+                function (callback, entityId) {
+                    // JavaScript Array, remove element - nope, using associative array/object instead
+                    //var index = _db.indexOf(entityId);
+                    //if (index > -1) {
+                    //    _db.splice(index, 1);
+                    //}
+                    delete _db[entityId];
+                    callback(entityId, undefined);
+                },
+                rq.then(function () {
+                    _setState('consistent', true);
+                }),
+                rq.then(function () {
+                    console.log('Naïve in-memory application store :: Book (entityId=' + entityId + ') removed');
+                })
+            ])(rq.run);
+        },
+
+
     _reset = exports.reset =
         function requestor(callback, args) {
             'use strict';
@@ -292,166 +345,3 @@ var __ = require("underscore"),
             messenger.publishAll('all-books-removed', _id);
             return callback(205, undefined);
         };
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Register application subscriptions
-///////////////////////////////////////////////////////////////////////////////
-
-/*
- // Replay all Book state change events when new state changes have been created
- // TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
- messenger.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('Naïve in-memory application store :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.then(function () {
- _setState('consistent', false);
- }),
- rq.then(function () {
- console.log('Naïve in-memory application store :: Replaying entire event store / state change log ...');
- var startTime = Date.now(),
- numberOfServerPushEmits = 1000,
- intervalInMillis = 50;
-
- // TODO: Silence this application store by config
- //messenger.publishAll('mapreducing-events', null, startTime);
-
- // TODO: Ugh, clean up these requestors ...
- return sequence([
- mongooseEventSourcingMapreduce.find(library.Book),
-
- function (callback2, query) {
- if (__.isEmpty(query)) {
- console.warn('Naïve in-memory application store :: Nothing returned from database, continuing with zero items ...');
- // TODO: Silence this application store by config
- //messenger.publishAll('all-events-mapreduced', 0, startTime);
- //messenger.publishAll('replaying-events', 0, startTime);
- return callback2({
- cursor: {
- length: 0
- }
- }, undefined);
- }
- query.find(function (err, cursor) {
- // TODO: Silence this application store by config
- //messenger.publishAll('all-events-mapreduced', cursor.length, startTime);
- //messenger.publishAll('replaying-events', cursor.length, startTime);
- return callback2(cursor, undefined);
- });
- },
-
- function (callback2, cursor) {
- var conditionalRecreateRequestorArray = [],
- curriedFunc,
- index = 0;
-
- if (!cursor) {
- console.warn('Naïve in-memory application store :: UNEXPECTED! Missing cursor from query ... WILL NOT REBUILD this app store');
- return callback2(cursor, undefined);
- }
-
- for (; index < cursor.length; index += 1) {
- curriedFunc = _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere(
- library.Book,
- cursor[index],
- serverPush,
- startTime,
- numberOfServerPushEmits,
- index,
- cursor.length);
-
- conditionalRecreateRequestorArray.push(curriedFunc);
- }
- conditionalRecreateRequestorArray.push(function (callback3, args3) {
- callback2(cursor, undefined);
- return callback3(args3, undefined);
- });
- sequence(conditionalRecreateRequestorArray)(go);
- },
-
- function (callback2, results) {
- // TODO: Silence this application store by config
- //messenger.publishAll('all-events-replayed');
- return callback2(results, undefined);
- }
- ])(go);
- }),
- rq.then(function () {
- _setState('consistent', true);
- }),
- rq.then(function () {
- console.log('Naïve in-memory application store :: All entities replayed from Event Store');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['book-updated'], function (updatedBook) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('Naïve in-memory application store :: \'book-updated\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.then(function () {
- _setState('consistent', false);
- }),
- rq.value(updatedBook),
- function (callback, updatedBook) {
- _db[updatedBook._id] = updatedBook;
- callback(updatedBook, undefined);
- },
- rq.then(function () {
- _setState('consistent', true);
- }),
- rq.then(function () {
- console.log('Naïve in-memory application store :: MongoDB application store: Book updated');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['book-removed'], function (entityId) {
- 'use strict';
- sequence([
- rq.do(function () {
- console.log('Naïve in-memory application store :: \'book-removed\' :: subscription message received');
- }),
- rq.continueIf(cqrsService.isCqrsEnabled),
- rq.then(function () {
- _setState('consistent', false);
- }),
- rq.value(entityId),
- function (callback, entityId) {
- // JavaScript Array, remove element - nope, using associative array/object instead
- //var index = _db.indexOf(entityId);
- //if (index > -1) {
- //    _db.splice(index, 1);
- //}
- delete _db[entityId];
- callback(entityId, undefined);
- },
- rq.then(function () {
- _setState('consistent', true);
- }),
- rq.then(function () {
- console.log('Naïve in-memory application store :: Book removed');
- })
- ])(go);
- });
-
-
- messenger.subscribe(['remove-all-books'], function (message) {
- 'use strict';
- console.log('Naïve in-memory application store :: \'remove-all-books\' :: subscription message received');
- _setState('consistent', false);
- _db = {};
- _setState('consistent', true);
- console.warn('\'' + library.Book.collectionName() + '\' collection dropped!');
- messenger.publishAll('all-books-removed', 'inmemory');
- });
- */

@@ -12,7 +12,6 @@ var __ = require("underscore"),
     race = RQ.race,
     then = rq.then,
     cancel = rq.cancel,
-    go = rq.execute,
     mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
     utils = require("./utils.js"),
@@ -308,7 +307,7 @@ var __ = require("underscore"),
                         then(callback)
                     ]),
                     cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
-                ])(go);
+                ])(rq.run);
             };
         },
 
@@ -406,6 +405,6 @@ var __ = require("underscore"),
                         }
                     ]),
                     cancel(callback, "Audit.js :: Projecting '" + entityType.modelName + "s' via map-reducing event store failed!")
-                ])(go);
+                ])(rq.run);
             };
         };

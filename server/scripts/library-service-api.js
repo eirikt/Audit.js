@@ -2,10 +2,8 @@
 /* jshint -W024, -W106 */
 
 var __ = require('underscore'),
-    httpResponse = require('statuses'),
-    httpResponseCode = httpResponse,
-    promise = require('promised-io/promise'), // Loose it!
-    seq = promise.seq, // Loose it!
+    promise = require('promised-io/promise'),// TODO: Loose it!
+    seq = promise.seq,// TODO: Loose it!
 
     RQ = require('async-rq'),
     sequence = RQ.sequence,
@@ -14,7 +12,6 @@ var __ = require('underscore'),
     race = RQ.race,
 
     rq = require('rq-essentials'),
-    go = rq.execute,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
@@ -25,7 +22,6 @@ var __ = require('underscore'),
     eventSourcingModel = require("./mongoose.event-sourcing.model"),
     randomBooks = require("./random-books"),
 
-    simpleInMemoryDb = require('./library-application-store.naive-inmemory'),
     applicationStores = require('./library-application-store-manager'),
     cqrs = require('./cqrs-service-api'),
     library = require('./library-model'),
@@ -40,87 +36,14 @@ var __ = require('underscore'),
     rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
 
 // Application Store (In-memory)
-    rqInMemoryBookInvocation = null,
-    rqInMemoryJsonBookInvocation = null,
-    rqInMemoryFindBookInvocation = null,
+//    rqInMemoryBookInvocation = null,
+//    rqInMemoryJsonBookInvocation = null,
+//    rqInMemoryFindBookInvocation = null,
 
 // Application Store (MongoDB)
     rqMongooseBookInvocation = curry(rq.mongoose, library.Book),
-    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, library.Book),
+//    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, library.Book),
     rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
-
-
-// TODO: Move to 'RQ-essentials.js'
-//timedRun = function (successResponseStatusCode, successResponseBody, request, response) {
-    timedRun = function (request, response) {
-        'use strict';
-        return function (success, failure) {
-            var failureMessage,
-                successMessage,
-                uri = request.originalUrl,
-                internalServerError = 500,
-                statusCode = internalServerError;
-
-            if (success) {
-                /*if (__.isFunction(success)) {
-                 successMessage = typeof success;
-
-                 } else if (__.isObject(success)) {
-                 successMessage = 'Details: ';
-                 if (success.name) {
-                 successMessage += success.name;
-                 if (success.milliseconds) {
-                 successMessage += ' after ' + success.milliseconds + ' milliseconds';
-                 }
-                 } else {
-                 successMessage = JSON.stringify(success);
-                 }
-
-                 } else*/
-                if (__.isNumber(success)) {
-                    statusCode = success;
-                    successMessage = httpResponse[statusCode];
-                    response.status(statusCode).json(successMessage);
-
-                //} else {
-                //    successMessage = success;
-                }
-                console.log('RQ-essentials-express4 :: Resource \'' + uri + '\' processed successfully (' + successMessage + ')');
-
-                if (failure) {
-                    console.warn('RQ-essentials-express4 :: Resource \'' + uri + '\' processed successfully, but failure also present (' + failure + ')');
-                }
-
-                return;
-            }
-
-            if (failure) {
-                if (__.isFunction(failure)) {
-                    failureMessage = typeof failure;
-
-                } else if (__.isObject(failure)) {
-                    failureMessage = 'Details: ';
-                    if (failure.name) {
-                        failureMessage += failure.name;
-                        if (failure.milliseconds) {
-                            failureMessage += ' after ' + failure.milliseconds + ' milliseconds';
-                        }
-                    } else {
-                        failureMessage = JSON.stringify(failure);
-                    }
-
-                } else if (__.isNumber(failure)) {
-                    statusCode = failure;
-                    failureMessage = httpResponse[statusCode];
-
-                } else {
-                    failureMessage = failure;
-                }
-                console.error('RQ-essentials-express4 :: Resource \'' + uri + '\' failed! (' + failureMessage + ')');
-                response.status(statusCode).json(failureMessage);
-            }
-        };
-    },
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -211,9 +134,11 @@ var __ = require('underscore'),
      */
     _removeAllBooksFromCache = exports.removeAllBooksFromCache = function (request, response) {
         'use strict';
-        firstSuccessfulOf
-        ([
+        firstSuccessfulOf([
             sequence([
+                //function (callback, args) {
+                //    callback(args, undefined);
+                //},
                 rq.if(utils.notHttpMethod('POST', request)),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
@@ -223,15 +148,10 @@ var __ = require('underscore'),
                 rq.value('URI \'library/books/clean\' posted when no application store in use'),
                 utils.send202AcceptedResponseWithArgumentAsBody(response)
             ]),
-            //sequence([
-            //rq.then(curry(messageBus.publishServerSide, 'remove-all-books'))
-            // TODO: Or
-            //rq.then(applicationStores.removeAllBooks)
-            applicationStores.removeAllBooks//,
-
-            //utils.send205ResetContentResponse(response)
-            //])
-        ], 6000)(timedRun(request, response));
+            sequence([
+                applicationStores.removeAllBooks
+            ])
+        ], 6000)(rq.handleTimeoutAndStatusCode(request, response));
     },
 
 
@@ -252,9 +172,8 @@ var __ = require('underscore'),
         'use strict';
         var countAllQuery = null,
             eventStore_CountAllStateChanges = rqMongooseJsonStateChangeInvocation('count', countAllQuery),
-            eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery),
-            appStore_InMemory_CountAllBooks = simpleInMemoryDb.count(),
-            appStore_MongoDb_CountAllBooks = rqMongooseJsonBookInvocation('count', countAllQuery);
+        // TODO: 'library.Book' shouldn't really be referenced in this file
+            eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery);
 
         firstSuccessfulOf([
             sequence([
@@ -264,8 +183,7 @@ var __ = require('underscore'),
             ]),
             sequence([
                 rq.if(cqrs.isEnabled),
-                applicationStores.countAllBooks,//(),
-                //rq.then(applicationStores.countAllBooks),
+                applicationStores.countAllBooks,
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
             // Just a demo, not particular useful ...
@@ -278,46 +196,16 @@ var __ = require('underscore'),
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
             sequence([
+                // TODO: Could this push/pop thing be solved by inital values argument to requestor/requestor chains?
                 rq.pop, // Cleaning: If reached this final sequence, the stacked value is not pop'ed - so just pop it and move on
                 eventStore_CountAllBooks,
                 utils.send200OkResponseWithArgumentAsBody(response)
+            ]),
+            sequence([
+                utils.send500InternalServerErrorResponse(response)
             ])
-            //], 4000)(run(request, response));
-        ], 60000)(timedRun(request, response));
+        ], 60000)(rq.handleTimeout(request, response));
     },
-
-/*
- run = function (request, response) {
- 'use strict';
- return function (success, failure) {
- var failureMessage,
- uri = request.originalUrl,
- internalServerError = 500;
-
- if (failure) {
- if (__.isFunction(failure)) {
- failureMessage = typeof failure;
-
- } else if (__.isObject(failure)) {
- failureMessage = 'Details: ';
- if (failure.name) {
- failureMessage += failure.name;
- if (failure.milliseconds) {
- failureMessage += ' after ' + failure.milliseconds + ' milliseconds';
- }
- } else {
- failureMessage = JSON.stringify(failure);
- }
-
- } else {
- failureMessage = failure;
- }
- console.error('RQ-essentials-express4 :: Resource \'' + uri + '\' failed! (' + failureMessage + ')');
- response.status(internalServerError).send(failureMessage);
- }
- };
- },
- '*/
 
 
     /**
@@ -338,6 +226,7 @@ var __ = require('underscore'),
      *                                "totalCount"              (the total (unfiltered) number of books in database collection)
      * Event messages emitted       : -
      */
+        // TODO: Rewrite using application store manager
     _projectBooks = exports.projectBooks = function (request, response) {
         'use strict';
         // Pagination
@@ -397,11 +286,14 @@ var __ = require('underscore'),
                 })
             ]),
             sequence([
+                // TODO: 'library.Book' shouldn't really be referenced in this file
                 eventSourcing.project(library.Book, findQuery, sortQuery, skip, limit),
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
-            utils.send500InternalServerErrorResponse(response)
-        ])(go);
+            sequence([
+                utils.send500InternalServerErrorResponse(response)
+            ])
+        ])(rq.run);
     },
 
 
@@ -411,7 +303,7 @@ var __ = require('underscore'),
      * CQRS Command
      *
      * HTTP method                  : PUT
-     * Resource properties incoming : (a "BookMongooseSchema" object resource containing properties to be updated only)
+     * Resource properties incoming : (a "BookMongooseSchema" object resource containing properties to be updated only! (Incremental changes/"diff" only))
      * Status codes                 : 201 Created                       (new update event is stored)
      *                                400 Bad Request                   (when request body is empty)
      *                                404 Not Found                     (when the resource does not exist)
@@ -422,9 +314,7 @@ var __ = require('underscore'),
      */
     _updateBook = exports.updateBook = function (request, response) {
         'use strict';
-
-        var entityId = request.params.entityId,
-            requestBody = request.body;
+        var entityId = request.params.entityId;
 
         firstSuccessfulOf([
             sequence([
@@ -438,12 +328,12 @@ var __ = require('underscore'),
                 utils.send400BadRequestResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                rq.if(utils.isMissing(requestBody)),
+                rq.if(utils.isMissing(request.body)),
                 rq.value('Mandatory request body is missing'),
                 utils.send400BadRequestResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                rq.if(utils.isEmpty(requestBody)),
+                rq.if(utils.isEmpty(request.body)),
                 rq.value('Mandatory request body is not valid'),
                 utils.send400BadRequestResponseWithArgumentAsBody(response)
             ]),
@@ -456,14 +346,17 @@ var __ = require('underscore'),
             ]),
             sequence([
                 rq.pop,
-                eventSourcing.createAndSaveStateChange('UPDATE', library.Book, entityId, requestBody, randomBooks.randomUser()),
+                // TODO: 'library.Book' shouldn't really be referenced in this file
+                eventSourcing.createAndSaveStateChange('UPDATE', library.Book, entityId, request.body, randomBooks.randomUser()),
                 utils.send201CreatedResponseWithBodyConsistingOf(['entityId', 'changes'], response),
                 eventSourcing.getStateChangesByEntityId(entityId),
                 eventSourcing.rebuildEntity(library.Book, entityId),
                 rq.then(curry(messageBus.publishAll, 'book-updated'))
             ]),
-            utils.send500InternalServerErrorResponse(response)
-        ])(go);
+            sequence([
+                utils.send500InternalServerErrorResponse(response)
+            ])
+        ])(rq.run);
     },
 
 
@@ -510,6 +403,8 @@ var __ = require('underscore'),
                 rq.pick('entityId'),
                 rq.then(curry(messageBus.publishAll, 'book-removed'))
             ]),
-            utils.send500InternalServerErrorResponse(response)
-        ])(go);
+            sequence([
+                utils.send500InternalServerErrorResponse(response)
+            ])
+        ])(rq.run);
     };

@@ -29,49 +29,6 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Generic curry-friendly helper functions
-///////////////////////////////////////////////////////////////////////////////
-    _notHttpMethod = exports.notHttpMethod =
-        function (httpMethod, request) {
-            'use strict';
-            return function () {
-                return request.method !== httpMethod;
-            };
-        },
-
-    /**
-     * Meant for serialized/over-the-wire-sent data ...
-     */
-    _isMissing = exports.isMissing =
-        function (valueOrArray) {
-            'use strict';
-            return function () {
-                if (!valueOrArray && valueOrArray !== 0) {
-                    return true;
-                }
-                return !!(_fun.isString(valueOrArray) && valueOrArray.trim() === '');
-            };
-        },
-
-    /**
-     * Meant for runtime objects ...
-     */
-    _isEmpty = exports.isEmpty =
-        function (objectOrArray) {
-            'use strict';
-            return function () {
-                if (_fun.isArray(objectOrArray)) {
-                    return objectOrArray.length < 1;
-                }
-                if (_fun.isObject(objectOrArray)) {
-                    return Object.keys(objectOrArray).length === 0;
-                }
-                return _isMissing(objectOrArray)();
-            };
-        },
-
-
-///////////////////////////////////////////////////////////////////////////////
 // Generic helper functions
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -157,6 +114,50 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Predicate factories
+// Generic curry-friendly helper (higher order) functions
+///////////////////////////////////////////////////////////////////////////////
+    _notHttpMethod = exports.notHttpMethod =
+        function (httpMethod, request) {
+            'use strict';
+            return function () {
+                return request.method !== httpMethod;
+            };
+        },
+
+    /**
+     * Meant for serialized/over-the-wire-sent data ...
+     */
+    _isMissing = exports.isMissing =
+        function (valueOrArray) {
+            'use strict';
+            return function () {
+                if (!valueOrArray && valueOrArray !== 0) {
+                    return true;
+                }
+                return !!(_fun.isString(valueOrArray) && valueOrArray.trim() === '');
+            };
+        },
+
+    /**
+     * Meant for runtime objects ...
+     */
+    _isEmpty = exports.isEmpty =
+        function (objectOrArray) {
+            'use strict';
+            return function () {
+                if (_fun.isArray(objectOrArray)) {
+                    return objectOrArray.length < 1;
+                }
+                if (_fun.isObject(objectOrArray)) {
+                    return Object.keys(objectOrArray).length === 0;
+                }
+                return _isMissing(objectOrArray)();
+            };
+        },
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Predicated
 // TODO: Find some decent third-party predicate lib ...
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,4 +167,14 @@ var _fun = require("./fun"),
             'use strict';
             return arg < 1;
         }
+    },
+
+
+///////////////////////////////////////////////////////////////////////////////
+// TODO: Find some decent third-party predicate lib ...
+///////////////////////////////////////////////////////////////////////////////
+
+    _not = exports.not = function (arg) {
+        'use strict';
+        return !arg;
     };

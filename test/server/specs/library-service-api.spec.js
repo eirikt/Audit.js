@@ -3,6 +3,7 @@
 
 var sinon = require('sinon'),
     expect = require('chai').expect,
+    httpResponse = require('statuses'),
 
     messageBus = require('../../../server/scripts/messaging'),
 
@@ -20,6 +21,7 @@ var sinon = require('sinon'),
     mongooseEventSourcingMapreduceStub = { '@noCallThru': false },
     mongooseEventSourcingModelsStub = { '@noCallThru': false },
     mongodbMapReduceStatisticsEmitterStub = { '@noCallThru': false },
+    applicationStoresStub = { '@noCallThru': false },
     cqrsServiceStub = {},
     libraryModelStub = { '@noCallThru': false },
 
@@ -34,6 +36,7 @@ var sinon = require('sinon'),
         './mongoose.event-sourcing.mapreduce': mongooseEventSourcingMapreduceStub,
         './mongoose.event-sourcing.model': mongooseEventSourcingModelsStub,
         './mongodb.mapreduce-emitter': mongodbMapReduceStatisticsEmitterStub,
+        './library-application-store-manager': applicationStoresStub,
         './cqrs-service-api': cqrsServiceStub,
         './library-model': libraryModelStub
     });
@@ -74,9 +77,7 @@ describe('Library service API specification\'s', function () {
             changes: {
                 title: 'In the Dust of this Planet'
             }
-        };//,
-
-        //recreatedMongooseIdObject = null;
+        };
 
 
     it('should exist', function () {
@@ -108,7 +109,7 @@ describe('Library service API specification\'s', function () {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.be.equal(405);
-                                expect(responseBody).to.be.equal('URI \'library/books/clean\' supports POST requests only');
+                                expect(responseBody).to.be.equal('URI \'' + request.originalUrl + '\' supports POST requests only');
 
                                 done();
                             }
@@ -120,7 +121,7 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should send response status code 202 Accepted if CQRS is disabled', function (done) {
+        it('should send response status code 202 Accepted, when CQRS is disabled', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/clean'
@@ -139,7 +140,7 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            cqrsServiceStub.isCqrsDisabled = function () {
+            cqrsServiceStub.isDisabled = function () {
                 return true;
             };
 
@@ -147,62 +148,73 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should send response status code 205 Reset Content', function (done) {
+        it('should send response status code 205 Reset Content, when CQRS is enabled', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/clean'
                 },
                 response = {
-                    sendStatus: function (responseStatusCode) {
-                        expect(responseStatusCode).to.equal(205);
-                        done();
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(205);
+                                expect(responseBody).to.be.equal('Reset Content');
+
+                                done();
+                            }
+                        };
                     }
                 };
 
-            messageBusStub.publishAll = sinon.spy();
-
-            cqrsServiceStub.isCqrsDisabled = function () {
+            cqrsServiceStub.isDisabled = function () {
                 return false;
+            };
+
+            applicationStoresStub.removeAllBooks = function (callback, args) {
+                callback(httpResponse['Reset Content'], undefined);
             };
 
             libraryService.removeAllBooksFromCache(request, response);
         });
 
 
-        it('should publish \'remove-all-books\' message, server-side only', function (done) {
-            var request = {
-                    method: 'POST',
-                    originalUrl: 'library/books/clean'
-                },
-                response = {
-                    sendStatus: rq.identity
-                };
-
-            cqrsServiceStub.isCqrsDisabled = function () {
-                return false;
-            };
-
-            messageBusStub.publishServerSide = sinon.spy(messageBus.publishServerSide);
-
-            messageBus.subscribeOnce('remove-all-books', function () {
-                expect(arguments.length).to.be.equal(0);
-
-                expect(messageBusStub.publishServerSide.calledOnce).to.be.true;
-                expect(messageBusStub.publishServerSide.getCall(0).args[0]).to.be.equal('remove-all-books');
-                // TODO: Why does this not work? It is fixed in 'messaging.js' ...
-                //expect(messageBusStub.publishServerSide.getCall(0).args.length).to.be.equal(1);
-
-                done();
-            });
-
-            libraryService.removeAllBooksFromCache(request, response);
-        });
+        // TODO: Establish 'library-application-store-manager.spec.js'
+        // TODO: Re-specify this in 'library-application-store-manager.spec.js'
+        //it('should publish \'remove-all-books\' message, server-side only, when CQRS is enabled', function (done) {
+        //    var request = {
+        //            method: 'POST',
+        //            originalUrl: 'library/books/clean'
+        //       },
+        //        response = {
+        //            sendStatus: rq.identity
+        //        };
+        //    cqrsServiceStub.isDisabled = function () {
+        //        return false;
+        //    };
+        //    messageBusStub.publishServerSide = sinon.spy(messageBus.publishServerSide);
+        //    messageBus.subscribeOnce('remove-all-books', function () {
+        //        expect(arguments.length).to.be.equal(0);
+        //        expect(messageBusStub.publishServerSide.calledOnce).to.be.true;
+        //        expect(messageBusStub.publishServerSide.getCall(0).args[0]).to.be.equal('remove-all-books');
+        //        // TODO: Why does this not work? It is fixed in 'messaging.js' ...
+        //        //expect(messageBusStub.publishServerSide.getCall(0).args.length).to.be.equal(1);
+        //        done();
+        //    });
+        //    libraryService.removeAllBooksFromCache(request, response);
+        //});
     });
 
 
     describe('\'updateBook\' resource function', function () {
 
         beforeEach(function () {
+            cqrsServiceStub.isEnabled = function () {
+                return false;
+            };
+
+            cqrsServiceStub.isDisabled = function () {
+                return true;
+            };
 
             eventSourcingStub.getStateChangesByEntityId = sinon.spy(function (entityId) {
                 return function requestor(callback, args) {
@@ -216,10 +228,9 @@ describe('Library service API specification\'s', function () {
                 };
             });
 
-
             eventSourcingStub.createAndSaveStateChange = sinon.spy(function (method, entityType, entityId, changes, user) {
                 return function requestor(callback, args) {
-                    console.log('eventSourcingStub.createAndSaveStateChange(' + method + ', ..., ' + entityId + ', ' + JSON.stringify(changes) + ')');
+                    //console.log('eventSourcingStub.createAndSaveStateChange(' + method + ', ..., ' + entityId + ', ' + JSON.stringify(changes) + ')');
                     if (method === "UPDATE" && changes) {
                         // Remove MongoDB/Mongoose id property "_id" if exists
                         // Frameworks like Backbone need the id property present to do a PUT, and not a CREATE ...
@@ -448,9 +459,9 @@ describe('Library service API specification\'s', function () {
                 };
 
             // TODO: Should not be necessary - but needed for 'should update application store if applicable, and when completed, publish \'book-updated\' message' spec below to work ...
-            cqrsServiceStub.isCqrsEnabled = function () {
-                return true;
-            };
+            //cqrsServiceStub.isEnabled = function () {
+            //    return true;
+            //};
 
             libraryService.updateBook(request, response);
         });
@@ -485,7 +496,9 @@ describe('Library service API specification\'s', function () {
 
             messageBus.subscribeOnce('book-updated', function (updatedBook) {
                 // CQRS: false
-                expect(libraryModelStub.Book.update.called).is.false;
+                // TODO: Establish 'library-application-store-manager.spec.js'
+                // TODO: Re-specify this in 'library-application-store-manager.spec.js'
+                //expect(libraryModelStub.Book.update.called).is.false;
 
                 expect(messageBusStub.publishAll.calledOnce).to.be.true;
                 expect(messageBusStub.publishAll.getCall(0).args[0]).to.be.equal('book-updated');
@@ -519,11 +532,11 @@ describe('Library service API specification\'s', function () {
     describe('\'deleteBook\' resource function', function () {
 
         beforeEach(function () {
-            cqrsServiceStub.isCqrsEnabled = function () {
+            cqrsServiceStub.isEnabled = function () {
                 return false;
             };
 
-            cqrsServiceStub.isCqrsDisabled = function () {
+            cqrsServiceStub.isDisabled = function () {
                 return true;
             };
 
@@ -707,6 +720,8 @@ describe('Library service API specification\'s', function () {
 
             messageBus.subscribeOnce('book-removed', function (entityIdOfRemovedBook) {
                 // CQRS: false
+                // TODO: Establish 'library-application-store-manager.spec.js'
+                // TODO: Re-specify this in 'library-application-store-manager.spec.js'
                 //expect(libraryModelStub.Book.remove.called).is.false;
 
                 expect(entityIdOfRemovedBook).to.be.equal(request.params.entityId);

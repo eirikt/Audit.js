@@ -1,24 +1,23 @@
 /* global JSON:false */
 /* jshint -W024 */
 
-var RQ = require("async-rq"),
+var RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
 
-    rq = require("rq-essentials"),
-    go = rq.go,
+    rq = require('rq-essentials'),
 
-    curry = require("./fun").curry,
+    curry = require('./fun').curry,
     utils = require('./utils'),
 
-    messenger = require("./messaging"),
+    messenger = require('./messaging'),
 
-    eventSourcing = require("./mongoose.event-sourcing"),
-    eventSourcingModel = require("./mongoose.event-sourcing.model"),
+    eventSourcing = require('./mongoose.event-sourcing'),
+    eventSourcingModel = require('./mongoose.event-sourcing.model'),
 
-    cqrsService = require("./cqrs-service-api"),
+    cqrsService = require('./cqrs-service-api'),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,7 +79,7 @@ var RQ = require("async-rq"),
                 })
             ]),
             utils.send500InternalServerErrorResponse(response)
-        ])(go);
+        ])(rq.run);
     },
 
 
@@ -118,7 +117,7 @@ var RQ = require("async-rq"),
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
             utils.send500InternalServerErrorResponse(response)
-        ])(go);
+        ])(rq.run);
     },
 
 
@@ -164,6 +163,5 @@ var RQ = require("async-rq"),
                 rq.then(curry(messenger.publishAll, 'replay-all-events'))
             ]),
             utils.send500InternalServerErrorResponse(response)
-        ])
-        (go);
+        ])(rq.run);
     };

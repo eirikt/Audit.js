@@ -6,7 +6,6 @@ var RQ = require('async-rq'),
     firstSuccessfulOf = RQ.fallback,
 
     rq = require('rq-essentials'),
-    go = rq.execute,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
@@ -38,7 +37,7 @@ var RQ = require('async-rq'),
             return _useCQRS;
         },
 
-    _isCqrsNotActive = exports.isCqrsDisabled = exports.isDisabled =
+    _isCqrsDisabled = exports.isCqrsDisabled = exports.isDisabled =
         function () {
             'use strict';
             return !_getCqrsStatus();
@@ -86,7 +85,7 @@ var RQ = require('async-rq'),
                     utils.send200OkResponseWithArgumentAsBody(response)
                 ]),
                 utils.send500InternalServerErrorResponse(response)
-            ])(go);
+            ])(rq.run);
         },
 
 
@@ -129,5 +128,5 @@ var RQ = require('async-rq'),
                     rq.then(curry(messenger.publishAll, 'cqrs'))
                 ]),
                 utils.send500InternalServerErrorResponse(response)
-            ])(go);
+            ])(rq.run);
         };

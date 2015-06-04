@@ -1,6 +1,6 @@
 {
     "name": "Audit.js",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "description": "A prototype/demo web app (for a simple library domain) using Event Sourcing and CQRS, in an all-JavaScript stack",
     "author": "Eirik Torske <eirik.torske@gmail.com>",
     "license": "MIT",
@@ -17,7 +17,7 @@
         "body-parser": "~1.12.3",
         "promised-io": "~0.3.5",
         "async-rq": "~0.0.1",
-        "rq-essentials": "eirikt/RQ-essentials",
+        "rq-essentials": "git+https://github.com/eirikt/RQ-essentials.git#master",
         "underscore": "~1.8.3"
     },
     "devDependencies": {
@@ -28,7 +28,7 @@
         "grunt-mocha-test": "~0.12.7",
         "sinon": "~1.14.1",
         "chai": "~2.3.0",
-        "proxyquire": "~1.4.0",
+        "proxyquire": "~1.5.0",
         "grunt-contrib-jshint": "~0.11.2",
         "grunt-jsdoc": "~0.6.3"
     },

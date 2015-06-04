@@ -261,19 +261,19 @@ describe('Event Sourcing service API specification\'s', function () {
 
 
         it('should exist', function () {
-            expect(eventSourcingService.events).to.exist;
+            expect(eventSourcingService.stateChanges).to.exist;
         });
 
 
         it('should be a function', function () {
-            expect(eventSourcingService.events).to.be.a('function');
+            expect(eventSourcingService.stateChanges).to.be.a('function');
         });
 
 
         it('should accept HTTP GET only', function (done) {
             var request = {
                     method: 'POST',
-                    originalUrl: '/events',
+                    originalUrl: '/stateChanges',
                     params: { entityId: -1 }
                 },
                 response = {
@@ -288,7 +288,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     }
                 };
 
-            eventSourcingService.events(request, response);
+            eventSourcingService.stateChanges(request, response);
         });
 
 
@@ -305,7 +305,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     }
                 };
 
-            expect(eventSourcingService.events(request, response)).to.be.undefined;
+            expect(eventSourcingService.stateChanges(request, response)).to.be.undefined;
         });
 
 
@@ -326,7 +326,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     }
                 };
 
-            eventSourcingService.events(request, response);
+            eventSourcingService.stateChanges(request, response);
         });
 
 
@@ -350,7 +350,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     done();
                 };
 
-            eventSourcingService.events(request, response);
+            eventSourcingService.stateChanges(request, response);
         });
 
 
@@ -379,7 +379,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     done();
                 };
 
-            eventSourcingService.events(request, response);
+            eventSourcingService.stateChanges(request, response);
         });
     });
 

@@ -15,23 +15,12 @@ var sinon = require('sinon'),
     cqrsService = proxyquire('../../../server/scripts/cqrs-service-api', {
         'rq-essentials': rqStub,
         './utils': utilsStub,
-        './messaging': messengerStub//,
+        './messaging': messengerStub
     });
 
 
 describe('CQRS service API specification\'s', function () {
     'use strict';
-
-    //before(function () {});
-
-
-    //beforeEach(function () {
-    //    messenger.resetMessenger();
-    //});
-
-
-    //afterEach(function () {});
-
 
     it('should exist', function () {
         expect(cqrsService).to.exist;
