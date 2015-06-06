@@ -1,7 +1,9 @@
-/* global define:false */
-define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-pagination-view"],
+define([
+        "underscore", "backbone",
+        "backbone.data-status", "backbone.status-view", "backbone.bootstrap.simple-four-button-pagination-view",
+        "app"],
 
-    function (_, Backbone, App, BootstrapSimpleFourButtonPaginationView) {
+    function (_, Backbone, DataStatus, DataStatusView, BootstrapSimpleFourButtonPaginationView, App) {
         "use strict";
 
         var BookCountView = Backbone.View.extend({
@@ -26,7 +28,7 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
                 '<td></td>' +
                 '<td><small><input id="titleSubstring" type="text" class="form-control" placeholder="filter on title" value="<%= titleSubstring %>"/></small></td>>' +
                 '<td><small><input id="authorSubstring" type="text" class="form-control" placeholder="filter on author" value="<%= authorSubstring %>"/></small></td>' +
-                '<td><small><input id="keywords" type="text" class="form-control" placeholder="filter on keyword" disabled title="Not yet available"/></small></td>'
+                '<td><small><input id="tags" type="text" class="form-control" placeholder="filter on tags" disabled title="Not yet available"/></small></td>'
             ),
             render: function () {
                 this.$el.html(this.template(this.model.toJSON()));
@@ -41,10 +43,23 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
                 '<td><small><%= seq %></small></td>' +
                 '<td><small><a href="#/library/books/<%= _id %>"><%- title %></a></small></td>' +
                 '<td><small><%- author %></small></td>' +
-                '<td><small><% _.each(keywords, function(keyobj) { %><%= keyobj.keyword %>&nbsp;<% }); %></small></td>'
+                '<td><% _.each(tags, function(tagObj) { %><span class="tag"><%= tagObj.tag %></span><% }); %></td>' +
+
+                '<td><small><em><span style="color:lightgrey;">(todo)</span></em></small></td>' +
+                '<td><small><em><span style="color:lightgrey;">(todo)</span></em></small></td>'
+                //'<td><small><em><%= numberOfLoans %></em></small></td>' +
+                //'<td><small><em><%= isOnLoan %></em></small></td>'
             ),
+            transformBool2VisualChecksIcons: function (model) {
+                var checked = '<span class="icon-check" style="font-size:larger;"></span>',
+                    notChecked = '',
+                    chosen = model.get('isOnLoan') === true ? checked : notChecked;
+                model.set('isOnLoan', chosen, { silent: true });
+            },
             render: function () {
-                this.$el.html(this.template(this.model.toJSON()));
+                var clonedModel = this.model.clone();
+                this.transformBool2VisualChecksIcons(clonedModel);
+                this.$el.html(this.template(clonedModel.toJSON()));
                 return this;
             }
         });
@@ -58,15 +73,22 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
                 '    <th><small>No</small></th>' +
                 '    <th><small>Title</small></th>' +
                 '    <th><small>Author</small></th>' +
-                '    <th><small>Keywords</small></th>' +
+                '    <th><small>Tags</small></th>' +
+                '    <th><small># Loans</small></th>' +
+                '    <th><small>On loan</small></th>' +
                 '  </tr>' +
                 '</thead>' +
                 '<tbody></tbody>' +
                 '</table>'
             ),
             initialize: function () {
-                //this.template = _.template($(this.templateSelector).html());
-                this.listenTo(this.collection, "reset", this.render);
+                //this.dataStatus = new DataStatus();
+                //DataStatusView.prototype.className = null;
+                //DataStatusView.prototype.style = "margin-left: 2rem; font-size: x-small; vertical-align: 10%;";
+                //var dataStatusView = new DataStatusView({ model: this.dataStatus });
+                //$("#bookListStatus").empty().append(dataStatusView.el);
+
+                this.listenTo(this.collection, "reset remove", this.render);
             },
             isVisible: function () {
                 return this.$el.parent("div").hasClass("in");
@@ -83,7 +105,7 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
             _renderPagination: function () {
                 var paginator = new BootstrapSimpleFourButtonPaginationView({
                     model: new Backbone.Model({
-                        count: this.collection.filtering.totalCount,
+                        count: this.collection.hasFiltering() ? this.collection.filtering.totalCount : this.collection.totalBookCount,
                         currentIndex: this.collection.pagination.currentIndex,
                         pageCount: this.collection.pagination.count
                     })
@@ -145,6 +167,8 @@ define(["underscore", "backbone", "app", "backbone.bootstrap.simple-four-button-
                         self.$("#authorSubstring").focus().val($el.val());
                     });
                 }, App.KEYUP_TRIGGER_DELAY_IN_MILLIS);
+
+                //this.dataStatus.updateStatus(this.collection);
             },
             close: function () {
                 this.$("tr").remove();

@@ -13,7 +13,7 @@ define(["underscore", "backbone", "backbone.audit.history"],
                 author: null,
                 //releaseDate: null,
                 //coverImage: 'image/placeholder.png',
-                keywords: null
+                tags: null
             }
         });
         // Make the book state-change aware

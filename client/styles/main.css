@@ -5,6 +5,13 @@
     font-size: x-large;
 }
 
+.label {
+    padding: .5em 1.2em .62em 1em;
+    border-radius: 126px 126px 126px 126px;
+    -moz-border-radius: 126px 126px 126px 126px;
+    -webkit-border-radius: 126px 126px 126px 126px;
+}
+
 /**************************************
  * Twitter Bootstrap progressbar
  * http://stackoverflow.com/questions/18549790/bootstrap-modal-has-a-flaw
@@ -23,6 +30,17 @@
 /**************************************
  * Other stuff ...
  **************************************/
+.tag:before {
+    content: "#";
+}
+
+.tag {
+    font-family: Consolas, Menlo, Monaco, monospace;
+    font-style: italic;
+    font-size: small;
+    padding-right: .5rem;
+}
+
 .tiny {
     font-size: x-small;
 }

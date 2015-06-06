@@ -8,11 +8,13 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
          * HTTP server push events config
          */
         return Backbone.Model.extend({
+
             defaults: {
                 socket: null,
                 serverUrl: null,
                 connected: false
             },
+
 
             createLogMessage: function () {
                 var msg = arguments[0],
@@ -35,6 +37,7 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
                 retVal += " }";
                 return retVal;
             },
+
 
             /** Generic push event subscription */
             listenForPushEvent: function (eventId, callback) {
@@ -59,15 +62,17 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
                 });
             },
 
+
             initialize: function () {
+
                 if (!this.get("connected")) {
                     this.set("connected", true);
-                    //this.set("socket", SocketIo.connect(this.get("serverUrl")));
-                    this.set("socket", new SocketIo());
+                    this.set("socket", SocketIo.connect(this.get("serverUrl")));
                     console.log("Connecting to " + this.get("serverUrl") + " ...");
                 } else {
                     console.log("Already connected to " + this.get("serverUrl") + " ... not re-trying");
                 }
+
                 this.listenForPushEvent("number-of-connections");
 
                 this.listenForPushEvent("cqrs", App.refreshViews);

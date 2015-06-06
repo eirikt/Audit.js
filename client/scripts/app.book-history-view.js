@@ -39,12 +39,12 @@ define(["jquery", "underscore", "backbone", "moment"],
                     // Remove the book sequence number "seq" (internal, not human readable)
                     delete clonedAttributes.changes.seq;
 
-                    // Make the keyword property human readable (recursive flattening/"stringification")
-                    if (clonedAttributes.changes.keywords) {
-                        var keywords = _.clone(clonedAttributes.changes.keywords);
-                        delete clonedAttributes.changes.keywords;
-                        clonedAttributes.changes.keywords = _.map(keywords, function (keywordObj) {
-                            return keywordObj.keyword;
+                    // Make the tag property human readable (recursive flattening/"stringification")
+                    if (clonedAttributes.changes.tags) {
+                        var tags = _.clone(clonedAttributes.changes.tags);
+                        delete clonedAttributes.changes.tags;
+                        clonedAttributes.changes.tags = _.map(tags, function (tagObj) {
+                            return tagObj.tag;
                         });
                     }
                 }

@@ -17,7 +17,7 @@ define(["jquery", "underscore", "backbone", "app", "app.Book"],
             defaultFiltering: {
                 titleSubstring: null,
                 authorSubstring: null,
-                keywords: null,
+                tags: null,
                 count: 0,
                 totalCount: 0
             },

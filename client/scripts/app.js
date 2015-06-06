@@ -37,10 +37,34 @@ require([
                 defaults: {
                     titleSubstring: "",
                     authorSubstring: "",
-                    keywords: null,
+                    tags: null,
                     count: 0
                 },
-                url: "/library/books/count"
+                url: "/library/books/count"//,
+                /*
+                 _fetchByPOST: function () {
+                 return Backbone.Collection.prototype.fetch.call(this, {
+                 reset: true,
+                 type: "POST",
+                 url: this.url,
+                 data: {
+                 titleSubstring: this.titleSubstring,
+                 authorSubstring: this.authorSubstring,
+                 keywords: this.keywords,
+                 count: this.count
+                 }
+                 });
+                 },
+                 fetch: function () {
+                 return this._fetchByPOST();
+                 },
+                 */
+                //parse: function (response) {
+                    //this.totalBookCount = response.totalCount;
+                    //this.filtering.totalCount = response.count;
+                    //return response.bookk;
+                //    return { count: response };
+                //}
             });
             App.bookCount = new BookCount();
 

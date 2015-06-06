@@ -55,7 +55,7 @@ describe('Library service API specification\'s', function () {
                 _id: '55542f4556a413fc0b7fa066',
                 author: '?',
                 title: 'In the Dust of ... something',
-                keywords: []
+                tags: []
             }
         },
         stateChange2 = {
@@ -516,10 +516,10 @@ describe('Library service API specification\'s', function () {
                 // The "title" property is added when "replaying" all state changes for this entity, as is done for the "book-updated" event"
                 expect(updatedBook.title).to.be.equal(stateChange3.changes.title);
 
-                // The "keyword" property is added when "replaying" all state changes for this entity, as is done for the "book-updated" event"
+                // The "tag" property is added when "replaying" all state changes for this entity, as is done for the "book-updated" event"
                 // It is an array Mongoose schema-based objects, but empty
-                expect(updatedBook.keywords).to.exist;
-                expect(updatedBook.keywords.length).to.be.equal(0);
+                expect(updatedBook.tags).to.exist;
+                expect(updatedBook.tags.length).to.be.equal(0);
 
                 done();
             });

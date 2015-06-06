@@ -13,7 +13,7 @@ var _ = require('underscore'),
     titleElement1 = exports.titleElement1 = ['Dawn', 'Night', 'Sunset', 'Nightfall', 'Party', 'Winter', 'Summertime', 'Apocalypse', 'Journey'],
     titleElement2 = exports.titleElement2 = ['in', 'of', 'on', 'under', 'to'],
     titleElement3 = exports.titleElement3 = ['Earth', 'Mars', 'Andromeda', 'Utopia', 'Antarctica', 'America', 'Europe', 'Africa', 'Asia', 'Oceania'],
-    keywords = exports.keywords = ['#scifi', '#thriller', '#fantasy', '#debut', '#novel', '#shortstories', '#pageturner', '#blockbuster', '#rollercoaster'],
+    tags = exports.tags = ['scifi', 'thriller', 'fantasy', 'debut', 'novel', 'shortstories', 'pageturner', 'blockbuster', 'rollercoaster'],
 
 
     getRandomAlphanumericStringOfLength = exports.getRandomAlphanumericStringOfLength =
@@ -48,22 +48,21 @@ var _ = require('underscore'),
             return pickRandomElementFrom(firstNames) + ' ' + pickRandomElementFrom(lastNames);
         },
 
-    randomKeyword = exports.randomKeyword =
+    randomTag = exports.randomTag =
         function () {
             'use strict';
-            return pickRandomElementFrom(keywords);
+            return pickRandomElementFrom(tags);
         },
 
     createRandomBookAttributes = exports.createRandomBookAttributes =
-        function (KeywordType) {
+        function (TagType) {
             'use strict';
             return {
                 title: randomBookTitle(),
                 author: randomName(),
-                keywords: [
-                    new KeywordType({ keyword: randomKeyword() }),
-                    new KeywordType({ keyword: randomKeyword() }),
-                    new KeywordType({ keyword: randomKeyword() })
+                tags: [
+                    new TagType({ tag: randomTag() }),
+                    new TagType({ tag: randomTag() })
                 ]
             };
         };

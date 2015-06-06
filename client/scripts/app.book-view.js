@@ -31,7 +31,7 @@ define(["jquery", "underscore", "backbone"],
                 '  <div class="row" style="margin-top:3rem;">' +
                 '    <div class="col-sm-12">' +
                 '      <label>Tags&nbsp;</label>' +
-                '      <% _.each(keywords, function(keywordobject) { %><span class="label label-info"><%= keywordobject.keyword %></span>&nbsp;<% }); %>' +
+                '      <% _.each(tags, function(tagobject) { %><span class="label label-info"><%= tagobject.tag %></span>&nbsp;<% }); %>' +
                 '    </div>' +
                 '  </div>' +
                 '</fieldset>' +

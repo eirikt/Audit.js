@@ -4,8 +4,8 @@ var mongoose = require("mongoose"),
 
 
 // Mongoose schemas
-    KeywordMongooseSchema = new mongoose.Schema({
-        keyword: String
+    TagMongooseSchema = new mongoose.Schema({
+        tag: String
     }),
 
     BookMongooseSchema = new mongoose.Schema({
@@ -22,13 +22,13 @@ var mongoose = require("mongoose"),
 
         //coverImage: String, // Not yet supported
 
-        keywords: [KeywordMongooseSchema]
+        tags: [TagMongooseSchema]
         //keywords: { type: [KeywordMongooseSchema], index: true }
     }),
 
 
 // Mongoose models (designated as "entity types" in Audit.js) (design rule: lower-case collection names)
-    Keyword = exports.Keyword = mongoose.model("keyword", KeywordMongooseSchema),
+    Tag = exports.Tag = mongoose.model("tag", TagMongooseSchema),
 
     Book = exports.Book = mongoose.model("book", BookMongooseSchema);
 

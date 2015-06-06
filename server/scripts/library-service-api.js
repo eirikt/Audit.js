@@ -100,7 +100,8 @@ var __ = require('underscore'),
                 createBookWithSequenceNumber.push(
                     __.partial(eventSourcing.createSequenceNumberEntity,
                         library.Book,
-                        randomBooks.createRandomBookAttributes(library.Keyword),
+                        // TODO: 'library.TagMongooseModel' shouldn't really be referenced in this file
+                        randomBooks.createRandomBookAttributes(library.Tag),
                         randomBooks.randomUser(),
                         clientSidePublisher,
                         startTime,
