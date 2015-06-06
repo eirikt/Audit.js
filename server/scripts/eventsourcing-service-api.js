@@ -11,6 +11,8 @@ var RQ = require('async-rq'),
 
     curry = require('./fun').curry,
     utils = require('./utils'),
+    not = utils.not,
+    isHttpMethod = utils.isHttpMethod,
 
     messenger = require('./messaging'),
 
@@ -59,7 +61,7 @@ var RQ = require('async-rq'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('POST', request)),
+                rq.if(not(isHttpMethod('POST', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -103,7 +105,7 @@ var RQ = require('async-rq'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('GET', request)),
+                rq.if(not(isHttpMethod('GET', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -149,7 +151,7 @@ var RQ = require('async-rq'),
         'use strict';
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('POST', request)),
+                rq.if(not(isHttpMethod('POST', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),

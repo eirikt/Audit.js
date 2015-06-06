@@ -18,13 +18,15 @@ var __ = require("underscore"),
     clientSidePublisher = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
 
-    mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
+    //mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
     library = require("./library-model"),
 
     _name = exports.name = 'Library MongoDB application store',
     _id = exports.id = 'mongodb',
+    _primaryApplicationStore = exports.isPrimaryApplicationStore = true,    // At least one, only one
+    _completeApplicationStore = exports.isCompleteApplicationStore = true,  // At least one
     _state = {},
 
 
@@ -291,14 +293,16 @@ var __ = require("underscore"),
                 rq.do(function () {
                     console.log('MongoDB application store :: Updating book (entityId=' + updatedBook.entityId + ') ...');
                 }),
-                rq.then(function () {
-                    _setState('consistent', false);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', false);
+                //}),
                 rq.value(updatedBook),
                 library.Book.update,
-                rq.then(function () {
-                    _setState('consistent', true);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', true);
+                //}),
                 rq.then(function () {
                     console.log('MongoDB application store :: Book (entityId=' + updatedBook.entityId + ') updated');
                 })
@@ -313,14 +317,16 @@ var __ = require("underscore"),
                 rq.do(function () {
                     console.log('MongoDB application store :: Removing book (entityId=' + entityId + ') ...');
                 }),
-                rq.then(function () {
-                    _setState('consistent', false);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', false);
+                //}),
                 rq.value(entityId),
                 library.Book.remove,
-                rq.then(function () {
-                    _setState('consistent', true);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', true);
+                //}),
                 rq.then(function () {
                     console.log('MongoDB application store :: Book (entityId=' + entityId + ') removed');
                 })
@@ -332,13 +338,15 @@ var __ = require("underscore"),
         function requestor(callback, args) {
             'use strict';
             console.log('MongoDB application store :: Resetting ...');
-            _setState('consistent', false);
+            // TODO: Revisit when adding consistency status indicators in UI
+            //_setState('consistent', false);
             return mongodb.mongoose.connection.collections[library.Book.collectionName()].drop(function (err) {
                 if (err) {
                     console.error('MongoDB application store :: Error when dropping \'' + library.Book.collectionName() + '\' :: ' + err);
                     // TODO: Proper error handling
                 }
-                _setState('consistent', true);
+                // TODO: Revisit when adding consistency status indicators in UI
+                //_setState('consistent', true);
                 console.warn('MongoDB application store :: \'' + library.Book.collectionName() + '\' collection purged!');
                 messenger.publishAll('all-books-removed', _id);
                 //return callback(args, undefined);

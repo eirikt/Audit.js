@@ -117,7 +117,15 @@ var _fun = require("./fun"),
 // Predicate factories
 // Generic curry-friendly helper (higher order) functions
 ///////////////////////////////////////////////////////////////////////////////
-    _notHttpMethod = exports.notHttpMethod =
+    _isHttpMethod = exports.isHttpMethod =
+        function (httpMethod, request) {
+            'use strict';
+            return function () {
+                return request.method === httpMethod;
+            };
+        },
+
+    _isNotHttpMethod = exports.isNotHttpMethod =
         function (httpMethod, request) {
             'use strict';
             return function () {
@@ -158,6 +166,20 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// TODO: Find some decent third-party predicate lib ...
+///////////////////////////////////////////////////////////////////////////////
+
+    _not = exports.not =
+        function (condition) {
+            'use strict';
+            return function (args) {
+                var executedCondition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
+                return !executedCondition;
+            };
+        },
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Predicated
 // TODO: Find some decent third-party predicate lib ...
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,14 +189,4 @@ var _fun = require("./fun"),
             'use strict';
             return arg < 1;
         }
-    },
-
-
-///////////////////////////////////////////////////////////////////////////////
-// TODO: Find some decent third-party predicate lib ...
-///////////////////////////////////////////////////////////////////////////////
-
-    _not = exports.not = function (arg) {
-        'use strict';
-        return !arg;
     };

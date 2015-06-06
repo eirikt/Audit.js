@@ -15,6 +15,8 @@ var __ = require('underscore'),
 
     curry = require('./fun').curry,
     utils = require('./utils'),
+    not = utils.not,
+    isHttpMethod = utils.isHttpMethod,
 
     clientSidePublisher = require("./socketio.config").serverPush,
     messageBus = require("./messaging"),
@@ -139,7 +141,7 @@ var __ = require('underscore'),
                 //function (callback, args) {
                 //    callback(args, undefined);
                 //},
-                rq.if(utils.notHttpMethod('POST', request)),
+                rq.if(not(isHttpMethod('POST', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -148,9 +150,9 @@ var __ = require('underscore'),
                 rq.value('URI \'library/books/clean\' posted when no application store in use'),
                 utils.send202AcceptedResponseWithArgumentAsBody(response)
             ]),
-            sequence([
-                applicationStores.removeAllBooks
-            ])
+            //sequence([
+            applicationStores.removeAllBooks
+            //])
         ], 6000)(rq.handleTimeoutAndStatusCode(request, response));
     },
 
@@ -177,7 +179,7 @@ var __ = require('underscore'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('POST', request)),
+                rq.if(not(isHttpMethod('POST', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -196,14 +198,14 @@ var __ = require('underscore'),
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                // TODO: Could this push/pop thing be solved by inital values argument to requestor/requestor chains?
+                // TODO: Could this push/pop thing be solved by initial values argument to requestor/requestor chains?
                 rq.pop, // Cleaning: If reached this final sequence, the stacked value is not pop'ed - so just pop it and move on
                 eventStore_CountAllBooks,
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
-            sequence([
-                utils.send500InternalServerErrorResponse(response)
-            ])
+            //sequence([
+            utils.send500InternalServerErrorResponse(response)
+            //])
         ], 60000)(rq.handleTimeout(request, response));
     },
 
@@ -290,9 +292,9 @@ var __ = require('underscore'),
                 eventSourcing.project(library.Book, findQuery, sortQuery, skip, limit),
                 utils.send200OkResponseWithArgumentAsBody(response)
             ]),
-            sequence([
-                utils.send500InternalServerErrorResponse(response)
-            ])
+            //sequence([
+            utils.send500InternalServerErrorResponse(response)
+            //])
         ])(rq.run);
     },
 
@@ -318,7 +320,7 @@ var __ = require('underscore'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('PUT', request)),
+                rq.if(not(isHttpMethod('PUT', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports PUT requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -340,7 +342,7 @@ var __ = require('underscore'),
             sequence([
                 eventSourcing.getStateChangesByEntityId(entityId),
                 rq.push,
-                rq.if(eventSourcingModel.notEntityExists),
+                rq.if(not(eventSourcingModel.entityExists)),
                 rq.value('No entity with entityId=\'' + entityId + '\' found'),
                 utils.send404NotFoundResponseWithArgumentAsBody(response)
             ]),
@@ -353,9 +355,9 @@ var __ = require('underscore'),
                 eventSourcing.rebuildEntity(library.Book, entityId),
                 rq.then(curry(messageBus.publishAll, 'book-updated'))
             ]),
-            sequence([
+            //sequence([
                 utils.send500InternalServerErrorResponse(response)
-            ])
+            //])
         ])(rq.run);
     },
 
@@ -380,7 +382,7 @@ var __ = require('underscore'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(utils.notHttpMethod('DELETE', request)),
+                rq.if(not(isHttpMethod('DELETE', request))),
                 rq.value('URI \'' + request.originalUrl + '\' supports DELETE requests only'),
                 utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
@@ -392,7 +394,7 @@ var __ = require('underscore'),
             sequence([
                 eventSourcing.getStateChangesByEntityId(entityId),
                 rq.push,
-                rq.if(eventSourcingModel.notEntityExists),
+                rq.if(not(eventSourcingModel.entityExists)),
                 rq.value('No entity with entityId=' + entityId + ' found'),
                 utils.send404NotFoundResponseWithArgumentAsBody(response)
             ]),
@@ -403,8 +405,8 @@ var __ = require('underscore'),
                 rq.pick('entityId'),
                 rq.then(curry(messageBus.publishAll, 'book-removed'))
             ]),
-            sequence([
-                utils.send500InternalServerErrorResponse(response)
-            ])
+            //sequence([
+            utils.send500InternalServerErrorResponse(response)
+            //])
         ])(rq.run);
     };

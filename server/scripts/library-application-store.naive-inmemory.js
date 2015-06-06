@@ -16,8 +16,8 @@ var __ = require("underscore"),
 
     utils = require('./utils'),
 
-    mongodb = require("./mongodb.config"),
-    clientSidePublisher = require("./socketio.config").serverPush,
+    //mongodb = require("./mongodb.config"),
+    //clientSidePublisher = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
 
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
@@ -28,6 +28,8 @@ var __ = require("underscore"),
 
     _name = exports.name = 'Library naïve in-memory application store',
     _id = exports.id = 'naive-inmemory',
+    _primaryApplicationStore = exports.isPrimaryApplicationStore = false,
+    _completeApplicationStore = exports.isCompleteApplicationStore = false,
     _state = {},
 
 
@@ -77,7 +79,7 @@ var __ = require("underscore"),
                     eligibleForServerPush = true,
                     throttledServerPushCallback = function (progressValue) {
                         console.log('Naïve in-memory application store :: event-replayed (not published ...)');
-                        // TODO: Silence this application store by config
+                        // TODO: Silence this application store by config => only when isPrimaryApplicationStore === true
                         //io.emit('event-replayed', count, startTime, progressValue);
                     },
                     doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
@@ -154,9 +156,10 @@ var __ = require("underscore"),
                     //    console.log('Naïve in-memory application store :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
                     //}),
                     rq.continueIf(cqrs.isEnabled),
-                    rq.then(function () {
-                        _setState('consistent', false);
-                    }),
+                    // TODO: Revisit when adding consistency status indicators in UI
+                    //rq.then(function () {
+                    //    _setState('consistent', false);
+                    //}),
                     rq.then(function () {
                         console.log('Naïve in-memory application store :: Replaying entire event store / state change log ...');
                         var startTime = Date.now(),
@@ -204,7 +207,10 @@ var __ = require("underscore"),
                                     curriedFunc = _rebuildEntityAndSaveInApplicationStoreIfNotAlreadyThere(
                                         library.Book,
                                         cursor[index],
-                                        clientSidePublisher,
+
+                                        //clientSidePublisher,
+                                        null,
+
                                         startTime,
                                         numberOfServerPushEmits,
                                         index,
@@ -226,9 +232,10 @@ var __ = require("underscore"),
                             }
                         ])(rq.run);
                     }),
-                    rq.then(function () {
-                        _setState('consistent', true);
-                    }),
+                    // TODO: Revisit when adding consistency status indicators in UI
+                    //rq.then(function () {
+                    //    _setState('consistent', true);
+                    //}),
                     rq.then(function () {
                         console.log('Naïve in-memory application store :: All entities replayed from Event Store');
                     }),
@@ -286,17 +293,19 @@ var __ = require("underscore"),
                 rq.do(function () {
                     console.log('Naïve in-memory application store :: Updating book (entityId=' + updatedBook.entityId + ') ...');
                 }),
-                rq.then(function () {
-                    _setState('consistent', false);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', false);
+                //}),
                 rq.value(updatedBook),
                 function (callback, updatedBook) {
                     _db[updatedBook._id] = updatedBook;
                     callback(updatedBook, undefined);
                 },
-                rq.then(function () {
-                    _setState('consistent', true);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', true);
+                //}),
                 rq.then(function () {
                     console.log('Naïve in-memory application store :: Book (entityId=' + updatedBook.entityId + ') updated');
                 })
@@ -311,9 +320,10 @@ var __ = require("underscore"),
                 rq.do(function () {
                     console.log('Naïve in-memory application store :: Removing book (entityId=' + entityId + ') ...');
                 }),
-                rq.then(function () {
-                    _setState('consistent', false);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', false);
+                //}),
                 rq.value(entityId),
                 function (callback, entityId) {
                     // JavaScript Array, remove element - nope, using associative array/object instead
@@ -324,9 +334,10 @@ var __ = require("underscore"),
                     delete _db[entityId];
                     callback(entityId, undefined);
                 },
-                rq.then(function () {
-                    _setState('consistent', true);
-                }),
+                // TODO: Revisit when adding consistency status indicators in UI
+                //rq.then(function () {
+                //    _setState('consistent', true);
+                //}),
                 rq.then(function () {
                     console.log('Naïve in-memory application store :: Book (entityId=' + entityId + ') removed');
                 })
@@ -338,9 +349,11 @@ var __ = require("underscore"),
         function requestor(callback, args) {
             'use strict';
             console.log('Naïve in-memory application store :: Resetting ...');
-            _setState('consistent', false);
+            // TODO: Revisit when adding consistency status indicators in UI
+            //_setState('consistent', false);
             _db = {};
-            _setState('consistent', true);
+            // TODO: Revisit when adding consistency status indicators in UI
+            //_setState('consistent', true);
             console.warn('Naïve in-memory application store :: \'' + library.Book.collectionName() + '\' collection purged!');
             messenger.publishAll('all-books-removed', _id);
             return callback(205, undefined);
