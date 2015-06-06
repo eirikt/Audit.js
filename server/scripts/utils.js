@@ -7,6 +7,33 @@ var _fun = require("./fun"),
     doNotLog = exports.doNotLog = false,
 
 
+///////////////////////////////////////////////////////////////////////////////
+// ...
+///////////////////////////////////////////////////////////////////////////////
+
+    /** Object.defineProperty config function */
+    _mutablePropertyWithDefaultValue = exports.mutablePropertyWithDefaultValue = function (defaultValue) {
+        'use strict';
+        return {
+            value: defaultValue,
+            writable: true,
+            enumerable: true,
+            configurable: false
+        };
+    },
+
+    /** Object.defineProperty config function */
+    _immutablePropertyWithDefaultValue = exports.immutablePropertyWithDefaultValue = function (defaultValue) {
+        'use strict';
+        return {
+            value: defaultValue,
+            writable: false,
+            enumerable: true,
+            configurable: false
+        };
+    },
+
+
 // TODO: Move to 'app.config.js'?
 ///////////////////////////////////////////////////////////////////////////////
 // Some curried Express requestors
@@ -117,6 +144,7 @@ var _fun = require("./fun"),
 // Predicate factories
 // Generic curry-friendly helper (higher order) functions
 ///////////////////////////////////////////////////////////////////////////////
+
     _isHttpMethod = exports.isHttpMethod =
         function (httpMethod, request) {
             'use strict';
@@ -166,7 +194,8 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// TODO: Find some decent third-party predicate lib ...
+// Higher-order negation
+// TODO: Find some decent third-party lib for these things ...
 ///////////////////////////////////////////////////////////////////////////////
 
     _not = exports.not =
@@ -180,7 +209,7 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Predicated
+// Predicates ...
 // TODO: Find some decent third-party predicate lib ...
 ///////////////////////////////////////////////////////////////////////////////
 

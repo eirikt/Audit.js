@@ -53,7 +53,7 @@ define([
             cqrsActive: null,
 
             initialize: function () {
-                var replayStateChangeEventsProgressbar = new Progressbar({ headerText: "Replaying all state change events into application store ..." });
+                var replayStateChangeEventsProgressbar = new Progressbar({ headerText: "Replaying all state change events into application stores ..." });
 
                 var mapreduceProgressbar = new Progressbar({
                     headerText: "Map-reducing all state change events ... " +
@@ -65,7 +65,7 @@ define([
 
                 var replayProgressbar = new Progressbar({
                     headerText: "Creating book objects (if not already created) ... " +
-                    "<span class='pull-right' style='margin-right:1rem;'><em><small>event store </small>&rArr;<small> application store</small></em></span>"
+                    "<span class='pull-right' style='margin-right:1rem;'><em><small>event store </small>&rArr;<small> application stores</small></em></span>"
                 });
                 replayProgressbar.listenTo(App.pushClient, "replaying-events", replayProgressbar.start);
                 replayProgressbar.listenTo(App.pushClient, "event-replayed", replayProgressbar.progress);
