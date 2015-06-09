@@ -1,22 +1,23 @@
 /* global JSON:false */
 /* jshint -W106 */
 var __ = require("underscore"),
-    promise = require("promised-io/promise"),
+    //promise = require("promised-io/promise"),
 //mongoose = require("mongoose"),
 
     RQ = require("async-rq"),
-    rq = require("RQ-essentials"),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
+
+    rq = require("RQ-essentials"),
     then = rq.then,
     cancel = rq.cancel,
     mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
     utils = require("./utils.js"),
 
-    sequenceNumber = require("./mongoose.sequence-number.js"),
+    //sequenceNumber = require("./mongoose.sequence-number"),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongooseEventSourcingModels = require("./mongoose.event-sourcing.model"),
 
@@ -70,6 +71,11 @@ var __ = require("underscore"),
 // Private event sourcing functions
 //////////////////////////////////////
 
+
+//////////////////////////////////////
+// Public event sourcing functions
+//////////////////////////////////////
+
     /**
      * Creates a state change event.
      *
@@ -81,7 +87,7 @@ var __ = require("underscore"),
      * @returns {StateChange} object
      * @private
      */
-    _createStateChange =
+    _createStateChange = exports.createStateChange =
         function (method, entityType, entityId, changes, user) {
             'use strict';
 
@@ -118,10 +124,6 @@ var __ = require("underscore"),
         },
 
 
-//////////////////////////////////////
-// Public event sourcing functions
-//////////////////////////////////////
-
     /**
      * Creates new state change and saves it in the <em>event store</em>.
      *
@@ -146,86 +148,90 @@ var __ = require("underscore"),
         },
 
 // TODO: To be removed ...
-    createStateChange =
-        function (method, entityType, entityId, changes, user) {
-            'use strict';
-            var dfd = new promise.Deferred();
-            _createStateChange(method, entityType, entityId, changes, user)
-                .save(function (err, change) {
-                    if (utils.handleError(err, { deferred: dfd })) {
-                        return null;
-                    }
-                    console.log('State change event saved ...OK [entityId=' + change.entityId + ']');
-                    return dfd.resolve(change);
-                });
-            return dfd.promise;
-        },
+/*
+ createStateChange =
+ function (method, entityType, entityId, changes, user) {
+ 'use strict';
+ var dfd = new promise.Deferred();
+ _createStateChange(method, entityType, entityId, changes, user)
+ .save(function (err, change) {
+ if (utils.handleError(err, { deferred: dfd })) {
+ return null;
+ }
+ console.log('State change event saved ...OK [entityId=' + change.entityId + ']');
+ return dfd.resolve(change);
+ });
+ return dfd.promise;
+ },
+ */
 
 // TODO: Rewrite, completely!
-    /**
-     * Create entity with sequence number.
-     * The sequence number property is hard-coded in entity as <code>seq</code>.
-     * NB! State change event in <em>Event store</em> only, no <em>application store</em> involved.
-     * This function accepts optional session data parameters for emitting session status messages.
-     *
-     * Push messages :
-     *     'statechangeevent-created' (the total number, start timestamp, current progress in percent)
-     *
-     * @param entityType Mongoose model type
-     * @param entityAttributes Entity attributes
-     * @param user User(name) responsible for this state change
-     * @param [io] Server push session: Socket.IO manager
-     * @param [startTime] Server push session: start time
-     * @param [numberOfServerPushEmits] Server push session: number of messages to emit
-     * @param [index] Server push session: session index
-     * @param [count] Server push session: total count
-     * @returns {Promise}
-     */
-    createSequenceNumberEntity = exports.createSequenceNumberEntity =
-        function () {
-            'use strict';
-            var dfd = new promise.Deferred(),
+/**
+ * Create entity with sequence number.
+ * The sequence number property is hard-coded in entity as <code>seq</code>.
+ * NB! State change event in <em>Event store</em> only, no <em>application store</em> involved.
+ * This function accepts optional session data parameters for emitting session status messages.
+ *
+ * Push messages :
+ *     'statechangeevent-created' (the total number, start timestamp, current progress in percent)
+ *
+ * @param entityType Mongoose model type
+ * @param entityAttributes Entity attributes
+ * @param user User(name) responsible for this state change
+ * @param [io] Server push session: Socket.IO manager
+ * @param [startTime] Server push session: start time
+ * @param [numberOfServerPushEmits] Server push session: number of messages to emit
+ * @param [index] Server push session: session index
+ * @param [count] Server push session: total count
+ * @returns {Promise}
+ */
+/*
+ createSequenceNumberEntity = exports.createSequenceNumberEntity =
+ function () {
+ 'use strict';
+ var dfd = new promise.Deferred(),
 
-                entityType, entityAttributes, user,
-                io, startTime, numberOfServerPushEmits, index, count,
+ entityType, entityAttributes, user,
+ io, startTime, numberOfServerPushEmits, index, count,
 
-                validArguments = arguments.length >= 3 && arguments[0] && arguments[1] && arguments[2],
-                eligibleForServerPush = arguments.length >= 8 && arguments[3] && arguments[4] && arguments[5] && arguments[6] && arguments[7];
+ validArguments = arguments.length >= 3 && arguments[0] && arguments[1] && arguments[2],
+ eligibleForServerPush = arguments.length >= 8 && arguments[3] && arguments[4] && arguments[5] && arguments[6] && arguments[7];
 
-            entityType = arguments[0];
-            entityAttributes = arguments[1];
-            user = arguments[2];
+ entityType = arguments[0];
+ entityAttributes = arguments[1];
+ user = arguments[2];
 
-            io = arguments[3];
-            startTime = arguments[4];
-            numberOfServerPushEmits = arguments[5];
-            index = arguments[6];
-            count = arguments[7];
+ io = arguments[3];
+ startTime = arguments[4];
+ numberOfServerPushEmits = arguments[5];
+ index = arguments[6];
+ count = arguments[7];
 
-            if (!validArguments) {
-                return dfd.reject("'createSequenceNumberEntity()' arguments is not valid");
+ if (!validArguments) {
+ return dfd.reject("'createSequenceNumberEntity()' arguments is not valid");
 
-            } else {
-                sequenceNumber.incrementSequenceNumber(collectionName(entityType), function (err, nextSequenceNumber) {
-                    if (utils.handleError(err, { deferred: dfd })) {
-                        return null;
-                    }
-                    entityAttributes.seq = nextSequenceNumber;
-                    return createStateChange("CREATE", entityType, null, entityAttributes, user)
-                        .then(
-                        function (stateChange) {
-                            if (eligibleForServerPush) {
-                                utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressInPercent) {
-                                    io.emit("statechangeevent-created", count, startTime, progressInPercent);
-                                });
-                            }
-                            return dfd.resolve(arguments);
-                        }
-                    );
-                });
-            }
-            return dfd.promise;
-        },
+ } else {
+ sequenceNumber.incrementSequenceNumber(collectionName(entityType), function (err, nextSequenceNumber) {
+ if (utils.handleError(err, { deferred: dfd })) {
+ return null;
+ }
+ entityAttributes.seq = nextSequenceNumber;
+ return createStateChange("CREATE", entityType, null, entityAttributes, user)
+ .then(
+ function (stateChange) {
+ if (eligibleForServerPush) {
+ utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressInPercent) {
+ io.emit("statechangeevent-created", count, startTime, progressInPercent);
+ });
+ }
+ return dfd.resolve(arguments);
+ }
+ );
+ });
+ }
+ return dfd.promise;
+ },
+ */
 
 
     /**
@@ -250,27 +256,27 @@ var __ = require("underscore"),
         },
 
 
-    /**
-     * Rebuilds an entity by retrieving all state change events.
-     *
-     * @param entityType Mongoose model type
-     * @param entityId the entity id
-     * @returns The rebuilt entity
-     */
-        /*
-    rebuild = module.exports.rebuild =
-        function (EntityType, entityId) {
-            'use strict';
-            var obj = new EntityType({ _id: entityId });
-            _getStateChangesByEntityId(entityId)
-                .then(
-                function (stateChanges) {
-                    obj.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(null, stateChanges));
-                }
-            );
-            return obj;
-        },
-        */
+/**
+ * Rebuilds an entity by retrieving all state change events.
+ *
+ * @param entityType Mongoose model type
+ * @param entityId the entity id
+ * @returns The rebuilt entity
+ */
+/*
+ rebuild = module.exports.rebuild =
+ function (EntityType, entityId) {
+ 'use strict';
+ var obj = new EntityType({ _id: entityId });
+ _getStateChangesByEntityId(entityId)
+ .then(
+ function (stateChanges) {
+ obj.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(null, stateChanges));
+ }
+ );
+ return obj;
+ },
+ */
 
 
     /**

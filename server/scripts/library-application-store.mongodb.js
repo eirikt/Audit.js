@@ -18,7 +18,7 @@ var __ = require("underscore"),
     clientSidePublisher = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
 
-    //mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
+//mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
     library = require("./library-model"),
@@ -96,7 +96,7 @@ var __ = require("underscore"),
                         io.emit('event-replayed', count, startTime, progressValue);
                     },
                     doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
-                        utils.throttleEvents(numberOfServerPushEmits, index, count, throttledServerPushCallback);
+                        utils.throttleEvents(numberOfServerPushEmits, count, index, throttledServerPushCallback);
                         //if (index >= count - 1) {
                         //    console.log('all-events-replayed');
                         //    _clientSidePublisher.emit('all-events-replayed');

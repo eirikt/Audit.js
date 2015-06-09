@@ -86,6 +86,103 @@ describe('Library service API specification\'s', function () {
     });
 
 
+    describe('\'generateBooks\' resource function', function () {
+        it('should exist as a function', function () {
+            expect(libraryService.generateBooks).to.exist;
+            expect(libraryService.generateBooks).to.be.a('function');
+        });
+
+
+        it('should accept HTTP POST only', function (done) {
+            var request = {
+                    method: 'GET',
+                    originalUrl: 'library/books/generate',
+                    body: {}
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.be.equal(405);
+                                expect(responseBody).to.be.equal('URI \'' + request.originalUrl + '\' supports POST requests only');
+
+                                done();
+                            }
+                        };
+                    }
+                };
+
+            libraryService.generateBooks(request, response);
+        });
+
+        it('should send response status code 400 Bad Request when missing body parameter \'numberOfBooks\'', function (done) {
+            var request = {
+                    method: 'POST',
+                    originalUrl: 'library/books/generate',
+                    body: {}
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(400);
+                                expect(responseBody).to.equal('Mandatory body parameter \'numberOfBooks\' is missing');
+
+                                done();
+                            }
+                        };
+                    }
+                };
+
+            libraryService.generateBooks(request, response);
+        });
+
+        it('should send response status code 400 Bad Request when body parameter \'numberOfBooks\' is not a number', function (done) {
+            var request = {
+                    method: 'POST',
+                    originalUrl: 'library/books/generate',
+                    body: { numberOfBooks: 'yo' }
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(400);
+                                expect(responseBody).to.equal('Mandatory body parameter \'numberOfBooks\' is not a number');
+
+                                done();
+                            }
+                        };
+                    }
+                };
+
+            libraryService.generateBooks(request, response);
+        });
+
+        // TODO: More ...
+        /*
+         it('should ...', function () {
+         var request = {
+         method: 'POST',
+         originalUrl: 'library/books/generate',
+         body: { numberOfBooks: -1 }
+         },
+         response = {
+         status: function (responseStatusCode) {
+         return {
+         json: function (responseBody) {
+         //expect(responseStatusCode).to.equal(202);
+         }
+         };
+         }
+         };
+
+         libraryService.generateBooks(request, response);
+         });
+         */
+    });
+
+
     describe('\'removeAllBooksFromCache\' resource function', function () {
         it('should exist', function () {
             expect(libraryService.removeAllBooksFromCache).to.exist;
@@ -248,12 +345,8 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should exist', function () {
+        it('should exist as a function', function () {
             expect(libraryService.updateBook).to.exist;
-        });
-
-
-        it('should be a function', function () {
             expect(libraryService.updateBook).to.be.a('function');
         });
 
@@ -554,12 +647,8 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should exist', function () {
+        it('should exist as a function', function () {
             expect(libraryService.removeBook).to.exist;
-        });
-
-
-        it('should be a function', function () {
             expect(libraryService.removeBook).to.be.a('function');
         });
 

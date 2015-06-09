@@ -1,6 +1,7 @@
-var _fun = require("./fun"),
-    rq = require("RQ-essentials"),
-    curry = require("./fun").curry,
+var __ = require('underscore'),
+    _fun = require('./fun'),
+    rq = require('RQ-essentials'),
+    curry = require('./fun').curry,
 
 // TODO: Move to 'app.config.js'?
     doLog = exports.doLog = true,
@@ -8,30 +9,9 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// ...
+// NB! This file is a big TODO!
+// It acts as flypaper for unsorted-out stuff ... which is not a problem in itself, but
 ///////////////////////////////////////////////////////////////////////////////
-
-    /** Object.defineProperty config function */
-    _mutablePropertyWithDefaultValue = exports.mutablePropertyWithDefaultValue = function (defaultValue) {
-        'use strict';
-        return {
-            value: defaultValue,
-            writable: true,
-            enumerable: true,
-            configurable: false
-        };
-    },
-
-    /** Object.defineProperty config function */
-    _immutablePropertyWithDefaultValue = exports.immutablePropertyWithDefaultValue = function (defaultValue) {
-        'use strict';
-        return {
-            value: defaultValue,
-            writable: false,
-            enumerable: true,
-            configurable: false
-        };
-    },
 
 
 // TODO: Move to 'app.config.js'?
@@ -56,6 +36,86 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Constructor function helpers / Model stuff
+// ECMAScript 5 ...
+///////////////////////////////////////////////////////////////////////////////
+
+    /** Object.defineProperty config function */
+    _mutablePropertyWithDefaultValue = exports.mutablePropertyWithDefaultValue =
+        function (defaultValue) {
+            'use strict';
+            return {
+                value: defaultValue,
+                writable: true,
+                enumerable: true,
+                configurable: false
+            };
+        },
+
+    /** Object.defineProperty config function */
+    _immutablePropertyWithDefaultValue = exports.immutablePropertyWithDefaultValue =
+        function (defaultValue) {
+            'use strict';
+            return {
+                value: defaultValue,
+                writable: false,
+                enumerable: true,
+                configurable: false
+            };
+        },
+
+    _arrayToObject = exports.arrayToObject =
+        function (arr) {
+            'use strict';
+            var obj = {};
+            arr.forEach(function (element) {
+                obj[element] = null;
+            });
+            return obj;
+        },
+
+    /** A constructor function for creating <em>immutable</em> constructor functions. */
+    _ImmutableObject = exports.ImmutableObject =
+        function () {
+            'use strict';
+            var self = this,
+                arrayModel = arguments[0],
+                slice = Array.prototype.slice,
+                propertyDescriptors = slice.call(arguments, 1);
+
+            // TODO: Any possibilities including support for missing 'new' when calling constructor functions here?
+            //if (!(this instanceof BookModel)) {
+            //    return new BookModel(arguments);
+            //}
+            arrayModel.forEach(function (element, index, array) {
+                Object.defineProperty(self, element, _immutablePropertyWithDefaultValue(propertyDescriptors[index]));
+            });
+            Object.seal(self);
+            return this;
+        },
+
+    /** A constructor function for creating <em>mutable</em> constructor functions. */
+    _MutableObject = exports.MutableObject =
+        function () {
+            'use strict';
+            var self = this,
+                arrayModel = arguments[0],
+                slice = Array.prototype.slice,
+                propertyDescriptors = slice.call(arguments, 1);
+
+            // TODO: Any possibilities including support for missing 'new' when calling constructor functions here?
+            //if (!(this instanceof BookModel)) {
+            //    return new BookModel(arguments);
+            //}
+            arrayModel.forEach(function (element, index, array) {
+                Object.defineProperty(self, element, _mutablePropertyWithDefaultValue(propertyDescriptors[index]));
+            });
+            Object.seal(self);
+            return this;
+        },
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Generic helper functions
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -70,12 +130,12 @@ var _fun = require("./fun"),
      * Invoke the given callback function only when the iteration number is a natural number ratio of the total iteration number.
      *
      * @param numberOfThrottledEvents number of events to let through
-     * @param iterationNo current event number
      * @param totalIterationNo total number of events expected
+     * @param iterationNo current event number
      * @param callback function with progress percentage value as parameter
      */
     _throttleEvents = exports.throttleEvents =
-        function (numberOfThrottledEvents, iterationNo, totalIterationNo, callback) {
+        function (numberOfThrottledEvents, totalIterationNo, iterationNo, callback) {
             'use strict';
             var skippingInterval,
                 doEmit,
@@ -141,7 +201,7 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Predicate factories
+// Predicate factories / higer-order functions
 // Generic curry-friendly helper (higher order) functions
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -194,16 +254,26 @@ var _fun = require("./fun"),
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Higher-order negation
+// Higher-order stuff
 // TODO: Find some decent third-party lib for these things ...
 ///////////////////////////////////////////////////////////////////////////////
 
+    /** Higher-order negation */
     _not = exports.not =
         function (condition) {
             'use strict';
             return function (args) {
                 var executedCondition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
                 return !executedCondition;
+            };
+        },
+
+    /** Higher-order _.isNumber */
+    _isNumber = exports.isNumber =
+        function (numberObj) {
+            'use strict';
+            return function () {
+                return __.isNumber(numberObj);
             };
         },
 

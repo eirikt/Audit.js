@@ -2,76 +2,76 @@ var mongoose = require('mongoose'),
     utils = require("./utils"),
     curry = require("./fun").curry,
 
-// TODO: Move to 'utils.js'
-    arrayToObject = function (arr) {
-        'use strict';
-        var obj = {};
-        arr.forEach(function (element) {
-            obj[element] = null;
-        });
-        return obj;
-    },
-
-    ImmutableObject = function () {
-        'use strict';
-        var self = this,
-            arrayModel = arguments[0],
-            propertyDescriptors = Array.prototype.slice.call(arguments, 1);
-
-        // TODO: Any possibilities including support for missing 'new' when calling constructor functions here?
-        //if (!(this instanceof BookModel)) {
-        //    return new BookModel(arguments);
-        //}
-        arrayModel.forEach(function (element, index, array) {
-            Object.defineProperty(self, element, utils.immutablePropertyWithDefaultValue(propertyDescriptors[index]));
-        });
-        Object.seal(self);
-        return this;
-    },
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Library models
 ///////////////////////////////////////////////////////////////////////////////
 
-    primordialBook = ['seq', 'title', 'author', 'tags'], // 'releaseDate' and 'coverImage' not yet supported
-    primordialTag = ['tag'],
+    tagModelDescriptor = ['tag'],
+    bookModelDescriptor = ['seq', 'title', 'author', 'tags'], // 'releaseDate' and 'coverImage' not yet supported
+    visitModelDescriptor = ['user', 'fromDate', 'period', 'loans'],
+    loanModelDescriptor = ['book', 'visit'],
 
-//basicBook = arrayToObject(primordialBook),
+    ImmutableTag = curry(utils.ImmutableObject, tagModelDescriptor),
+    ImmutableBook = curry(utils.ImmutableObject, bookModelDescriptor),
+    ImmutableVisit = curry(utils.ImmutableObject, visitModelDescriptor),
+    ImmutableLoan = curry(utils.ImmutableObject, loanModelDescriptor),
 
-    BookModel = curry(ImmutableObject, primordialBook),
-    TagModel = curry(ImmutableObject, primordialTag),
+    MutableTag = curry(utils.MutableObject, tagModelDescriptor),
+    MutableBook = curry(utils.MutableObject, bookModelDescriptor),
+    MutableVisit = curry(utils.MutableObject, visitModelDescriptor),
+    MutableLoan = curry(utils.MutableObject, loanModelDescriptor),
 
+
+// TODO: Move stuff below to 'library-model.mongoose.js'?
 
 ///////////////////////////////////////////////////////////////////////////////
 // Mongoose schemas
 ///////////////////////////////////////////////////////////////////////////////
 
-    TagMongooseSchema = new mongoose.Schema(new TagModel(String)),
-    BookMongooseSchema = new mongoose.Schema(new BookModel(Number, String, String, [TagMongooseSchema])),
-// TODO: Does indexing help? How to measure it? Can indexes be dynamically added afterwards ...
-//BookMongooseSchema = new mongoose.Schema(
-//    new BookModel(
-//        { type: Number},
-//        { type: String, index: true },
-//        { type: String, index: true },
-//        { type: [TagMongooseSchema], index: true }
-//    )),
+    TagMongooseSchema = new mongoose.Schema(new ImmutableTag(String)),
+
+    BookMongooseSchema = new mongoose.Schema(new ImmutableBook(Number, String, String, [TagMongooseSchema])),
+//BookMongooseSchema = new mongoose.Schema(new ImmutableBook(
+//    // TODO: Does indexing help? How to measure it? Can indexes be dynamically added afterwards ...
+//    { type: Number, index: true, required: true },
+//    { type: String, index: true, required: false },
+//    { type: String, index: true, required: false },
+//    { type: [TagMongooseSchema], index: true, required: false }
+//)),
+
+// See: http://stackoverflow.com/questions/14796962/mongoose-schema-reference
+    VisitMongooseSchema = new mongoose.Schema(new ImmutableVisit(
+        { type: String, index: true, required: true },
+        { type: Date, index: true, required: true },
+        { type: Number, index: true, required: false },
+        [{ type: mongoose.Schema.ObjectId, ref: 'LoanMongooseSchema', index: true, required: false }]
+    )),
+
+    LoanMongooseSchema = new mongoose.Schema(new ImmutableLoan(
+        { type: mongoose.Schema.ObjectId, ref: 'BookMongooseSchema', index: true, required: true },
+        { type: mongoose.Schema.ObjectId, ref: 'VisitMongooseSchema', index: true, required: true }
+    )),
 
 
 ///////////////////////////////////////////////////////////////////////////////
 // Mongoose Library models (designated as "entity types" in Audit.js)
 // (design rule: lower-case collection names)
-// TODO: Are these worthy of the no-suffix designation (e.g. 'Book'), or should these be called e.g. 'BookMongooseModel'/'MongooseBook'?
+// TODO: Are these worthy of the pure no-suffix designation (e.g. 'Book'), or should these be called e.g. 'BookMongooseModel'/'MongooseBook'?
 ///////////////////////////////////////////////////////////////////////////////
 
-    Tag = exports.Tag = mongoose.model("tag", TagMongooseSchema),
-    Book = exports.Book = mongoose.model("book", BookMongooseSchema);
+    Tag = exports.Tag = mongoose.model('tag', TagMongooseSchema),
 
-// TODO: Move these to 'library-application-store.mongodb.js'??
+    Book = exports.Book = mongoose.model('book', BookMongooseSchema),
+
+    Visit = exports.Visit = mongoose.model('visit', VisitMongooseSchema),
+
+    Loan = exports.Loan = mongoose.model('loan', LoanMongooseSchema);
+
+
 Book.collectionName = function () {
-    "use strict";
-    return Book.modelName + "s".toLowerCase();
+    'use strict';
+    return Book.modelName + 's'.toLowerCase();
 };
 
 Book.update =

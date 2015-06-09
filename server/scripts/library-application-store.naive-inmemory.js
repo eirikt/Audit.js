@@ -16,8 +16,8 @@ var __ = require("underscore"),
 
     utils = require('./utils'),
 
-    //mongodb = require("./mongodb.config"),
-    //clientSidePublisher = require("./socketio.config").serverPush,
+//mongodb = require("./mongodb.config"),
+//clientSidePublisher = require("./socketio.config").serverPush,
     messenger = require("./messaging"),
 
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
@@ -83,7 +83,7 @@ var __ = require("underscore"),
                         //io.emit('event-replayed', count, startTime, progressValue);
                     },
                     doServerPush = function (startTime, numberOfServerPushEmits, index, count) {
-                        utils.throttleEvents(numberOfServerPushEmits, index, count, throttledServerPushCallback);
+                        utils.throttleEvents(numberOfServerPushEmits, count, index, throttledServerPushCallback);
                     };
 
                 if (__.isEmpty(reducedEntityChangeEvents.value)) {
@@ -286,7 +286,7 @@ var __ = require("underscore"),
         },
 
 
-     _updateBook = exports.updateBook =
+    _updateBook = exports.updateBook =
         function requestor(callback, updatedBook) {
             'use strict';
             sequence([
