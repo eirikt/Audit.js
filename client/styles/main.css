@@ -62,15 +62,134 @@
     margin-right: 1rem;
 }
 
-/**************************************
- * Debug
- **************************************/
+/**
+ * View-specific classes :: Library overview
+ */
+.library-overview-row {
+    display: flex;
+    justify-content: space-around;
+}
+
+.library-overview-heading {
+    display: flex;
+    font-style: italic;
+}
+
+.library-overview-element {
+    display: flex;
+    align-self: center;
+    font-size: x-large;
+    font-weight: bolder;
+}
+
+/**
+ *  Module            : Font Awesome icons
+ *  Portable/reusable : Yes
+ *  Dependencies      : "bootstrap.css", "font-awesome.css"
+ *  Resources         : http://fontawesome.io/icons/
+ *
+ *  Example:
+ *      <a href="mylinkedinpage" class="icon-up"></a>
+ ******************************************************************************/
+.icon-check::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f00c";
+    color: green;
+}
+
+.icon-line-chart::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f201";
+}
+
+.icon-up-plus::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f0d8";
+    font-size: large;
+    color: #61c100;
+}
+
+.icon-up::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f0d8";
+    font-size: large;
+    color: #d3d3d3;
+}
+
+.icon-down::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f0d7";
+    font-size: large;
+    color: #d3d3d3;
+}
+
+.icon-down-plus::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f0d7";
+    font-size: large;
+    color: red;
+}
+
+.icon-chevron-left::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f053";
+    color: dimgrey;
+}
+
+.icon-chevron-right::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f054";
+    color: dimgrey;
+}
+
+.icon-arrows-alt::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f0b2";
+}
+
+.icon-trophy-gold::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f091";
+    color: #ffcd00;
+}
+
+.icon-trophy-silver::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f091";
+    color: #c0c0c0;
+}
+
+.icon-trophy-bronze::before {
+    font-family: FontAwesome, sans-serif;
+    content: "\f091";
+    color: #cd7f32;
+}
+
+/**
+ *  Module            : Debug
+ *  Portable/reusable : Yes
+ *  Dependencies      : -
+ *  Resources         : -
+ ******************************************************************************/
 /*
 div {
-    border: 1px dashed;
+    border: 1px;
+    border-style: dotted;
 }
 
 header {
+    border: 1px dashed;
+}
+
+section {
+    border: 1px dashed;
+}
+
+article {
+    border: 1px dashed;
+}
+
+footer {
     border: 1px dashed;
 }
 

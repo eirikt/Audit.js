@@ -16,6 +16,7 @@ define(["underscore", "backbone", "backbone.audit.history"],
                 tags: null
             }
         });
+
         // Make the book state-change aware
         _.extend(Book.prototype, BackboneAuditHistory);
 

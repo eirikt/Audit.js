@@ -2,7 +2,8 @@
 // Random (simple library domain) test data helper functions
 ///////////////////////////////////////////////////////////////////////////////
 
-var _ = require('underscore'),
+var __ = require('underscore'),
+    moment = require('moment'),
 
 
 // Tests data elements to be randomly picked
@@ -25,7 +26,7 @@ var _ = require('underscore'),
     pickRandomElementFrom = exports.pickRandomElementFrom =
         function (array) {
             'use strict';
-            return array[_.random(array.length - 1)];
+            return array[__.random(array.length - 1)];
         },
 
     randomUser = exports.randomUser =
@@ -54,6 +55,20 @@ var _ = require('underscore'),
             return pickRandomElementFrom(tags);
         },
 
+    /** Random date between start of this year and today ... */
+    randomPassedDateFromThisYear =
+        function () {
+            'use strict';
+            var now = new Date(),
+                todayDayOfYear = moment(now).dayOfYear(),
+                randomDayOfThisYearSoFar = __.random(1, todayDayOfYear),
+
+                minimumDate = new Date(now.getFullYear(), 1, 1),
+                randomDateThisYearSoFar = minimumDate.setDate(randomDayOfThisYearSoFar);
+
+            return new Date(randomDateThisYearSoFar);
+        },
+
     createRandomBookAttributes = exports.createRandomBookAttributes =
         function (TagType) {
             'use strict';
@@ -64,5 +79,14 @@ var _ = require('underscore'),
                     new TagType({ tag: randomTag() }),
                     new TagType({ tag: randomTag() })
                 ]
+            };
+        },
+
+    createRandomVisitAttributes = exports.createRandomVisitAttributes =
+        function () {
+            'use strict';
+            return {
+                user: randomName(),
+                fromDate: randomPassedDateFromThisYear()
             };
         };

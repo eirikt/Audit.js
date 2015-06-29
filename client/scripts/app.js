@@ -33,47 +33,28 @@ require([
             });
             App.stateChangeCount = new StateChangeCount();
 
-            var BookCount = Backbone.Model.extend({
-                defaults: {
-                    titleSubstring: "",
-                    authorSubstring: "",
-                    tags: null,
-                    count: 0
-                },
-                url: "/library/books/count"//,
-                /*
-                 _fetchByPOST: function () {
-                 return Backbone.Collection.prototype.fetch.call(this, {
-                 reset: true,
-                 type: "POST",
-                 url: this.url,
-                 data: {
-                 titleSubstring: this.titleSubstring,
-                 authorSubstring: this.authorSubstring,
-                 keywords: this.keywords,
-                 count: this.count
-                 }
-                 });
-                 },
-                 fetch: function () {
-                 return this._fetchByPOST();
-                 },
-                 */
-                //parse: function (response) {
-                    //this.totalBookCount = response.totalCount;
-                    //this.filtering.totalCount = response.count;
-                    //return response.bookk;
-                //    return { count: response };
-                //}
-            });
-            App.bookCount = new BookCount();
+            /*
+             var BookCount = Backbone.Model.extend({
+             defaults: {
+             titleSubstring: "",
+             authorSubstring: "",
+             tags: null,
+             count: 0
+             },
+             url: "/library/books/count"
+             });
+             App.bookCount = new BookCount();
+             */
 
             App.library = new Library({ pagination: true, filtering: true });
 
             // On demand: Update state change count and book count
             App.refreshViews = function () {
                 App.stateChangeCount.fetch();
-                App.bookCount.save();
+
+                //App.bookCount.save();
+                App.bookCountView.renderChildViews();
+
                 App.library.fetch();
             };
 
@@ -101,7 +82,7 @@ require([
             });
             App.libraryAdminView = new LibraryAdminView({ el: "#libraryAdmin" });
             App.userAdminView = new UserAdminView({ el: "#userAdmin", model: App.userCount });
-            App.bookCountView = new BookCountView({ el: "#libraryBookCount", model: App.bookCount });
+            App.bookCountView = new BookCountView({ el: "#libraryOverview" });
             App.bookView = new BookCompositeView({ el: "#book" });
             App.bookListView = new BookListTableView({ el: "#bookList", collection: App.library });
 

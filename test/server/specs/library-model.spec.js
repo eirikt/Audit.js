@@ -41,10 +41,6 @@ describe('Library models', function () {
         expect(book.tags.length).to.be.equal(2);
         expect(book.tags[0]).to.be.an('object');
         expect(book.tags[1]).to.be.an('object');
-        expect(book.tags[0]['tag']).to.be.a('string');
-        expect(book.tags[1]['tag']).to.be.a('string');
-        expect(book.tags[0]['tag']).to.be.equal('tag1');
-        expect(book.tags[1]['tag']).to.be.equal('tag2');
         expect(book.tags[0].tag).to.be.a('string');
         expect(book.tags[1].tag).to.be.a('string');
         expect(book.tags[0].tag).to.be.equal('tag1');

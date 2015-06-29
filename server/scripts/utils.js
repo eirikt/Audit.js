@@ -1,4 +1,5 @@
 var __ = require('underscore'),
+    moment = require('moment'),
     _fun = require('./fun'),
     rq = require('RQ-essentials'),
     curry = require('./fun').curry,
@@ -12,6 +13,16 @@ var __ = require('underscore'),
 // NB! This file is a big TODO!
 // It acts as flypaper for unsorted-out stuff ... which is not a problem in itself, but
 ///////////////////////////////////////////////////////////////////////////////
+
+
+    /**
+     * A simple timestamp in brackets, suitable for log line preambles.
+     * @returns {String} Simple date-in-square-brackets string
+     */
+    _logPreamble = exports.logPreamble = function () {
+        'use strict';
+        return '[' + moment().format('YYYY-MM-DD HH:mm:ss') + '] ';
+    },
 
 
 // TODO: Move to 'app.config.js'?
@@ -33,6 +44,7 @@ var __ = require('underscore'),
     _send404NotFoundResponseWithArgumentAsBody = exports.send404NotFoundResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 404),
     _send405MethodNotAllowedResponseWithArgumentAsBody = exports.send405MethodNotAllowedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 405),
     _send500InternalServerErrorResponse = exports.send500InternalServerErrorResponse = curry(rq.dispatchResponseStatusCode, doLog, 500),
+    _send500NotImplementedServerErrorResponse = exports.send501NotImplementedServerErrorResponse = curry(rq.dispatchResponseStatusCode, doLog, 501),
 
 
 ///////////////////////////////////////////////////////////////////////////////

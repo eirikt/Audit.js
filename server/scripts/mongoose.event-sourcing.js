@@ -1,25 +1,24 @@
 /* global JSON:false */
 /* jshint -W106 */
-var __ = require("underscore"),
-    //promise = require("promised-io/promise"),
-//mongoose = require("mongoose"),
 
-    RQ = require("async-rq"),
+var __ = require('underscore'),
+
+    RQ = require('async-rq'),
     sequence = RQ.sequence,
     firstSuccessfulOf = RQ.fallback,
     parallel = RQ.parallel,
     race = RQ.race,
 
-    rq = require("RQ-essentials"),
+    rq = require('RQ-essentials'),
     then = rq.then,
     cancel = rq.cancel,
     mongooseQueryInvocation = rq.mongooseQueryInvocation,
 
-    utils = require("./utils.js"),
+    utils = require('./utils.js'),
 
-    //sequenceNumber = require("./mongoose.sequence-number"),
-    mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
-    mongooseEventSourcingModels = require("./mongoose.event-sourcing.model"),
+//sequenceNumber = require('./mongoose.sequence-number'),
+    mongooseEventSourcingMapreduce = require('./mongoose.event-sourcing.mapreduce'),
+    mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
 
 
     /**
@@ -32,8 +31,11 @@ var __ = require("underscore"),
             var result = {};
             for (var key in obj) {
                 if (obj.hasOwnProperty(key)) {
-                    result["value." + key] = obj[key];
+                    result['value.' + key] = obj[key];
                 }
+            }
+            if (__.isEmpty(result)) {
+                return null;
             }
             return result;
         },
@@ -58,12 +60,6 @@ var __ = require("underscore"),
         function () {
             'use strict';
             return new mongooseEventSourcingModels.Uuid()._id;
-        },
-
-    collectionName = exports.collectionName =
-        function (type) {
-            'use strict';
-            return type.modelName + "s".toLowerCase();
         },
 
 
@@ -99,7 +95,7 @@ var __ = require("underscore"),
             change.timestamp = Date.now();
             change.method = method;
             change.type = entityType.modelName;
-            change.entityId = change.method === "CREATE" ? createUuid() : entityId;
+            change.entityId = change.method === 'CREATE' ? createUuid() : entityId;
 
             if (changes) {
                 // Remove MongoDB/Mongoose id property "_id" if exists
@@ -113,12 +109,12 @@ var __ = require("underscore"),
                 }
             }
 
-            if (change.method === "CREATE" && change.changes.seq) {
-                console.log("State change event created [method=" + change.method + ", type=" + change.type + ", seq=" + change.changes.seq + ", entityId=" + change.entityId + "]");
-            } else {
-                //console.log("State change event created [method=" + change.method + ", type=" + change.type + ", entityId=" + change.entityId + "]");
-                console.log('State change event created [' + JSON.stringify(change) + ']');
-            }
+            //if (change.method === 'CREATE' && change.changes.seq) {
+            //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', seq=' + change.changes.seq + ', entityId=' + change.entityId + ']');
+            //} else {
+            //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', entityId=' + change.entityId + ']');
+            //    console.log('State change event created [' + JSON.stringify(change) + ']');
+            //}
 
             return change;
         },
@@ -147,92 +143,6 @@ var __ = require("underscore"),
             };
         },
 
-// TODO: To be removed ...
-/*
- createStateChange =
- function (method, entityType, entityId, changes, user) {
- 'use strict';
- var dfd = new promise.Deferred();
- _createStateChange(method, entityType, entityId, changes, user)
- .save(function (err, change) {
- if (utils.handleError(err, { deferred: dfd })) {
- return null;
- }
- console.log('State change event saved ...OK [entityId=' + change.entityId + ']');
- return dfd.resolve(change);
- });
- return dfd.promise;
- },
- */
-
-// TODO: Rewrite, completely!
-/**
- * Create entity with sequence number.
- * The sequence number property is hard-coded in entity as <code>seq</code>.
- * NB! State change event in <em>Event store</em> only, no <em>application store</em> involved.
- * This function accepts optional session data parameters for emitting session status messages.
- *
- * Push messages :
- *     'statechangeevent-created' (the total number, start timestamp, current progress in percent)
- *
- * @param entityType Mongoose model type
- * @param entityAttributes Entity attributes
- * @param user User(name) responsible for this state change
- * @param [io] Server push session: Socket.IO manager
- * @param [startTime] Server push session: start time
- * @param [numberOfServerPushEmits] Server push session: number of messages to emit
- * @param [index] Server push session: session index
- * @param [count] Server push session: total count
- * @returns {Promise}
- */
-/*
- createSequenceNumberEntity = exports.createSequenceNumberEntity =
- function () {
- 'use strict';
- var dfd = new promise.Deferred(),
-
- entityType, entityAttributes, user,
- io, startTime, numberOfServerPushEmits, index, count,
-
- validArguments = arguments.length >= 3 && arguments[0] && arguments[1] && arguments[2],
- eligibleForServerPush = arguments.length >= 8 && arguments[3] && arguments[4] && arguments[5] && arguments[6] && arguments[7];
-
- entityType = arguments[0];
- entityAttributes = arguments[1];
- user = arguments[2];
-
- io = arguments[3];
- startTime = arguments[4];
- numberOfServerPushEmits = arguments[5];
- index = arguments[6];
- count = arguments[7];
-
- if (!validArguments) {
- return dfd.reject("'createSequenceNumberEntity()' arguments is not valid");
-
- } else {
- sequenceNumber.incrementSequenceNumber(collectionName(entityType), function (err, nextSequenceNumber) {
- if (utils.handleError(err, { deferred: dfd })) {
- return null;
- }
- entityAttributes.seq = nextSequenceNumber;
- return createStateChange("CREATE", entityType, null, entityAttributes, user)
- .then(
- function (stateChange) {
- if (eligibleForServerPush) {
- utils.throttleEvents(numberOfServerPushEmits, index, count, function (progressInPercent) {
- io.emit("statechangeevent-created", count, startTime, progressInPercent);
- });
- }
- return dfd.resolve(arguments);
- }
- );
- });
- }
- return dfd.promise;
- },
- */
-
 
     /**
      * Requestor: Retrieves all state change events having given entity id.
@@ -254,29 +164,6 @@ var __ = require("underscore"),
                     });
             };
         },
-
-
-/**
- * Rebuilds an entity by retrieving all state change events.
- *
- * @param entityType Mongoose model type
- * @param entityId the entity id
- * @returns The rebuilt entity
- */
-/*
- rebuild = module.exports.rebuild =
- function (EntityType, entityId) {
- 'use strict';
- var obj = new EntityType({ _id: entityId });
- _getStateChangesByEntityId(entityId)
- .then(
- function (stateChanges) {
- obj.set(mongooseEventSourcingMapreduce._reduce_replayStateChangeEvents(null, stateChanges));
- }
- );
- return obj;
- },
- */
 
 
     /**
@@ -304,12 +191,59 @@ var __ = require("underscore"),
             'use strict';
             return function requestor(callback, args) {
                 var mapReducePrefixedConditions = _addMapReducePrefixTo(conditions),
-                    thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);
+                    thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);//,
+                //thenFilterResult = mongooseQueryInvocation('count', null);
+
+                //console.log("Counting " + entityType.modelName);
 
                 return firstSuccessfulOf([
                     sequence([
+
+                        //function (callback, args) {
+                        //    console.log("Counting 1 " + entityType.modelName);
+                        //    callback(args, undefined);
+                        //},
+
                         mongooseEventSourcingMapreduce.find(entityType),
+
+                        // Handling of failed Mongoose Queries
+                        function (callback, mongooseQuery) {
+                            if (!mongooseQuery || __.isEmpty(mongooseQuery)) {
+                                //console.log('Audit.js :: Missing Mongoose Query - probably empty database, continuing ...');
+                                var fakeMongooseQuery = {};
+                                fakeMongooseQuery.count = function (conditions, mongooseCallback) {
+                                    return mongooseCallback(undefined, 0);
+                                };
+                                callback(fakeMongooseQuery, undefined);
+                            }
+                            return callback(mongooseQuery, undefined);
+                        },
+                        // /Handling of failed Mongoose Queries
+
+                        //function (callback, mongooseQuery) {
+                        //    console.log("Counting 2 " + entityType.modelName);
+                        //    callback(mongooseQuery, undefined);
+                        //},
+
                         thenFilterResult,
+                        //function (callback, mongooseQuery) {
+                        //    mongooseQuery.count(null, function (err, result) {
+                        //        //console.log("Counting 3 " + entityType.modelName + " " + result);
+                        //        if (err) {
+                        //            console.error(err);
+                        //            return callback(undefined, err);
+                        //        }
+                        //        var jsonResult = {};
+                        //        jsonResult.count = result;
+                        //        callback(jsonResult, undefined);
+                        //    });
+                        //},
+
+                        //function (callback, jsonResult) {
+                        //    console.log("Counting 4 " + entityType.modelName + ", " + jsonResult.count + " found ...");
+                        //    callback(jsonResult, undefined);
+                        //},
+
                         then(callback)
                     ]),
                     cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
@@ -318,7 +252,7 @@ var __ = require("underscore"),
         },
 
 
-    project = exports.project =
+    projectBooks = exports.projectBooks =
         function (entityType, projectionConditions, sortConditions, skipValue, limitValue) {
             'use strict';
             return function requestor(callback, args) {
@@ -410,7 +344,59 @@ var __ = require("underscore"),
                             return callback(args, undefined);
                         }
                     ]),
-                    cancel(callback, "Audit.js :: Projecting '" + entityType.modelName + "s' via map-reducing event store failed!")
+                    cancel(callback, 'Audit.js :: Projecting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                ])(rq.run);
+            };
+        },
+
+
+    /**
+     * @see http://stackoverflow.com/questions/14644545/random-document-from-a-collection-in-mongoose
+     */
+    getRandom = exports.getRandom =
+        function (entityType) {
+            'use strict';
+            return function requestor(callback, args) {
+                firstSuccessfulOf([
+                    sequence([
+                        mongooseEventSourcingMapreduce.find(entityType),
+                        function (callback2, entities) {
+                            entities.count(function (err, count) {
+                                var randomIndexBase = Math.floor(Math.random() * count),
+                                    randomBookIndex = -1;
+
+                                if (randomIndexBase >= count) {
+                                    randomBookIndex = count - 1;
+                                } else if (randomBookIndex < 0) {
+                                    randomBookIndex = 0;
+                                }
+
+                                entities.findOne().skip(randomBookIndex).exec(function (err, entity) {
+                                    // TODO: Resolve this frequent error!
+                                    if (err || !entity) {
+                                        callback2(entities, undefined);
+                                        if (err) {
+                                            console.error(utils.logPreamble() + err.message + ' [count=' + count + ', randomBookIndex=' + randomBookIndex + ']');
+                                            callback(undefined, err.message);
+                                        } else {
+                                            console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + count + ', randomBookIndex=' + randomBookIndex + ']');
+                                            var randomEntity = entities.find({ seq: randomBookIndex }, function (err, randomEntities) {
+                                                //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + count + ', randomBookIndex=' + randomBookIndex + ')');
+                                                var numberOfEntitites = randomEntities.length;
+                                                callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + count + ', randomBookIndex=' + randomBookIndex + ']');
+                                            });
+                                        }
+                                    } else {
+                                        callback2(entities, undefined);
+                                        var randomBook = entity.value;
+                                        randomBook.entityId = entity._id;
+                                        callback(randomBook, undefined);
+                                    }
+                                });
+                            });
+                        }
+                    ]),
+                    cancel(callback, 'Audit.js :: Getting random \'' + entityType.modelName + ' via map-reducing event store failed!')
                 ])(rq.run);
             };
         };

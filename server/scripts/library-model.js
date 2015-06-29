@@ -7,10 +7,17 @@ var mongoose = require('mongoose'),
 // Library models
 ///////////////////////////////////////////////////////////////////////////////
 
+// TODO: "Core models" - all elements are mandatory and must be present in event store
+//tagModelDescriptor = ['tag'],
+//bookModelDescriptor = ['seq', 'title', 'author', 'tags'],
+//visitModelDescriptor = ['user', 'date'],
+//loanModelDescriptor = ['book', 'visit'],
+
+// TODO: "View-specific models" - additional optional elements added
     tagModelDescriptor = ['tag'],
     bookModelDescriptor = ['seq', 'title', 'author', 'tags'], // 'releaseDate' and 'coverImage' not yet supported
-    visitModelDescriptor = ['user', 'fromDate', 'period', 'loans'],
-    loanModelDescriptor = ['book', 'visit'],
+    visitModelDescriptor = ['seq', 'user', 'fromDate', 'period', 'loans'],
+    loanModelDescriptor = ['seq', 'book', 'visit'],
 
     ImmutableTag = curry(utils.ImmutableObject, tagModelDescriptor),
     ImmutableBook = curry(utils.ImmutableObject, bookModelDescriptor),
@@ -33,22 +40,24 @@ var mongoose = require('mongoose'),
 
     BookMongooseSchema = new mongoose.Schema(new ImmutableBook(Number, String, String, [TagMongooseSchema])),
 //BookMongooseSchema = new mongoose.Schema(new ImmutableBook(
-//    // TODO: Does indexing help? How to measure it? Can indexes be dynamically added afterwards ...
+//    // TODO: Check out detailed configuration: http://mongoosejs.com/docs/guide.html
 //    { type: Number, index: true, required: true },
 //    { type: String, index: true, required: false },
 //    { type: String, index: true, required: false },
 //    { type: [TagMongooseSchema], index: true, required: false }
 //)),
 
-// See: http://stackoverflow.com/questions/14796962/mongoose-schema-reference
     VisitMongooseSchema = new mongoose.Schema(new ImmutableVisit(
+        { type: Number, index: true, required: true },
         { type: String, index: true, required: true },
         { type: Date, index: true, required: true },
         { type: Number, index: true, required: false },
+// See: http://stackoverflow.com/questions/14796962/mongoose-schema-reference
         [{ type: mongoose.Schema.ObjectId, ref: 'LoanMongooseSchema', index: true, required: false }]
     )),
 
     LoanMongooseSchema = new mongoose.Schema(new ImmutableLoan(
+        { type: Number, index: true, required: true },
         { type: mongoose.Schema.ObjectId, ref: 'BookMongooseSchema', index: true, required: true },
         { type: mongoose.Schema.ObjectId, ref: 'VisitMongooseSchema', index: true, required: true }
     )),
@@ -66,9 +75,15 @@ var mongoose = require('mongoose'),
 
     Visit = exports.Visit = mongoose.model('visit', VisitMongooseSchema),
 
-    Loan = exports.Loan = mongoose.model('loan', LoanMongooseSchema);
+    Loan = exports.Loan = mongoose.model('loan', LoanMongooseSchema),
+
+    getStandardLoanPeriodInDays = exports.getStandardLoanPeriodInDays = function () {
+        'use strict';
+        return 30;
+    };
 
 
+// TODO: Relocate these (check out detailed configuration: http://mongoosejs.com/docs/guide.html)
 Book.collectionName = function () {
     'use strict';
     return Book.modelName + 's'.toLowerCase();

@@ -32,3 +32,15 @@ app.delete('/library/books/:entityId', libraryService.removeBook);
 
 app.post('/library/books/generate', libraryService.generateBooks);
 app.post('/library/books/clean', libraryService.removeAllBooksFromCache);
+
+app.post('/library/loans/generate', libraryService.generateLoans);
+
+// TODO: Choose resource id! Or support both!?
+app.get('/library/loans/count/:entityId', libraryService.countLoansForBook);
+app.get('/library/books/:entityId/loans/count', libraryService.countLoansForBook);
+
+app.get('/library/loans/active/:entityId', libraryService.isBookOnLoan);
+app.get('/library/books/:entityId/loans/active', libraryService.isBookOnLoan);
+
+app.post('/library/visits/count', libraryService.countAllVisits);
+app.post('/library/loans/count', libraryService.countAllLoans);

@@ -8,7 +8,8 @@ require.config({
         'jquery.bindwithdelay': 'vendor/jquery.bind-with-delay',
         'underscore': '../bower_components/underscore/underscore',
         'backbone': '../bower_components/backbone/backbone',
-        'moment': '../bower_components/moment/moment'
+        'moment': '../bower_components/moment/moment',
+        'spin': '../bower_components/spin.js/spin'
     },
     shim: {
         jquery: {
