@@ -8,21 +8,40 @@ define(['jquery', 'underscore', 'backbone'],
         var LibraryEntityCountModel = Backbone.Model.extend({
                 defaults: {
                     count: 0
-                },
-                fetch: function () {
-                    return Backbone.Model.prototype.fetch.call(this, {
-                        type: 'POST',
-                        url: this.url
-                    });
+                }//,
+                //fetch: function () {
+                //    Backbone.Model.prototype.fetch.call(this, {
+                //        type: 'POST',
+                //        url: this.url
+                //    }/*, function (model, result, xhr) {
+                //     var i = 0;
+                //     var j = 1;
+
+                //     },
+                //     function (model, xhr, options) {
+                //     var i = 0;
+                //     var j = 1;
+
+                //     }*/);
+                //}/*,
+                // parse: function () {
+                // var i = 0;
+                // var j = 1;
+                // }
+                // */
+            }),
+            LibraryEntityUnknownCountView = Backbone.View.extend({
+                tagName: 'span',
+                className: 'wage x-large',
+                render: function () {
+                    this.$el.append('?');
+                    return this;
                 }
             }),
             LibraryEntityCountView = Backbone.View.extend({
                 tagName: 'span',
-                className: 'essential',
-                template: _.template('' +
-                    '<span><%= args.count %></span>',
-                    { variable: 'args' }
-                ),
+                className: 'strong x-large',
+                template: _.template('<%= args.count %>', { variable: 'args' }),
                 initialize: function () {
                     this.listenTo(this.model, 'sync change', this.render);
                 },
@@ -48,9 +67,9 @@ define(['jquery', 'underscore', 'backbone'],
             className: 'library-overview',
             template: _.template('' +
                 '<div class="library-overview-row">' +
-                '  <span class="library-overview-heading">Books</span>' +
-                '  <span class="library-overview-heading">Visits</span>' +
-                '  <span class="library-overview-heading">Loans</span>' +
+                '  <span class="library-overview-heading"><em>Books</em></span>' +
+                '  <span class="library-overview-heading"><em>Visits</em></span>' +
+                '  <span class="library-overview-heading"><em>Loans</em></span>' +
                 '</div>' +
                 '<div class="library-overview-row">' +
                 '  <span id="bookCount" class="library-overview-element"></span>' +
@@ -58,31 +77,62 @@ define(['jquery', 'underscore', 'backbone'],
                 '  <span id="loanCount" class="library-overview-element"></span>' +
                 '</div>'
             ),
-
             bookCount: null,
-            bookCountView: null,
             visitCount: null,
+            loanCount: null,
+
+            loanCountView: null,
+            bookCountView: null,
             visitCountView: null,
 
             initialize: function () {
                 this.render();
 
                 this.bookCount = new BookCount();
-                this.bookCountView = new LibraryEntityCountView({ el: '#bookCount', model: this.bookCount });
                 this.visitCount = new VisitCount();
-                this.visitCountView = new LibraryEntityCountView({ el: '#visitCount', model: this.visitCount });
                 this.loanCount = new LoanCount();
-                this.loanCountView = new LibraryEntityCountView({ el: '#loanCount', model: this.loanCount });
+
+                this.bookCountView = new LibraryEntityCountView({ model: this.bookCount });
+                this.visitCountView = new LibraryEntityCountView({ model: this.visitCount });
+                this.loanCountView = new LibraryEntityCountView({ model: this.loanCount });
 
                 this.renderChildViews();
             },
+
             renderChildViews: function () {
-                this.bookCount.fetch();
-                this.visitCount.fetch();
-                this.loanCount.fetch();
+                $('#bookCount').empty().append(this.bookCountView.el);
+                $('#visitCount').empty().append(this.visitCountView.el);
+                $('#loanCount').empty().append(this.loanCountView.el);
+
+                //this.bookCount.fetch();
+                //this.visitCount.fetch();
+                //this.loanCount.fetch({
+                //    error: function () {
+                //        $('#loanCount').empty().append(new LibraryEntityUnknownCountView().render().el);
+                //    }
+                //});
+                this.bookCount.save(null, {
+                    error: function () {
+                        $('#bookCount').empty().append(new LibraryEntityUnknownCountView().render().el);
+                    }
+                });
+                this.visitCount.save(null, {
+                    error: function () {
+                        $('#visitCount').empty().append(new LibraryEntityUnknownCountView().render().el);
+                    }
+                });
+                this.loanCount.save(null, {
+                    error: function () {
+                        //var libraryEntityUnknownCountView = new LibraryEntityUnknownCountView();
+                        //libraryEntityUnknownCountView.render();
+                        //$('#loanCount').empty().append(libraryEntityUnknownCountView.el);
+                        $('#loanCount').empty().append(new LibraryEntityUnknownCountView().render().el);
+                    }
+                });
             },
+
             render: function () {
-                this.$el.empty().append(this.template({}));
+                this.$el.empty().append(this.template());
             }
         });
     }

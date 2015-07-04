@@ -8,7 +8,7 @@ var clientResourceRoot = '../../client',
     path = require('path'),
     bodyParser = require('body-parser'),
     express = require('express'),
-
+    utils = require('./utils'),
 
 // Establish Express "app server" (routing, parsing, ...)
     port = 4711,
@@ -29,7 +29,7 @@ exports.appServer = app;
 server = exports.httpServer = http.createServer(app);
 server.listen(port, function () {
     'use strict';
-    console.log('Express server listening on port %d', port);
+    console.log(utils.logPreamble() + 'Express server listening on port %d', port);
 });
 
 

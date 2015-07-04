@@ -3,6 +3,8 @@
 
 var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
 
+    utils = require('./utils'),
+
 
 //////////////////////////////////////
 // MapReduce functions
@@ -124,8 +126,14 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
                 reduce: _reduce_replayStateChangeEvents,
                 finalize: _mapReduceFinalize_roundUpNonReducedSingleStateChangeEventObjects,
 
+                //out: { replace: 'filteredEntities', inline: 1 } // Not good enough
                 // TODO: Good enough? Or should a requence/random temp collection be introduced ...
+                //out: { inline: 1 }
                 out: { replace: 'filteredEntities_' + entityType.modelName, inline: 1 }
+                //out: { reduce: 'filteredEntities_' + entityType.modelName }
+                //out: { merge: 'filteredEntities_' + entityType.modelName }
+                //out: { replace: 'filteredEntities_' + entityType.modelName + '_' + Math.random() }
+                //out: 'filteredEntities_' + entityType.modelName
             };
         },
 
@@ -140,7 +148,7 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
      * @param entityType Mongoose model type
      * @private
      */
-    _mapreducefind = exports.find =
+    _mapReduceFind = exports.find =
         function (entityType) {
             'use strict';
             return function requestor(callback, args) {
@@ -148,7 +156,7 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
                 mongooseEventSourcingModels.StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
                     if (err) {
                         if (err.message === "ns doesn't exist") {
-                            console.log(err.name + ' :: ' + err.message + ' - probably empty database, continuing ...');
+                            console.log(utils.logPreamble() + err.name + ': ' + err.message + ' - probably empty database, continuing ...');
                             // Special treatment: empty cursor means empty database ...
                             return callback({}, undefined);
                         } else {

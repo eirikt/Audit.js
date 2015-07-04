@@ -5,8 +5,8 @@ var __ = require('underscore'),
     curry = require('./fun').curry,
 
 // TODO: Move to 'app.config.js'?
-    doLog = exports.doLog = true,
-    doNotLog = exports.doNotLog = false,
+    doLog = exports.doLog = rq.doLog,
+    doNotLog = exports.doNotLog = rq.doNotLog,
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -15,13 +15,14 @@ var __ = require('underscore'),
 ///////////////////////////////////////////////////////////////////////////////
 
 
+// TODO: Move to 'app.config.js'?
     /**
      * A simple timestamp in brackets, suitable for log line preambles.
      * @returns {String} Simple date-in-square-brackets string
      */
     _logPreamble = exports.logPreamble = function () {
         'use strict';
-        return '[' + moment().format('YYYY-MM-DD HH:mm:ss') + '] ';
+        return '[' + moment().format('YYYY-MM-DD HH:mm:ss') + '] Audit.js :: ';
     },
 
 
@@ -31,20 +32,20 @@ var __ = require('underscore'),
 // Just add response object, then use them in RQ pipelines
 ///////////////////////////////////////////////////////////////////////////////
 
-    _send200OkResponse = exports.send200OkResponse = curry(rq.dispatchResponseStatusCode, doLog, 200),
-    _send200OkResponseWithArgumentAsBody = exports.send200OkResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 200),
-    _send200CreatedResponseWithBodyConsistingOf = exports.send200CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doLog, 200),
-    _send201CreatedResponseWithArgumentAsBody = exports.send201CreatedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 201),
-    _send201CreatedResponseWithBodyConsistingOf = exports.send201CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doLog, 201),
-    _send202AcceptedResponse = exports.send202AcceptedResponse = curry(rq.dispatchResponseStatusCode, doLog, 202),
-    _send202AcceptedResponseWithArgumentAsBody = exports.send202AcceptedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 202),
-    _send205ResetContentResponse = exports.send205ResetContentResponse = curry(rq.dispatchResponseStatusCode, doLog, 205),
-    _send400BadRequestResponseWithArgumentAsBody = exports.send400BadRequestResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 400),
-    _send403ForbiddenResponseWithArgumentAsBody = exports.send403ForbiddenResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 403),
-    _send404NotFoundResponseWithArgumentAsBody = exports.send404NotFoundResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 404),
-    _send405MethodNotAllowedResponseWithArgumentAsBody = exports.send405MethodNotAllowedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doLog, 405),
-    _send500InternalServerErrorResponse = exports.send500InternalServerErrorResponse = curry(rq.dispatchResponseStatusCode, doLog, 500),
-    _send500NotImplementedServerErrorResponse = exports.send501NotImplementedServerErrorResponse = curry(rq.dispatchResponseStatusCode, doLog, 501),
+    _send200OkResponse = exports.send200OkResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 200),
+    _send200OkResponseWithArgumentAsBody = exports.send200OkResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 200),
+    _send200CreatedResponseWithBodyConsistingOf = exports.send200CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doNotLog, 200),
+    _send201CreatedResponseWithArgumentAsBody = exports.send201CreatedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 201),
+    _send201CreatedResponseWithBodyConsistingOf = exports.send201CreatedResponseWithBodyConsistingOf = curry(rq.dispatchResponseWithJsonBody, doNotLog, 201),
+    _send202AcceptedResponse = exports.send202AcceptedResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 202),
+    _send202AcceptedResponseWithArgumentAsBody = exports.send202AcceptedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 202),
+    _send205ResetContentResponse = exports.send205ResetContentResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 205),
+    _send400BadRequestResponseWithArgumentAsBody = exports.send400BadRequestResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 400),
+    _send403ForbiddenResponseWithArgumentAsBody = exports.send403ForbiddenResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 403),
+    _send404NotFoundResponseWithArgumentAsBody = exports.send404NotFoundResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 404),
+    _send405MethodNotAllowedResponseWithArgumentAsBody = exports.send405MethodNotAllowedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 405),
+    _send500InternalServerErrorResponse = exports.send500InternalServerErrorResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 500),
+    _send500NotImplementedServerErrorResponse = exports.send501NotImplementedServerErrorResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 501),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,13 +154,30 @@ var __ = require('underscore'),
                 doEmit,
                 progressValueProgressInPercent;
 
+            // TODO: Clean up ...
+            //console.log('throttleEvents(numberOfThrottledEvents=' + numberOfThrottledEvents + ', totalIterationNo=' + totalIterationNo + ', iterationNo=' + iterationNo + ')');
+            // Ehs: throttleEvents(numberOfThrottledEvents=1000, totalIterationNo=842, iterationNo=839)
+
             if (numberOfThrottledEvents <= 100 && totalIterationNo <= numberOfThrottledEvents) {
+                //console.log('#1');
                 callback(iterationNo);
 
-            } else {
-                skippingInterval = Math.floor(totalIterationNo / numberOfThrottledEvents);
-                doEmit = iterationNo % skippingInterval === 0;
+            } else if (totalIterationNo < numberOfThrottledEvents) {
+                // If less than 1000 iterations, just use 100
+                //console.log('#2');
+                numberOfThrottledEvents = 100;
+                //skippingInterval = Math.floor(totalIterationNo / numberOfThrottledEvents);
+                //doEmit = iterationNo % skippingInterval === 0;
             }
+
+            //} else {
+            //console.log('#3');
+            skippingInterval = Math.floor(totalIterationNo / numberOfThrottledEvents);
+            doEmit = iterationNo % skippingInterval === 0;
+            //}
+
+            //console.log('throttleEvents(numberOfThrottledEvents=' + numberOfThrottledEvents + ', totalIterationNo=' + totalIterationNo + ', iterationNo=' + iterationNo + ')');
+            //console.log('throttleEvents :: doEmit=' + doEmit + ', skippingInterval=' + skippingInterval);
 
             if (doEmit && callback) {
                 if (numberOfThrottledEvents > 100) {

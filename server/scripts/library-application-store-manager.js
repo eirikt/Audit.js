@@ -46,8 +46,8 @@ var __ = require('underscore'),
     //rqInMemoryFindBookInvocation = null,
 
 // Application Store (MongoDB)
-    //rqMongooseBookInvocation = curry(rq.mongoose, library.Book),
-    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, library.Book),
+    //rqMongooseBookInvocation = curry(rq.mongoose, utils.doNotLog, library.Book),
+    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, utils.doNotLog, library.Book),
     //rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
 
 
@@ -116,7 +116,7 @@ var __ = require('underscore'),
                     }
                     // TODO: More response codes, I guess ...
 
-                    console.error('Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
+                    console.error(utils.logPreamble() + 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                     callback(undefined, 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                 }
             ])(rq.run);
@@ -133,7 +133,7 @@ messageBus.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-event
     'use strict';
     sequence([
         rq.do(function () {
-            console.log('Application Store Manager :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
+            console.log(utils.logPreamble() + 'Application Store Manager :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
         }),
         rq.continueIf(cqrs.isEnabled),
         mongooseEventSourcingMapreduce.find(library.Book),
@@ -149,7 +149,7 @@ messageBus.subscribe(['book-updated'], function (updatedBook) {
     'use strict';
     sequence([
         rq.do(function () {
-            console.log('Application Store Manager :: \'book-updated\' :: subscription message received');
+            console.log(utils.logPreamble() + 'Application Store Manager :: \'book-updated\' :: subscription message received');
         }),
         rq.continueIf(cqrs.isEnabled),
         rq.value(updatedBook),
@@ -165,7 +165,7 @@ messageBus.subscribe(['book-removed'], function (entityId) {
     'use strict';
     sequence([
         rq.do(function () {
-            console.log('Application Store Manager :: \'book-removed\' :: subscription message received');
+            console.log(utils.logPreamble() + 'Application Store Manager :: \'book-removed\' :: subscription message received');
         }),
         rq.continueIf(cqrs.isEnabled),
         rq.value(entityId),

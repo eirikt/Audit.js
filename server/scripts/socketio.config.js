@@ -2,19 +2,20 @@ var httpServer = require('./express.config.js').httpServer,
 
 // Establish Server Push / Socket.IO manager
     socketio = require('socket.io'),
-    serverPush = exports.serverPush = exports.clientSidePublisher = socketio.listen(httpServer);
+    serverPush = exports.serverPush = exports.clientSidePublisher = socketio.listen(httpServer),
 
+    utils = require('./utils'),
 
 // User connection counter.
-var userCounter = 0;
+    userCounter = 0;
 
 serverPush.on('connection', function (socket) {
     'use strict';
-    console.log('Socket.io: User connected ...');
     userCounter += 1;
+    console.log(utils.logPreamble() + 'Socket.io: User connected (now ' + userCounter + ' connected)');
     socket.on('disconnect', function () {
-        console.log('Socket.io: User disconnected!');
         userCounter -= 1;
+        console.log(utils.logPreamble() + 'Socket.io: User disconnected (now ' + userCounter + ' connected)');
     });
 });
 
@@ -22,6 +23,6 @@ serverPush.on('connection', function (socket) {
 // Emitting of current number of users every 10 seconds
 setInterval(function () {
     'use strict';
-    console.log('Socket.io: Number of connected users: ' + userCounter);
+    console.log(utils.logPreamble() + 'Socket.io: Number of connected users: ' + userCounter);
     serverPush.emit('number-of-connections', userCounter);
 }, 10000);

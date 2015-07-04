@@ -57,7 +57,7 @@ var RQ = require('async-rq'),
     _allStateChangesCount = exports.count = function (request, response) {
         'use strict';
 
-        var stateChangeCount = curry(rq.mongoose, eventSourcingModel.StateChange, 'count');
+        var stateChangeCount = curry(rq.mongoose, utils.doNotLog, eventSourcingModel.StateChange, 'count');
 
         firstSuccessfulOf([
             sequence([

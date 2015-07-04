@@ -24,11 +24,12 @@ root.app.config = {
 
 
 // Message bus testing ...
-var messageBus = require('./messaging');
+var messageBus = require('./messaging'),
+    utils = require('./utils');
 
 // TODO: Try with '.' as delimiter
 //messageBus.subscribe(['naive-inmemory.consistent'], function (message) {
 messageBus.subscribe(['naive-inmemory_consistent'], function (message) {
     'use strict';
-    console.log('Application store \'naive-inmemory.consistent=' + message + '\' subscription message received');
+    console.log(utils.logPreamble() + 'Application store \'naive-inmemory.consistent=' + message + '\' subscription message received');
 });

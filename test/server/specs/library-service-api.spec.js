@@ -159,7 +159,7 @@ describe('Library service API specification\'s', function () {
             libraryService.generateBooks(request, response);
         });
 
-        // TODO: More ...
+        // TODO: More ... ?
         /*
          it('should ...', function () {
          var request = {
@@ -778,7 +778,18 @@ describe('Library service API specification\'s', function () {
                 };
             });
 
+            sequenceNumberStub.incrementUnusedSequenceNumbers = function (schemaName, callback) {
+                callback(null, 0);
+            };
+
             libraryService.removeBook(request, response);
+        });
+
+
+        it('should decrease the active sequence number count', function () {
+            //sequenceNumberStub.incrementUnusedSequenceNumbers = sinon.spy(function (schemaName, callback) {
+            //     callback(null, 0);
+            //});
         });
 
 
@@ -804,6 +815,10 @@ describe('Library service API specification\'s', function () {
                     return callback(savedChanges, undefined);
                 };
             });
+
+            sequenceNumberStub.incrementUnusedSequenceNumbers = function (schemaName, callback) {
+                callback(null, 0);
+            };
 
             messageBusStub.publishAll = sinon.spy(messageBus.publishAll);
 

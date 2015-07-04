@@ -82,7 +82,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     done();
                 };
 
-            rqStub.mongoose = sinon.spy(function (mongooseModel, mongooseModelFunction, conditions) {
+            rqStub.mongoose = sinon.spy(function (mongooseModel, doLog, mongooseModelFunction, conditions) {
                 return rq.null;
             });
 
@@ -105,7 +105,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     status: responseStatusSendSpy
                 };
 
-            rqStub.mongoose = sinon.spy(function (mongooseModel, mongooseModelFunction, conditions) {
+            rqStub.mongoose = sinon.spy(function (mongooseModel, doLog, mongooseModelFunction, conditions) {
                 return rq.null;
             });
 
@@ -132,7 +132,7 @@ describe('Event Sourcing service API specification\'s', function () {
                     done();
                 };
 
-            rqStub.mongoose = sinon.spy(function (mongooseModel, mongooseModelFunction, conditions) {
+            rqStub.mongoose = sinon.spy(function (mongooseModel, doLog, mongooseModelFunction, conditions) {
                 return rq.value(0);
             });
 
@@ -170,17 +170,17 @@ describe('Event Sourcing service API specification\'s', function () {
                     expect(marshalledJsonResponseBody.totalCount).to.equal(0);
 
                     expect(rqStub.mongoose.calledThrice).to.be.true;
-                    expect(rqStub.mongoose.getCall(0).args[1]).to.be.equal('count');
-                    expect(rqStub.mongoose.getCall(0).args[2].method).to.be.equal('CREATE');
-                    expect(rqStub.mongoose.getCall(1).args[1]).to.be.equal('count');
-                    expect(rqStub.mongoose.getCall(1).args[2].method).to.be.equal('UPDATE');
-                    expect(rqStub.mongoose.getCall(2).args[1]).to.be.equal('count');
-                    expect(rqStub.mongoose.getCall(2).args[2].method).to.be.equal('DELETE');
+                    expect(rqStub.mongoose.getCall(0).args[2]).to.be.equal('count');
+                    expect(rqStub.mongoose.getCall(0).args[3].method).to.be.equal('CREATE');
+                    expect(rqStub.mongoose.getCall(1).args[2]).to.be.equal('count');
+                    expect(rqStub.mongoose.getCall(1).args[3].method).to.be.equal('UPDATE');
+                    expect(rqStub.mongoose.getCall(2).args[2]).to.be.equal('count');
+                    expect(rqStub.mongoose.getCall(2).args[3].method).to.be.equal('DELETE');
 
                     done();
                 };
 
-            rqStub.mongoose = sinon.spy(function (mongooseModel, mongooseModelFunction, conditions) {
+            rqStub.mongoose = sinon.spy(function (mongooseModel, doLog, mongooseModelFunction, conditions) {
                 return rq.value(0);
             });
 
@@ -199,7 +199,7 @@ describe('Event Sourcing service API specification\'s', function () {
                         };
                     }
                 },
-                mongooseModelInvocationStub = function (mongooseModel, mongooseModelFunction, conditions) {
+                mongooseModelInvocationStub = function (mongooseModel, doLog, mongooseModelFunction, conditions) {
                     return rq.value(13);
                 },
                 assert = function (responseBody) {
