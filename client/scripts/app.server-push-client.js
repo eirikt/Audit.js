@@ -1,12 +1,11 @@
 /* global define:false, JSON:false */
-define(["socket.io", "underscore", "backbone", "app", "app.book"],
+
+define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
 
     function (SocketIo, _, Backbone, App, Book) {
-        "use strict";
+        'use strict';
 
-        /**
-         * HTTP server push events config
-         */
+        /** HTTP server push events config */
         return Backbone.Model.extend({
 
             defaults: {
@@ -20,21 +19,21 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
                 var msg = arguments[0],
                     pushMsgArgs = _.rest(arguments),
                     hasMsgArgs = !_.isEmpty(pushMsgArgs),
-                    retVal = "Server Push { " + msg;
+                    retVal = 'Server Push { ' + msg;
 
                 if (hasMsgArgs) {
-                    retVal += " { ";
+                    retVal += ' { ';
                 }
                 _.each(pushMsgArgs, function (pushMsgArg, index) {
                     retVal += pushMsgArg;
                     if (index < pushMsgArgs.length - 1) {
-                        retVal += ", ";
+                        retVal += ', ';
                     }
                 });
                 if (hasMsgArgs) {
-                    retVal += " }";
+                    retVal += ' }';
                 }
-                retVal += " }";
+                retVal += ' }';
                 return retVal;
             },
 
@@ -42,7 +41,7 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
             /** Generic push event subscription */
             listenForPushEvent: function (eventId, callback) {
                 var self = this;
-                this.get("socket").on(eventId, function () {
+                this.get('socket').on(eventId, function () {
                     // http://stackoverflow.com/questions/960866/converting-the-arguments-object-to-an-array-in-javascript
                     var args = Array.prototype.slice.call(arguments, 0),
                         marshalledArgs;
@@ -64,46 +63,49 @@ define(["socket.io", "underscore", "backbone", "app", "app.book"],
 
 
             initialize: function () {
-
-                if (!this.get("connected")) {
-                    this.set("connected", true);
-                    this.set("socket", SocketIo.connect(this.get("serverUrl")));
-                    console.log("Connecting to " + this.get("serverUrl") + " ...");
+                if (!this.get('connected')) {
+                    this.set('connected', true);
+                    this.set('socket', SocketIo.connect(this.get('serverUrl')));
+                    console.log('Connecting to ' + this.get('serverUrl') + ' ...');
                 } else {
-                    console.log("Already connected to " + this.get("serverUrl") + " ... not re-trying");
+                    console.log('Already connected to ' + this.get('serverUrl') + ' ... not re-trying');
                 }
 
-                this.listenForPushEvent("number-of-connections");
+                this.listenForPushEvent('number-of-connections');
 
-                this.listenForPushEvent("cqrs", App.refreshViews);
+                this.listenForPushEvent('cqrs', App.refreshViews);
 
-                this.listenForPushEvent("creating-statechangeevents");
-                this.listenForPushEvent("statechangeevent-created");
-                this.listenForPushEvent("all-statechangeevents-created", App.refreshViews);
+                this.listenForPushEvent('creating-book-statechangeevents');
+                this.listenForPushEvent('book-statechangeevent-created');
+                this.listenForPushEvent('all-book-statechangeevents-created', App.refreshViews);
 
-                this.listenForPushEvent("mapreducing-events");
-                this.listenForPushEvent("event-mapreduced");
-                this.listenForPushEvent("all-events-mapreduced");
+                this.listenForPushEvent('creating-visit-statechangeevents');
+                this.listenForPushEvent('visit-statechangeevent-created');
+                this.listenForPushEvent('all-visit-statechangeevents-created', App.refreshViews);
 
-                this.listenForPushEvent("replaying-events");
-                this.listenForPushEvent("event-replayed");
-                this.listenForPushEvent("all-events-replayed", App.refreshViews);
+                this.listenForPushEvent('mapreducing-events');
+                this.listenForPushEvent('event-mapreduced');
+                this.listenForPushEvent('all-events-mapreduced');
 
-                this.listenForPushEvent("book-updated", function (updatedBook) {
+                this.listenForPushEvent('replaying-events');
+                this.listenForPushEvent('event-replayed');
+                this.listenForPushEvent('all-events-replayed', App.refreshViews);
+
+                this.listenForPushEvent('book-updated', function (updatedBook) {
                     App.library.set(updatedBook, { add: false, remove: false, merge: true });
                     App.refreshViews();
                     if (App.bookView.model && App.bookView.model.id === updatedBook[Book.prototype.idAttribute]) {
                         App.bookView.bookView.render();
                     }
                 });
-                this.listenForPushEvent("book-removed", function (entityIdOfRemovedBook) {
+                this.listenForPushEvent('book-removed', function (entityIdOfRemovedBook) {
                     App.library.remove(App.library.get(entityIdOfRemovedBook));
                     App.refreshViews();
                     if (App.bookView.model && App.bookView.model.id === entityIdOfRemovedBook) {
                         App.bookView.reset();
                     }
                 });
-                this.listenForPushEvent("all-books-removed", function () {
+                this.listenForPushEvent('all-books-removed', function () {
                     App.refreshViews();
                     // TODO: reset form fields
                     //App.bookView.clear();

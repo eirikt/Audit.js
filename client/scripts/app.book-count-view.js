@@ -1,4 +1,5 @@
-/* global define:false, prettyprintInteger:false */
+/* global define:false, prettyprintInt:false */
+
 define(['jquery', 'underscore', 'backbone'],
 
     // TODO: Rename file to 'app.library-numbers-view.js'
@@ -8,27 +9,7 @@ define(['jquery', 'underscore', 'backbone'],
         var LibraryEntityCountModel = Backbone.Model.extend({
                 defaults: {
                     count: 0
-                }//,
-                //fetch: function () {
-                //    Backbone.Model.prototype.fetch.call(this, {
-                //        type: 'POST',
-                //        url: this.url
-                //    }/*, function (model, result, xhr) {
-                //     var i = 0;
-                //     var j = 1;
-
-                //     },
-                //     function (model, xhr, options) {
-                //     var i = 0;
-                //     var j = 1;
-
-                //     }*/);
-                //}/*,
-                // parse: function () {
-                // var i = 0;
-                // var j = 1;
-                // }
-                // */
+                }
             }),
             LibraryEntityUnknownCountView = Backbone.View.extend({
                 tagName: 'span',
@@ -47,7 +28,7 @@ define(['jquery', 'underscore', 'backbone'],
                 },
                 render: function () {
                     var model = this.model.toJSON();
-                    model.count = prettyprintInteger(model.count);
+                    model.count = prettyprintInt(model.count);
                     this.$el.empty().append(this.template(model));
                 }
             }),
@@ -104,13 +85,6 @@ define(['jquery', 'underscore', 'backbone'],
                 $('#visitCount').empty().append(this.visitCountView.el);
                 $('#loanCount').empty().append(this.loanCountView.el);
 
-                //this.bookCount.fetch();
-                //this.visitCount.fetch();
-                //this.loanCount.fetch({
-                //    error: function () {
-                //        $('#loanCount').empty().append(new LibraryEntityUnknownCountView().render().el);
-                //    }
-                //});
                 this.bookCount.save(null, {
                     error: function () {
                         $('#bookCount').empty().append(new LibraryEntityUnknownCountView().render().el);
@@ -123,9 +97,6 @@ define(['jquery', 'underscore', 'backbone'],
                 });
                 this.loanCount.save(null, {
                     error: function () {
-                        //var libraryEntityUnknownCountView = new LibraryEntityUnknownCountView();
-                        //libraryEntityUnknownCountView.render();
-                        //$('#loanCount').empty().append(libraryEntityUnknownCountView.el);
                         $('#loanCount').empty().append(new LibraryEntityUnknownCountView().render().el);
                     }
                 });

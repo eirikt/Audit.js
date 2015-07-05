@@ -2,7 +2,6 @@
 /* jshint -W024, -W083, -W106 */
 
 var __ = require('underscore'),
-//httpResponse = require('statuses'),
     mongoose = require('mongoose'),
 
     RQ = require('async-rq'),
@@ -20,7 +19,6 @@ var __ = require('underscore'),
     isMissing = utils.isMissing,
     isEmpty = utils.isEmpty,
     isNumber = utils.isNumber,
-//lessThanOne = utils.predicates.lessThanOne,
 
     messageBus = require("./messaging"),
     sequenceNumber = require("./mongoose.sequence-number"),
@@ -39,16 +37,16 @@ var __ = require('underscore'),
 ///////////////////////////////////////////////////////////////////////////////
 
 // Event Store (MongoDB)
-//rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, utils.doNotLog, eventSourcingModel.StateChange),
+    rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, utils.doNotLog, eventSourcingModel.StateChange),
 
 // Application Store (In-memory)
-//rqInMemoryBookInvocation = null,
-//rqInMemoryJsonBookInvocation = null,
-//rqInMemoryFindBookInvocation = null,
+    rqInMemoryBookInvocation = null,
+    rqInMemoryJsonBookInvocation = null,
+    rqInMemoryFindBookInvocation = null,
 
 // Application Store (MongoDB)
     rqMongooseBookInvocation = curry(rq.mongoose, utils.doNotLog, library.Book),
-//rqMongooseJsonBookInvocation = curry(rq.mongooseJson, utils.doNotLog, library.Book),
+    rqMongooseJsonBookInvocation = curry(rq.mongooseJson, utils.doNotLog, library.Book),
     rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
 
 
@@ -63,22 +61,22 @@ var __ = require('underscore'),
      * CQRS Command
      *
      * HTTP method                  : POST
-     * Resource properties incoming : numberOfBooks                   (mandatory, number of books to generate)
-     * Status codes                 : 201 Created                     (synchronous)
-     * Status codes                 : 202 Accepted                    (asynchronous)
-     *                                400 Bad Request                 (missing/illegal mandatory property "numberOfBooks")
+     * Resource properties incoming : numberOfBooks                        (mandatory, number of books to generate)
+     * Status codes                 : 201 Created                          (synchronous)
+     * Status codes                 : 202 Accepted                         (asynchronous)
+     *                                400 Bad Request                      (missing/illegal mandatory property "numberOfBooks")
      * Resource properties outgoing : -
-     * Event messages emitted       : "creating-statechangeevents"    (the total number, start timestamp)
-     *                                "statechangeevent-created"      (the total number, start timestamp, current progress)
-     *                                "all-statechangeevents-created" ()
+     * Event messages emitted       : "creating-book-statechangeevents"    (the total number, start timestamp)
+     *                                "book-statechangeevent-created"      (the total number, start timestamp, current progress in percent)
+     *                                "all-book-statechangeevents-created" ()
      *
-     *                                "mapreducing-events"            (the total number, start timestamp)
-     *                                "event-mapreduced"              (the total number, start timestamp, current progress)
-     *                                "all-events-mapreduced"         ()
+     *                                "mapreducing-events"                 (the total number, start timestamp)
+     *                                "event-mapreduced"                   (the total number, start timestamp, current progress in percent)
+     *                                "all-events-mapreduced"              ()
      *
-     *                                "replaying-events"              (the total number, start timestamp)
-     *                                "event-replayed"                (the total number, start timestamp, current progress)
-     *                                "all-events-replayed"           ()
+     *                                "replaying-events"                   (the total number, start timestamp)
+     *                                "event-replayed"                     (the total number, start timestamp, current progress in percent)
+     *                                "all-events-replayed"                ()
      */
     _generateBooks = exports.generateBooks =
         function (request, response) {
@@ -94,7 +92,7 @@ var __ = require('underscore'),
                 clientPushMessageThrottlerRequestor = function (numberOfServerPushEmits, startTime, count, index) {
                     return function requestor(callback, savedStateChange) {
                         utils.throttleEvents(numberOfServerPushEmits, count, index, function (progressInPercent) {
-                            messageBus.publishClientSide('statechangeevent-created', count, startTime, progressInPercent);
+                            messageBus.publishClientSide('book-statechangeevent-created', count, startTime, progressInPercent);
                         });
                         callback(savedStateChange, undefined);
                     };
@@ -126,7 +124,7 @@ var __ = require('underscore'),
                         count = totalNumberOfBooksToGenerate;
                         callback(totalNumberOfBooksToGenerate, undefined);
                     },
-                    rq.then(curry(messageBus.publishAll, 'creating-statechangeevents')),
+                    rq.then(curry(messageBus.publishAll, 'creating-book-statechangeevents')),
                     function (callback, args) {
                         for (; index < count; index += 1) {
                             booksWithSequenceNumber.push(
@@ -158,7 +156,7 @@ var __ = require('underscore'),
                         callback(args, undefined);
                     },
                     sequence(booksWithSequenceNumber),
-                    rq.then(curry(messageBus.publishAll, 'all-statechangeevents-created'))
+                    rq.then(curry(messageBus.publishAll, 'all-book-statechangeevents-created'))
                 ]),
                 utils.send500InternalServerErrorResponse(response)
             ])(rq.run);
@@ -173,23 +171,23 @@ var __ = require('underscore'),
      * CQRS Command
      *
      * HTTP method                  : POST
-     * Resource properties incoming : maxBookLoansPerVisit            (optional, default is 3)
-     * Status codes                 : 201 Created                     (synchronous processing)
-     *                                202 Accepted                    (asynchronous processing)
-     *                                400 Bad Request                 (illegal property "numberOfBooks")
+     * Resource properties incoming : maxBookLoansPerVisit                  (optional, default is 3)
+     * Status codes                 : 201 Created                           (synchronous processing)
+     *                                202 Accepted                          (asynchronous processing)
+     *                                400 Bad Request                       (illegal property "numberOfBooks")
      * Resource properties outgoing : -
      * Resource properties outgoing : -
-     * Event messages emitted       : "creating-statechangeevents"    (the total number, start timestamp)
-     *                                "statechangeevent-created"      (the total number, start timestamp, current progress)
-     *                                "all-statechangeevents-created" ()
+     * Event messages emitted       : "creating-visit-statechangeevents"    (the total number, start timestamp)
+     *                                "visit-statechangeevent-created"      (the total number, start timestamp, current progress in percent)
+     *                                "all-visit-statechangeevents-created" ()
      *
-     *                                "mapreducing-events"            (the total number, start timestamp)
-     *                                "event-mapreduced"              (the total number, start timestamp, current progress)
-     *                                "all-events-mapreduced"         ()
+     *                                "mapreducing-events"                  (the total number, start timestamp)
+     *                                "event-mapreduced"                    (the total number, start timestamp, current progress in percent)
+     *                                "all-events-mapreduced"               ()
      *
-     *                                "replaying-events"              (the total number, start timestamp)
-     *                                "event-replayed"                (the total number, start timestamp, current progress)
-     *                                "all-events-replayed"           ()
+     *                                "replaying-events"                    (the total number, start timestamp)
+     *                                "event-replayed"                      (the total number, start timestamp, current progress in percent)
+     *                                "all-events-replayed"                 ()
      */
     _generateVisitsAndLoans = exports.generateLoans =
         function (request, response) {
@@ -209,7 +207,7 @@ var __ = require('underscore'),
                 clientPushMessageThrottlerRequestor = function (numberOfServerPushEmits, startTime, count, index) {
                     return function requestor(callback, savedStateChange) {
                         utils.throttleEvents(numberOfServerPushEmits, count, index, function (progressInPercent) {
-                            messageBus.publishClientSide('statechangeevent-created', count, startTime, progressInPercent);
+                            messageBus.publishClientSide('visit-statechangeevent-created', count, startTime, progressInPercent);
                         });
                         callback(savedStateChange, undefined);
                     };
@@ -263,7 +261,7 @@ var __ = require('underscore'),
                         callback(numberOfVisitsToGenerate, undefined);
                     },
 
-                    rq.then(curry(messageBus.publishAll, 'creating-statechangeevents')),
+                    rq.then(curry(messageBus.publishAll, 'creating-visit-statechangeevents')),
 
                     function (callback, numberOfVisitsToGenerate) {
                         for (; visitIndex < numberOfVisitsToGenerate; visitIndex += 1) {
@@ -298,44 +296,13 @@ var __ = require('underscore'),
 
                                         bookLoans.push(rq.noop); // Just to make the tests compile/go through
 
-                                        //bookLoans.push(function (callback, args) {
-                                        //    console.log('!Dummy bookLoan!');
-                                        //    callback(args, undefined);
-                                        //});
-
                                         for (; bookLoanInVisitIndex < maxBookLoansPerVisit; bookLoanInVisitIndex += 1) {
                                             var loanEntityAttributes = {};
 
-                                            // TODO: Include loan sequence number? YES! Always sequence number where possible! Very convenient!
                                             bookLoans.push(
                                                 sequence([
-                                                    //function (callback3, args3) {
-                                                    //    console.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + bookLoanInVisitIndex + ' ...');
-                                                    //    callback3(args3, undefined);
-                                                    //},
-                                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + bookLoanInVisitIndex + ' ...'),
-                                                    //function (callback3, args3) {
-                                                    //    sequenceNumber.incrementSequenceNumber('loans', function (err, nextSequenceNumber) {
-                                                    //        callback3(nextSequenceNumber, undefined);
-                                                    //    });
-                                                    //},
-                                                    //// TODO: Include loan in visit entity (bi-directional reference)?
-                                                    //function (callback3, nextSequenceNumber) {
-                                                    //    //var entityAttributes = {};
-                                                    //    // TODO: Use an object as argument holder here ...
-                                                    //    loanEntityAttributes.seq = nextSequenceNumber;
-                                                    //    //entityAttributes.book = randomBook.entityId;
-                                                    //    loanEntityAttributes.visit = savedStateChange.entityId;
-                                                    //    //callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, entityAttributes, randomOperator), undefined);
-                                                    //    callback3(nextSequenceNumber, undefined);
-                                                    //},
-
+                                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' ...'),
                                                     eventSourcing.getRandom(library.Book, totalNumberOfBooks),
-                                                    //sequence([
-                                                    //rq.if(not(isHttpMethod('POST', request))),
-                                                    //rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                                                    //utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                                                    //]),
                                                     function (callback3, randomBook) {
                                                         if (!randomBook) {
                                                             callback3(undefined, 'Generating visits and loans: Unable to get a random book ...');
@@ -343,23 +310,9 @@ var __ = require('underscore'),
                                                             callback3(randomBook, undefined);
                                                         }
                                                     },
-                                                    //function (callback3, randomBook) {
-                                                    //    console.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ' + JSON.stringify(randomBook));
-                                                    //    callback3(randomBook, undefined);
-                                                    //},
-                                                    function (callback3, args) {
-                                                        callback3(args, undefined);
-                                                    },
                                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
-                                                    function (callback3, args) {
-                                                        callback3(args, undefined);
-                                                    },
                                                     function (callback3, randomBook) {
-                                                        //var entityAttributes = {};
-                                                        //entityAttributes.seq = nextSequenceNumber;
                                                         loanEntityAttributes.book = randomBook.entityId;
-                                                        //entityAttributes.visit = savedStateChange.entityId;
-                                                        //callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, loanEntityAttributes, randomOperator), undefined);
                                                         callback3(randomBook, undefined);
                                                     },
                                                     function (callback3, randomBook) {
@@ -369,13 +322,10 @@ var __ = require('underscore'),
                                                     },
                                                     // TODO: Include loan in visit entity (bi-directional reference)?
                                                     function (callback3, nextSequenceNumber) {
-                                                        //var entityAttributes = {};
                                                         // TODO: Use an object as argument holder here ...
                                                         loanEntityAttributes.seq = nextSequenceNumber;
-                                                        //entityAttributes.book = randomBook.entityId;
                                                         loanEntityAttributes.visit = savedStateChange.entityId;
                                                         callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, loanEntityAttributes, randomOperator), undefined);
-                                                        callback3(nextSequenceNumber, undefined);
                                                     },
                                                     function (callback3, stateChange2) {
                                                         stateChange2.save(function (err, savedStateChange2) {
@@ -398,16 +348,8 @@ var __ = require('underscore'),
                                         console.log(utils.logPreamble() + 'Generating loans: Done! ' + (bookLoans.length - 1) + ' loan-generating functions pushed to requestor sequence array');
                                         callback2(savedStateChange, undefined);
                                     },
-                                    //function (callback2, args2) {
-                                    //    console.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ' + bookLoans.length + ' loan-generating functions ...');
-                                    //    callback2(args2, undefined);
-                                    //},
                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ' + (bookLoans.length - 1) + ' loan-generating functions ...'),
                                     sequence(bookLoans),
-                                    //function (callback2, args2) {
-                                    //    console.log(utils.logPreamble() + 'Generating visits and loans: Done executing loan-generating function sequence ...');
-                                    //    callback2(args2, undefined);
-                                    //},
                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Done executing loan-generating function sequence'),
                                     clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, numberOfVisitsToGenerate, visitIndex)
                                 ])
@@ -424,7 +366,8 @@ var __ = require('underscore'),
                     rq.wait(10000),
 
                     // TODO: Premature invocation! Generating loans is probably not yet completed ...
-                    rq.then(curry(messageBus.publishAll, 'all-statechangeevents-created'))
+                    // => Move to after loan sequence (line 354) - check index to see if it is the last one ...
+                    rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'))
                 ]),
                 utils.send500InternalServerErrorResponse(response)
             ])

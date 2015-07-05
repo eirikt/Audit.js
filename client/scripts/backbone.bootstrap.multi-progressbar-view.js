@@ -1,27 +1,27 @@
 /* global define: false */
-define(["jquery", "underscore", "backbone",
-        "backbone.simple-underscore-template-view", "backbone.timer"],
+define(['jquery', 'underscore', 'backbone',
+        'backbone.simple-underscore-template-view', 'backbone.timer'],
 
     function ($, _, Backbone, SimpleUnderscoreView, Timer) {
-        "use strict";
+        'use strict';
 
         /**
          * Modal Bootstrap dialog with multiple progress bars, and a stopwatch showing the overall elapsed time.
          */
         return Backbone.View.extend({
 
-            ProgressbarMetainfoView: Backbone.View.extend({
+            ProgressbarMetaInfoView: Backbone.View.extend({
                 tagName: 'div',
                 className: 'tiny',
                 template: _.template('' +
                     '<table>' +
-                    '  <tr><td><span style="margin-right:1rem;">Total count:</span></td><td><strong><%= prettyprintInteger(totalCount) %></strong></td></tr>' +
+                    '  <tr><td><span style="margin-right:1rem;">Total count:</span></td><td><strong><%= prettyprintInt(totalCount) %></strong></td></tr>' +
                     '  <tr><td><span style="margin-right:1rem;">Time elapsed:</span></td><td><strong><%= elapsed %></strong></td></tr>' +
                     '  <tr><td>By user:</td><td><span style="color:grey;font-style:italic"><%= user %></span></td></tr>' +
                     '</table>'
                 ),
                 initialize: function () {
-                    this.listenTo(this.model, "change", this.render);
+                    this.listenTo(this.model, 'change', this.render);
                 },
                 render: function () {
                     this.$el.empty().append(this.template(this.model.toJSON()));
@@ -33,12 +33,15 @@ define(["jquery", "underscore", "backbone",
             template: _.template('' +
                 '<div id="modalMultipleProgressbar" class="modal" style="margin-top:100px;" role="dialog">' +
                 '  <div class="modal-dialog">' +
-                '    <div class="important-looking centered modal-content">' +
+                '    <div class="important centered modal-content">' +
+
                 '      <div class="clearfix" style="margin:1.2rem;">' +
                 '        <div id="progressbarMetainfo" class="pull-right"></div>' +
                 '        <div><strong><%= headerText %></strong></div>' +
                 '      </div>' +
+
                 '      <div id="progressbars" style="margin-top:2rem;"></div>' +
+
                 '      <div style="margin:2rem;text-align:center;">' +
                 '        <span><%= footerText %></span>' +
                 '      </div>' +
@@ -84,64 +87,70 @@ define(["jquery", "underscore", "backbone",
 
             setupDom: function () {
                 this.$el.empty().append(this.template(this.model.toJSON()));
-                this.$("#progressbarMetainfo").append(this.metaInfoView.el);
+                this.$('#progressbarMetainfo').append(this.metaInfoView.el);
             },
+
             initialize: function () {
-                //console.log("Multi-progressbar: initialize ...");
+                //console.log('Multi-progressbar: initialize ...');
                 this.timer = new Timer();
 
-                this.metaInfoView = new this.ProgressbarMetainfoView({
+                this.metaInfoView = new this.ProgressbarMetaInfoView({
                     model: this.timer
                 });
-                this.listenTo(this.model, "change", this.setupDom);
-                this.listenTo(this.collection, "change", this.render);
+                this.listenTo(this.model, 'change', this.setupDom);
+                this.listenTo(this.collection, 'change', this.render);
 
                 this.setupDom();
 
-                $("body").prepend(this.render().el);
+                $('body').prepend(this.render().el);
             },
+
             show: function () {
-                //console.log("Multi-progressbar: show ...");
-                this.$("#modalMultipleProgressbar").modal({
+                //console.log('Multi-progressbar: show ...');
+                this.$('#modalMultipleProgressbar').modal({
                     show: true,
-                    backdrop: "static",
+                    backdrop: 'static',
                     keyboard: false,
                     remote: false
                 });
                 if (!this.timer.isStarted()) {
-                    console.log("NOT STARTED, starting with " + this.model.get("startTime"));
-                    this.timer.start(this.model.get("startTime"), this.model.get("totalCount"));
+                    console.log('Not yet started! Starting with ' + this.model.get('startTime'));
+                    this.timer.start(this.model.get('startTime'), this.model.get('totalCount'));
                 } else {
-                    this.timer.set("totalCount", this.model.get("totalCount"));
+                    this.timer.set('totalCount', this.model.get('totalCount'));
                 }
             },
+
             hide: function () {
-                //console.log("Multi-progressbar: hide ...");
-                this.$("#modalMultipleProgressbar").modal("hide");
-                $(".modal-backdrop").remove();
-                $("body").removeClass("modal-open");
+                //console.log('Multi-progressbar: hide ...');
+                this.$('#modalMultipleProgressbar').modal('hide');
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
                 this.timer.stop();
                 this.model.reset();
                 this.collection.each(function (progressbar) {
                     progressbar.reset();
                 });
             },
+
             areAnyProgressbarsActive: function () {
                 return this.collection.any(function (progressbar) {
                     return progressbar.isActive();
                 }, this);
             },
+
             areAllProgressbarsFinished: function () {
                 return this.collection.all(function (progressbar) {
                     return progressbar.isFinished();
                 }, this);
             },
+
             render: function () {
-                //console.log("Multi-progressbar: render ...");
+                //console.log('Multi-progressbar: render ...');
                 var self = this;
 
-                this.model.set("startTime", new Date().getTime(), { silent: true });
-                this.$("#progressbars").empty();
+                this.model.set('startTime', new Date().getTime(), { silent: true });
+                this.$('#progressbars').empty();
 
                 if (this.areAllProgressbarsFinished()) {
                     this.hide();
@@ -151,16 +160,16 @@ define(["jquery", "underscore", "backbone",
                         var template = self.unknownStateBootstrapProgressbarTemplate;
                         if (progressbar.isActive()) {
                             template = self.bootstrapProgressbarTemplate;
-                            if (progressbar.get("startTime") &&
-                                progressbar.get("startTime") < self.model.get("startTime")) {
+                            if (progressbar.get('startTime') &&
+                                progressbar.get('startTime') < self.model.get('startTime')) {
 
-                                self.model.set("startTime", progressbar.get("startTime"), { silent: true });
+                                self.model.set('startTime', progressbar.get('startTime'), { silent: true });
                             }
-                            if (progressbar.get("totalCount")) {
-                                self.model.set("totalCount", progressbar.get("totalCount"), { silent: true });
+                            if (progressbar.get('totalCount')) {
+                                self.model.set('totalCount', progressbar.get('totalCount'), { silent: true });
                             }
                         }
-                        self.$("#progressbars").append(
+                        self.$('#progressbars').append(
                             new SimpleUnderscoreView({
                                 template: template,
                                 model: progressbar

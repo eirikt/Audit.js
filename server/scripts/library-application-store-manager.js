@@ -129,11 +129,11 @@ var __ = require('underscore'),
 
 // Replay all Book state change events when new state changes have been created
 // TODO: Consider doing keeping application stores in sync in a somewhat more incremental manner ...
-messageBus.subscribe(['cqrs', 'all-statechangeevents-created', 'replay-all-events'], function (message) {
+messageBus.subscribe(['cqrs', 'all-book-statechangeevents-created', 'all-visit-statechangeevents-created', 'replay-all-events'], function (message) {
     'use strict';
     sequence([
         rq.do(function () {
-            console.log(utils.logPreamble() + 'Application Store Manager :: \'cqrs\' | \'all-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
+            console.log(utils.logPreamble() + 'Application Store Manager :: \'cqrs\' | \'all-book-statechangeevents-created\' | \'all-visit-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
         }),
         rq.continueIf(cqrs.isEnabled),
         mongooseEventSourcingMapreduce.find(library.Book),

@@ -26,9 +26,9 @@
         "grunt-cli": "~0.1.13",
         "grunt-shell": "~1.1.2",
         "grunt-mocha-test": "~0.12.7",
-        "sinon": "~1.15.4",
         "chai": "~3.0.0",
-        "proxyquire": "~1.5.0",
+        "sinon": "~1.15.4",
+        "proxyquire": "~1.6.0",
         "grunt-contrib-jshint": "~0.11.2",
         "grunt-jsdoc": "~0.6.3"
     },

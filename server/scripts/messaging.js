@@ -27,8 +27,11 @@ var _events = require('events'),
             _serverSidePublisher.removeAllListeners('cqrs');
             console.log(_utils.logPreamble() + 'All \'cqrs\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('all-statechangeevents-created');
-            console.log(_utils.logPreamble() + 'All \'all-statechangeevents-created\' listeners removed ...');
+            _serverSidePublisher.removeAllListeners('all-book-statechangeevents-created');
+            console.log(_utils.logPreamble() + 'All \'all-book-statechangeevents-created\' listeners removed ...');
+
+            _serverSidePublisher.removeAllListeners('all-visit-statechangeevents-created');
+            console.log(_utils.logPreamble() + 'All \'all-visit-statechangeevents-created\' listeners removed ...');
 
             _serverSidePublisher.removeAllListeners('replay-all-events');
             console.log(_utils.logPreamble() + 'All \'replay-all-events\' listeners removed ...');

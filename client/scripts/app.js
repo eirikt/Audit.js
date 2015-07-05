@@ -1,19 +1,19 @@
 /* global require: false, define: false */
 require([
-        "underscore", "backbone", "jquery", "jquery.bootstrap",
-        "app", "app.server-push-client", "app.router",
-        "app.statechange-admin-view", "app.library-admin-view", "app.user-admin-view",
-        "app.library", "app.book-count-view", "app.book-composite-view", "app.book-table-view"],
+        'underscore', 'backbone', 'jquery', 'jquery.bootstrap',
+        'app', 'app.server-push-client', 'app.router',
+        'backbone.progressbar', 'backbone.bootstrap.multi-progressbar-view', 'app.statechange-admin-view', 'app.library-admin-view', 'app.user-admin-view',
+        'app.library', 'app.book-count-view', 'app.book-composite-view', 'app.book-table-view'],
 
-    function (_, Backbone, $, Bootstrap, App, PushClient, Router, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
-        "use strict";
+    function (_, Backbone, $, Bootstrap, App, PushClient, Router, Progressbar, BootstrapModalMultipleProgressbarView, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
+        'use strict';
 
         /**
          * Application starting point (when DOM is ready ...)
          */
         $(function () {
 
-            console.log("DOM ready! Starting ...");
+            console.log('DOM ready! Starting ...');
 
             // Models
             var StateChangeCount = Backbone.Model.extend({
@@ -23,10 +23,10 @@ require([
                     updateCount: 0,
                     deleteCount: 0
                 },
-                url: "/events/count",
+                url: '/events/count',
                 fetch: function () {
                     return Backbone.Model.prototype.fetch.call(this, {
-                        type: "POST",
+                        type: 'POST',
                         url: this.url
                     });
                 }
@@ -36,12 +36,12 @@ require([
             /*
              var BookCount = Backbone.Model.extend({
              defaults: {
-             titleSubstring: "",
-             authorSubstring: "",
+             titleSubstring: '',
+             authorSubstring: '',
              tags: null,
              count: 0
              },
-             url: "/library/books/count"
+             url: '/library/books/count'
              });
              App.bookCount = new BookCount();
              */
@@ -55,7 +55,9 @@ require([
                 //App.bookCount.save();
                 App.bookCountView.renderChildViews();
 
-                App.library.fetch();
+                if (App.bookListView.isVisible()) {
+                    App.library.fetch();
+                }
             };
 
 
@@ -67,8 +69,8 @@ require([
             var UserCount = Backbone.Model.extend({
                 defaults: { numberOfUsers: 0 },
                 initialize: function () {
-                    this.listenTo(App.pushClient, "number-of-connections", function (numberOfConnections) {
-                        this.set("numberOfUsers", numberOfConnections);
+                    this.listenTo(App.pushClient, 'number-of-connections', function (numberOfConnections) {
+                        this.set('numberOfUsers', numberOfConnections);
                     });
                 }
             });
@@ -76,18 +78,25 @@ require([
 
 
             // Views
-            App.stateChangeAdminView = new StateChangeAdminView({
-                el: "#stateChangeAdmin",
-                model: App.stateChangeCount
-            });
-            App.libraryAdminView = new LibraryAdminView({ el: "#libraryAdmin" });
-            App.userAdminView = new UserAdminView({ el: "#userAdmin", model: App.userCount });
-            App.bookCountView = new BookCountView({ el: "#libraryOverview" });
-            App.bookView = new BookCompositeView({ el: "#book" });
-            App.bookListView = new BookListTableView({ el: "#bookList", collection: App.library });
+            App.stateChangeAdminView = new StateChangeAdminView({ model: App.stateChangeCount });
+            App.libraryAdminView = new LibraryAdminView();
+            App.userAdminView = new UserAdminView({ model: App.userCount });
+            App.bookCountView = new BookCountView();
+            App.bookView = new BookCompositeView();
+            App.bookListView = new BookListTableView({ collection: App.library });
 
-            // "Out-of-view" DOM events: Toggle book listing
-            $("#bookListLink").on("click", function (event) {
+            // Attach views to the DOM
+            $('#stateChangeAdmin').append(App.stateChangeAdminView.el);
+            $('#libraryAdmin').append(App.libraryAdminView.el);
+            $('#libraryOverview').append(App.bookCountView.el);
+            $('#book').append(App.bookView.el);
+            $('#bookList').append(App.bookListView.el);
+
+            // Initial view rendering
+            App.refreshViews();
+
+            // 'Out-of-view' DOM events: Toggle book listing
+            $('#bookListLink').on('click', function (event) {
                 event.preventDefault();
                 if (App.bookListView.isVisible()) {
                     App.bookListView.close();
@@ -99,22 +108,19 @@ require([
             // Start listening for URI hash changes
             App.router = new Router();
             Backbone.history.start();
-
-            // Initial view rendering
-            App.refreshViews();
         });
     }
 );
 
 
 define([], function () {
-        "use strict";
+        'use strict';
 
         /**
          * Application configuration and placeholder
          */
         return {
-            SERVER_URL: "http://127.0.0.1:4711", // For server push client setup
+            SERVER_URL: 'http://127.0.0.1:4711', // For server push client setup
             LIBRARY_PAGINATION_SIZE: 20,
             KEYUP_TRIGGER_DELAY_IN_MILLIS: 400
         };
@@ -129,20 +135,20 @@ define([], function () {
 // http://stackoverflow.com/questions/680241/resetting-a-multi-stage-form-with-jquery
 /* jshint -W098 */
 function resetFormInputFields($form) {
-    "use strict";
-    $form.find("input:text, input:password, input:file, select, textarea").val("");
-    $form.find("input:radio, input:checkbox").removeAttr("checked").removeAttr("selected");
+    'use strict';
+    $form.find('input:text, input:password, input:file, select, textarea').val('');
+    $form.find('input:radio, input:checkbox').removeAttr('checked').removeAttr('selected');
 }
 
 function disableFormInputFields($form) {
-    "use strict";
-    $form.find("input:text, input:password, input:file, select, textarea").attr("disabled", "disabled");
+    'use strict';
+    $form.find('input:text, input:password, input:file, select, textarea').attr('disabled', 'disabled');
 }
 
-function prettyprintInteger(integer) {
-    "use strict";
+function prettyprintInt(integer) {
+    'use strict';
     if (integer === 0) {
-        return "0";
+        return '0';
     }
-    return integer ? integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
+    return integer ? integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : '';
 }

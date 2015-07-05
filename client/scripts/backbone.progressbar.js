@@ -1,8 +1,9 @@
 /* global define: false */
-define(["underscore", "backbone"],
+
+define(['underscore', 'backbone'],
 
     function (_, Backbone) {
-        "use strict";
+        'use strict';
 
         /**
          * Progressbar with header text, footer text, and start time.
@@ -19,70 +20,70 @@ define(["underscore", "backbone"],
 
                 // Progressbar view-model
                 active: false,
-                headerText: null,
-                footerText: "Please wait ... <br><span class='tiny'>(stretch your body while waiting! :-)</span>"
+                headerText: null, // Provided by 'this.model'
+                footerText: 'Please wait ... <br><span class="tiny">(stretch your body while waiting! :-)</span>'
             },
-            //initialize: function () {
-            //    console.log("Progressbar.initialize()");
-            //},
+
             start: function (totalCount, startTime) {
-                //console.log("Progressbar.start(" + totalCount + ", " + startTime + ")");
-                if (this.get("started")) {
-                    throw new Error("Cannot start an already started progress bar");
+                //console.log('Progressbar.start(' + totalCount + ', ' + startTime + ')');
+                if (this.get('started')) {
+                    throw new Error('Cannot start an already started progress bar');
                 }
-                this.set("started", true, { silent: true });
+                this.set('started', true, { silent: true });
                 if (totalCount) {
-                    this.set("totalCount", totalCount, { silent: true });
+                    this.set('totalCount', totalCount, { silent: true });
                 }
-                this.set("startTime", startTime, { silent: true });
-                this.set("progressValueInPercent", 0, { silent: true });
-                this.trigger("change");
+                this.set('startTime', startTime, { silent: true });
+                this.set('progressValueInPercent', 0, { silent: true });
+                this.trigger('change');
             },
+
             progress: function (totalCount, startTime, progressInPercent) {
-                //console.log("Progressbar.progress(" + totalCount + ", " + startTime + ", " + progressInPercent + ")");
+                //console.log('Progressbar.progress(' + totalCount + ', ' + startTime + ', ' + progressInPercent + ')');
                 // Late to the party?
-                if (!this.get("started")) {
-                    console.log("Late to the party ... " + startTime);
+                if (!this.get('started')) {
+                    console.log('Late to the party ... ' + startTime);
                     this.start(totalCount, startTime);
                 }
-                if (!this.get("totalCount")) {
-                    this.set("totalCount", totalCount, { silent: true });
+                if (!this.get('totalCount')) {
+                    this.set('totalCount', totalCount, { silent: true });
                 }
-                this.set("inProgress", true, { silent: true });
-                this.set("progressValueInPercent", progressInPercent, { silent: true });
+                this.set('inProgress', true, { silent: true });
+                this.set('progressValueInPercent', progressInPercent, { silent: true });
 
                 // Way out ...
-                //if (this.get("progressValueInPercent") > 99.5) {
+                //if (this.get('progressValueInPercent') > 99.5) {
                 //    this.finish();
                 //} else {
-                this.trigger("change");
+                this.trigger('change');
                 //}
             },
+
             finish: function () {
-                //console.log("Progressbar.finish()");
-                this.set("started", false, { silent: true });
-                this.set("inProgress", false, { silent: true });
-                this.set("finished", true, { silent: true });
-                this.set("progressValueInPercent", 100, { silent: true });
-                this.trigger("change");
+                //console.log('Progressbar.finish()');
+                this.set('started', false, { silent: true });
+                this.set('inProgress', false, { silent: true });
+                this.set('finished', true, { silent: true });
+                this.set('progressValueInPercent', 100, { silent: true });
+                this.trigger('change');
             },
             reset: function () {
-                //console.log("Progressbar.reset()");
+                //console.log('Progressbar.reset()');
                 if (!this.isFinished() && this.isActive()) {
-                    throw new Error("Cannot reset progress bar active and not finished");
+                    throw new Error('Cannot reset progress bar active and not finished');
                 }
-                this.set("started", false, { silent: true });
-                this.set("inProgress", false, { silent: true });
-                this.set("finished", false, { silent: true });
-                this.set("totalCount", null, { silent: true });
-                this.set("startTime", null, { silent: true });
-                this.set("progressValueInPercent", 0, { silent: true });
+                this.set('started', false, { silent: true });
+                this.set('inProgress', false, { silent: true });
+                this.set('finished', false, { silent: true });
+                this.set('totalCount', null, { silent: true });
+                this.set('startTime', null, { silent: true });
+                this.set('progressValueInPercent', 0, { silent: true });
             },
             isActive: function () {
-                return this.get("started") || this.get("inProgress") || this.isFinished();
+                return this.get('started') || this.get('inProgress') || this.isFinished();
             },
             isFinished: function () {
-                return this.get("finished");
+                return this.get('finished');
             }
         });
     }
