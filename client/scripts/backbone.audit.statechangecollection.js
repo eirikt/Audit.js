@@ -28,13 +28,13 @@ define(["underscore", "backbone", "backbone.audit.statechange"],
                     isDeletedTarget = this.model.isDeleteMethod(stateChangeObjArrayFromServer[stateChangeObjArrayFromServer.length - 1].method);
                 }
                 _.each(stateChangeObjArrayFromServer, function (stateChangeObj, zeroBasedIndex) {
-                    stateChangeObj.seq = zeroBasedIndex + 1;
+                    stateChangeObj.sequenceNumber = zeroBasedIndex + 1;
                     if (isDeletedTarget) {
                         // When deleted, all state changes are set to 'currentState: true' to avoid them being linked ...
                         // TODO: Better solution ...
                         stateChangeObj.currentState = true;
                     } else {
-                        stateChangeObj.currentState = stateChangeObj.seq === stateChangeObjArrayFromServer.length;
+                        stateChangeObj.currentState = stateChangeObj.sequenceNumber === stateChangeObjArrayFromServer.length;
                     }
                 });
                 return stateChangeObjArrayFromServer;

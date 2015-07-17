@@ -62,14 +62,14 @@ define([],
 
                 this.history.stateIndex = targetStateChangeSequenceNumber - this.history.length;
                 this.history.each(function (stateChange, zeroBasedIndex) {
-                    stateChange.set("seq", zeroBasedIndex += 1);
+                    stateChange.set("sequenceNumber", zeroBasedIndex += 1);
                     if (this.isDeleted()) {
                         // When deleted, all state changes are set to 'currentState: true' to avoid them being linked ...
                         // TODO: Better solution ...
                         stateChange.set("currentState", true);
 
                     } else {
-                        if (stateChange.get("seq") === targetStateChangeSequenceNumber) {
+                        if (stateChange.get("sequenceNumber") === targetStateChangeSequenceNumber) {
                             stateChange.set("currentState", true);
                         } else {
                             stateChange.set("currentState", false);

@@ -64,9 +64,9 @@ define(['underscore', 'backbone',
 
             initialize: function () {
                 this.booksProgressbar = new Progressbar();
-                this.booksProgressbar.listenTo(App.pushClient, 'creating-book-statechangeevents', this.booksProgressbar.start);
-                this.booksProgressbar.listenTo(App.pushClient, 'book-statechangeevent-created', this.booksProgressbar.progress);
-                this.booksProgressbar.listenTo(App.pushClient, 'all-book-statechangeevents-created', this.booksProgressbar.finish);
+                Backbone.listenTo(App.pushClient, 'creating-book-statechangeevents', _.bind(this.booksProgressbar.start, this.booksProgressbar));
+                Backbone.listenTo(App.pushClient, 'book-statechangeevent-created', _.bind(this.booksProgressbar.progress, this.booksProgressbar));
+                Backbone.listenTo(App.pushClient, 'all-book-statechangeevents-created', _.bind(this.booksProgressbar.finish, this.booksProgressbar));
 
                 this.booksProgressbarView = new BootstrapModalMultipleProgressbarView({
                     model: new Progressbar({
@@ -76,9 +76,9 @@ define(['underscore', 'backbone',
                 });
 
                 this.visitsAndLoansProgressbar = new Progressbar();
-                this.visitsAndLoansProgressbar.listenTo(App.pushClient, 'creating-visit-statechangeevents', this.visitsAndLoansProgressbar.start);
-                this.visitsAndLoansProgressbar.listenTo(App.pushClient, 'visit-statechangeevent-created', this.visitsAndLoansProgressbar.progress);
-                this.visitsAndLoansProgressbar.listenTo(App.pushClient, 'all-visit-statechangeevents-created', this.visitsAndLoansProgressbar.finish);
+                Backbone.listenTo(App.pushClient, 'creating-visit-statechangeevents', _.bind(this.visitsAndLoansProgressbar.start, this.visitsAndLoansProgressbar));
+                Backbone.listenTo(App.pushClient, 'visit-statechangeevent-created', _.bind(this.visitsAndLoansProgressbar.progress, this.visitsAndLoansProgressbar));
+                Backbone.listenTo(App.pushClient, 'all-visit-statechangeevents-created', _.bind(this.visitsAndLoansProgressbar.finish, this.visitsAndLoansProgressbar));
 
                 this.visitsProgressbarView = new BootstrapModalMultipleProgressbarView({
                     model: new Progressbar({
@@ -118,8 +118,7 @@ define(['underscore', 'backbone',
                 } else {
                     numberOfBooksToGenerate = 0;
                 }
-            }
-            ,
+            },
 
 
             generateRandomLibraryVisitsAndBookLoans: function () {

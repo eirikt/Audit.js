@@ -4,89 +4,85 @@
 // Common global event hub
 ///////////////////////////////////////////////////////////////////////////////
 
-var _events = require('events'),
+var events = require('events'),
     __ = require('underscore'),
 
-    _socketio = require("./socketio.config"),
-    _fun = require("./fun"),
-    _utils = require("./utils"),
+    socketio = require("./socketio.config"),
+    utils = require("./utils"),
 
-
-    _slice = Array.prototype.slice,
-    _isArray = _fun.isArray,
-
-
-    _serverSidePublisher = new _events.EventEmitter(),
-    _clientSidePublisher = _socketio.serverPush,
+    slice = Array.prototype.slice,
+    isArray = Array.isArray,
+    serverSidePublisher = new events.EventEmitter(),
+    clientSidePublisher = socketio.serverPush,
 
 
 // TODO: Move to Library specific location => 'library-messaging.js'
-    _resetMessenger = exports.resetMessenger =
+    resetMessenger = exports.resetMessenger =
         function () {
             'use strict';
-            _serverSidePublisher.removeAllListeners('cqrs');
-            console.log(_utils.logPreamble() + 'All \'cqrs\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('cqrs');
+            console.log(utils.logPreamble() + 'All \'cqrs\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('all-book-statechangeevents-created');
-            console.log(_utils.logPreamble() + 'All \'all-book-statechangeevents-created\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('all-book-statechangeevents-created');
+            console.log(utils.logPreamble() + 'All \'all-book-statechangeevents-created\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('all-visit-statechangeevents-created');
-            console.log(_utils.logPreamble() + 'All \'all-visit-statechangeevents-created\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('all-visit-statechangeevents-created');
+            console.log(utils.logPreamble() + 'All \'all-visit-statechangeevents-created\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('replay-all-events');
-            console.log(_utils.logPreamble() + 'All \'replay-all-events\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('replay-all-events');
+            console.log(utils.logPreamble() + 'All \'replay-all-events\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('book-updated');
-            console.log(_utils.logPreamble() + 'All \'book-updated\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('book-updated');
+            console.log(utils.logPreamble() + 'All \'book-updated\' listeners removed ...');
 
-            _serverSidePublisher.removeAllListeners('book-removed');
-            console.log(_utils.logPreamble() + 'All \'book-removed\' listeners removed ...');
+            serverSidePublisher.removeAllListeners('book-removed');
+            console.log(utils.logPreamble() + 'All \'book-removed\' listeners removed ...');
         },
 
 
 // Registering of server-side listener subscriptions
-    _subscribe = exports.subscribe =
+    subscribe = exports.subscribe =
         function (messageNames, handler) {
             'use strict';
-            if (!_isArray(messageNames)) {
+            if (!isArray(messageNames)) {
                 messageNames = [messageNames];
             }
             messageNames.forEach(function (messageName) {
-                console.log(_utils.logPreamble() + '\'' + messageName + '\' listener registered ... (' + typeof handler + ')');
-                _serverSidePublisher.on(messageName, handler);
+                console.log(utils.logPreamble() + '\'' + messageName + '\' listener registered ... (' + typeof handler + ')');
+                serverSidePublisher.on(messageName, handler);
             });
         },
 
 
 // Registering of server-side listener subscriptions, one message only
-    _subscribeOnce = exports.subscribeOnce =
+    subscribeOnce = exports.subscribeOnce =
         function (messageNames, handler) {
             'use strict';
-            if (!_isArray(messageNames)) {
+            if (!isArray(messageNames)) {
                 messageNames = [messageNames];
             }
             messageNames.forEach(function (messageName) {
-                console.log(_utils.logPreamble() + '\'' + messageName + '\' listener registered for one action only ...');
-                _serverSidePublisher.once(messageName, handler);
+                console.log(utils.logPreamble() + '\'' + messageName + '\' listener registered for one action only ...');
+                serverSidePublisher.once(messageName, handler);
             });
         },
 
 
-    _unSubcribeServerSide = exports.unSubcribeServerSide =
+    unSubcribeServerSide = exports.unSubcribeServerSide =
         function (messageName) {
             'use strict';
-            console.log(_utils.logPreamble() + 'All \'' + messageName + '\' listeners removed ...');
-            _serverSidePublisher.removeAllListeners(messageName);
+            console.log(utils.logPreamble() + 'All \'' + messageName + '\' listeners removed ...');
+            serverSidePublisher.removeAllListeners(messageName);
         },
 
 
 // TODO: Refactor stuff below, more DRY please
-    _publishAll = exports.publishAll =
+    publishAll = exports.publishAll =
         function () {
             'use strict';
-            var messageArgs = _slice.call(arguments, 0),
+            var messageArgs = slice.call(arguments, 0),
                 messageId = messageArgs[0],
-                messageArguments = _slice.call(arguments, 1),
+                messageArguments = slice.call(arguments, 1),
                 argumentsLogMessage = null,
 
             // Extra service: when wrapped as an RQ requestor, an undefined argument may be added, so ...
@@ -97,27 +93,27 @@ var _events = require('events'),
             // TODO: Limited to 3 event message arguments ... Rewrite using apply with arguments, struggling to make that work :-\
             switch (filteredMessageArguments.length) {
                 case 0:
-                    console.log(_utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId);
-                    _clientSidePublisher.emit(messageId);
+                    console.log(utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId);
+                    clientSidePublisher.emit(messageId);
                     break;
                 case 1:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0]);
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0]);
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0]);
                     break;
                 case 2:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
                     break;
                 case 3:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1] + ', ' + filteredMessageArguments[2]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
                     break;
                 default:
                     throw new Error('"publishAll" helper function only supports 3 argument as of now ...');
@@ -127,15 +123,15 @@ var _events = require('events'),
         },
 
 
-    _publishClientSide = exports.publishClientSide =
+    publishClientSide = exports.publishClientSide =
         //function (messageName, messageBody) {
         function () {
             'use strict';
             //_clientSidePublisher.emit(arguments);
             //console.log('\'' + messageName + '\' published (client-side only) ...');
-            var messageArgs = _slice.call(arguments, 0),
+            var messageArgs = slice.call(arguments, 0),
                 messageId = messageArgs[0],
-                messageArguments = _slice.call(arguments, 1),
+                messageArguments = slice.call(arguments, 1),
                 argumentsLogMessage = null,
 
             // Extra service: when wrapped as an RQ requestor, an undefined argument may be added, so ...
@@ -146,23 +142,23 @@ var _events = require('events'),
             // TODO: Limited to 3 event message arguments ... Rewrite using apply with arguments, struggling to make that work :-\
             switch (filteredMessageArguments.length) {
                 case 0:
-                    console.log(_utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
-                    _clientSidePublisher.emit(messageId);
+                    console.log(utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
+                    clientSidePublisher.emit(messageId);
                     break;
                 case 1:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0]);
                     break;
                 case 2:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
                     break;
                 case 3:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1] + ', ' + filteredMessageArguments[2]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    clientSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
                     break;
                 default:
                     throw new Error('\'publishClientSide\' helper function only supports 3 argument as of now ...');
@@ -172,15 +168,15 @@ var _events = require('events'),
         },
 
 
-    _publishServerSide = exports.publishServerSide =
+    publishServerSide = exports.publishServerSide =
         //function (messageName, messageBody) {
         function () {
             'use strict';
             //_serverSidePublisher.emit(arguments);
             //console.log('\'' + messageName + '\' published (server-side only) ...');
-            var messageArgs = _slice.call(arguments, 0),
+            var messageArgs = slice.call(arguments, 0),
                 messageId = messageArgs[0],
-                messageArguments = _slice.call(arguments, 1),
+                messageArguments = slice.call(arguments, 1),
                 argumentsLogMessage = null,
 
             // Extra service: when wrapped as an RQ requestor, an undefined argument may be added, so ...
@@ -191,23 +187,23 @@ var _events = require('events'),
             // TODO: Limited to 3 event message arguments ... Rewrite using apply with arguments, struggling to make that work :-\
             switch (filteredMessageArguments.length) {
                 case 0:
-                    console.log(_utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId);
+                    console.log(utils.logPreamble() + '\'' + messageId + '\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId);
                     break;
                 case 1:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0]);
                     break;
                 case 2:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1]);
                     break;
                 case 3:
                     argumentsLogMessage = JSON.stringify(filteredMessageArguments[0] + ', ' + filteredMessageArguments[1] + ', ' + filteredMessageArguments[2]);
-                    console.log(_utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
-                    _serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
+                    console.log(utils.logPreamble() + '\'' + messageId + '(' + argumentsLogMessage + ')\' published (both server-side and client-side) ...');
+                    serverSidePublisher.emit(messageId, filteredMessageArguments[0], filteredMessageArguments[1], filteredMessageArguments[2]);
                     break;
                 default:
                     throw new Error('\'publishServerSide\' helper function only supports 3 argument as of now ...');

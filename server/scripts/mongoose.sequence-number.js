@@ -12,13 +12,13 @@ var mongoose = require('mongoose'),
         Sequence.collection.findAndModify(
             { _id: schemaName },
             [],
-            { $inc: { seq: 1 } },
+            { $inc: { sequenceNumber: 1 } },
             { new: true, upsert: true },
             function (err, result) {
                 if (err) {
                     callback(err);
                 } else {
-                    callback(null, result.value.seq);
+                    callback(null, result.value.sequenceNumber);
                 }
             }
         );
@@ -48,7 +48,7 @@ var mongoose = require('mongoose'),
                 callback(err);
             } else {
                 if (sequenceCollection) {
-                    callback(null, sequenceCollection.seq);
+                    callback(null, sequenceCollection.sequenceNumber);
                 } else {
                     callback(null, 0);
                 }
@@ -79,7 +79,7 @@ var mongoose = require('mongoose'),
                 callback(err);
             } else {
                 if (sequenceCollection) {
-                    var sequenceNumber = sequenceCollection.seq || 0,
+                    var sequenceNumber = sequenceCollection.sequenceNumber || 0,
                         numberOfUnusedSequenceNumbers = sequenceCollection.unused || 0;
                     callback(null, sequenceNumber - numberOfUnusedSequenceNumbers);
                 } else {

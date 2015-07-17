@@ -57,7 +57,7 @@ define(["jquery", "underscore", "backbone", "app", "app.Book"],
             },
             // Client-side sorting of book collection
             comparator: function (book) {
-                return book.get("seq"); // Ascending sequence number (auto-generated)
+                return book.get("sequenceNumber"); // Ascending sequence number (auto-generated)
             },
             hasFiltering: function () {
                 return this.filtering;

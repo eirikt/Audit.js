@@ -33,14 +33,18 @@ app.delete('/library/books/:entityId', libraryService.removeBook);
 app.post('/library/books/generate', libraryService.generateBooks);
 app.post('/library/books/clean', libraryService.removeAllBooksFromCache);
 
-app.post('/library/loans/generate', libraryService.generateLoans);
+app.post('/library/loans/generate', libraryService.generateVisitsAndLoans);
+app.post('/library/visits/generate', libraryService.generateVisitsAndLoans);
 
 // TODO: Choose resource id! Or support both!?
-app.get('/library/loans/count/:entityId', libraryService.countLoansForBook);
+//app.get('/library/loans/count/:bookEntityId', libraryService.countLoansForBook);
 app.get('/library/books/:entityId/loans/count', libraryService.countLoansForBook);
 
-app.get('/library/loans/active/:entityId', libraryService.isBookOnLoan);
-app.get('/library/books/:entityId/loans/active', libraryService.isBookOnLoan);
+//app.get('/library/loans/active/:bookEntityId', libraryService.isBookOnLoan);
+//app.get('/library/books/:entityId/loans/active', libraryService.isBookOnLoan);
+app.get('/library/books/:entityId/loans/loaned', libraryService.isBookOnLoan);
+app.get('/library/books/:entityId/loans/isloaned', libraryService.isBookOnLoan);
+app.get('/library/books/:entityId/loans/isonloan', libraryService.isBookOnLoan);
 
 app.post('/library/visits/count', libraryService.countAllVisits);
 app.post('/library/loans/count', libraryService.countAllLoans);

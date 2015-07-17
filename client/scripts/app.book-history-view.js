@@ -7,11 +7,11 @@ define(["jquery", "underscore", "backbone", "moment"],
         var BookHistoryEventView = Backbone.View.extend({
             tagName: "tr",
             template: _.template('' +
-                '<td><span class="tiny"><%= seq %></span></td>' +
+                '<td><span class="tiny"><%= sequenceNumber %></span></td>' +
                 '<td>' +
                 '  <span class="tiny">' +
                 '    <% if (!currentState) { %>' +
-                '    <a href="#" class="state" data-seq="<%= seq %>"><%= timestamp %></a>' +
+                '    <a href="#" class="state" data-seq="<%= sequenceNumber %>"><%= timestamp %></a>' +
                 '    <% } else { %>' +
                 '    <%= timestamp %>' +
                 '    <% } %>' +
@@ -37,14 +37,14 @@ define(["jquery", "underscore", "backbone", "moment"],
                 if (this.model.isCreate() || this.model.isUpdate()) {
 
                     // Remove the book sequence number "seq" (internal, not human readable)
-                    delete clonedAttributes.changes.seq;
+                    delete clonedAttributes.changes.sequenceNumber;
 
                     // Make the tag property human readable (recursive flattening/"stringification")
                     if (clonedAttributes.changes.tags) {
                         var tags = _.clone(clonedAttributes.changes.tags);
                         delete clonedAttributes.changes.tags;
                         clonedAttributes.changes.tags = _.map(tags, function (tagObj) {
-                            return tagObj.tag;
+                            return tagObj.name;
                         });
                     }
                 }
@@ -91,7 +91,7 @@ define(["jquery", "underscore", "backbone", "moment"],
             replayToState: function (event) {
                 event.preventDefault();
                 var elementDataSet = event.target.dataset;
-                this.model.rewind(elementDataSet.seq);
+                this.model.rewind(elementDataSet.sequenceNumber);
             }
         });
     }

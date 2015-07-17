@@ -21,7 +21,7 @@ var __ = require("underscore"),
 //mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
     mongodbMapReduceStatisticsEmitter = require("./mongodb.mapreduce-emitter"),
 
-    library = require("./library-model"),
+    library = require("./library-model.mongoose"),
 
     _name = exports.name = 'Library MongoDB application store',
     _id = exports.id = 'mongodb',
@@ -62,7 +62,7 @@ var __ = require("underscore"),
                     if (err) {
                         callback(undefined, err);
                     }
-                    console.log('MongoDB application store :: Entity #' + entity.seq + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
+                    console.log('MongoDB application store :: Entity #' + entity.sequenceNumber + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
                     callback(entity, undefined);
                 });
             };

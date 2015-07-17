@@ -29,7 +29,7 @@ var __ = require('underscore'),
     mongoDbAppStore = require('./library-application-store.mongodb'),
     naiveInMemoryAppStore = require('./library-application-store.naive-inmemory'),
     cqrs = require('./cqrs-service-api'),
-    library = require('./library-model'),
+    library = require('./library-model.mongoose'),
 
 
 ///////////////////////////////////////////////////////////////////////////////

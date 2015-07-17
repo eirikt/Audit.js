@@ -20,7 +20,7 @@ define(["underscore", "backbone"],
                 changes: null,
 
                 /** Client-side only one-based sequence number (in parent collection). */
-                seq: null,
+                sequenceNumber: null,
 
                 /** Client-side only flag telling if this is the current state after a rewind. */
                 currentState: false

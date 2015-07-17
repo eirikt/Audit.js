@@ -11,15 +11,13 @@ var clientResourceRoot = '../../client',
     utils = require('./utils'),
 
 // Establish Express "app server" (routing, parsing, ...)
-    port = 4711,
+    port = exports.port = 4711,
     app,
     server;
 
 app = express();
-app.use(bodyParser.json());     // To support JSON-encoded bodies
-app.use(bodyParser.urlencoded({ // To support URL-encoded bodies
-    extended: true
-}));
+app.use(bodyParser.json());                                              // To support JSON-encoded bodies
+app.use(bodyParser.urlencoded({ extended: true }));                      // To support URL-encoded bodies
 app.use(express.static(path.join(applicationRoot, clientResourceRoot)));
 
 exports.appServer = app;
@@ -33,7 +31,7 @@ server.listen(port, function () {
 });
 
 
-// TODO: Consider logging to file
+// TODO: Consider logging to file (or use logger)
 // E.g. using example from http://stackoverflow.com/questions/8393636/node-log-in-a-file-instead-of-the-console:
 //
 //var fs = require('fs');

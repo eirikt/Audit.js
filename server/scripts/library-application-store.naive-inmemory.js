@@ -23,7 +23,7 @@ var __ = require("underscore"),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
 
     cqrs = require("./cqrs-service-api"),
-    library = require("./library-model"),
+    library = require("./library-model.mongoose"),
 
 
     _name = exports.name = 'Library naïve in-memory application store',
@@ -64,7 +64,7 @@ var __ = require("underscore"),
                 var entity = new EntityType({ _id: reducedEntityChangeEvents._id });
                 entity.set(reducedEntityChangeEvents.value);
                 _db[entity._id] = entity;
-                console.log('Naïve in-memory application store :: Entity #' + entity.seq + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
+                console.log('Naïve in-memory application store :: Entity #' + entity.sequenceNumber + ' \'' + entity.title + '\' saved ...OK (ID=' + entity._id + ')');
                 callback(entity, undefined);
             };
         },
@@ -93,7 +93,7 @@ var __ = require("underscore"),
                     var existingEntity = _db[reducedEntityChangeEvents._id];
 
                     if (existingEntity) {
-                        console.log('Naïve in-memory application store :: Replaying ' + entityType.modelName + 's : #' + index + ': ' + entityType.modelName + ' no ' + existingEntity.seq + ' \'' + existingEntity.title + '\' already present! {_id:' + existingEntity._id + '}');
+                        console.log('Naïve in-memory application store :: Replaying ' + entityType.modelName + 's : #' + index + ': ' + entityType.modelName + ' no ' + existingEntity.sequenceNumber + ' \'' + existingEntity.title + '\' already present! {_id:' + existingEntity._id + '}');
                         if (eligibleForServerPush) {
                             doServerPush(startTime, numberOfServerPushEmits, index, count);
                         }

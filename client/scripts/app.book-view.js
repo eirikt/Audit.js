@@ -16,8 +16,8 @@ define(["jquery", "underscore", "backbone"],
                 '  </div>' +
                 '  <div class="row">' +
                 '    <div class="col-sm-2">' +
-                '      <label for="seq">No</label>' +
-                '      <input id="seq" type="text" class="form-control" value="<%= seq %>" disabled/>' +
+                '      <label for="sequenceNumber">No</label>' +
+                '      <input id="sequenceNumber" type="text" class="form-control" value="<%= sequenceNumber %>" disabled/>' +
                 '    </div>' +
                 '    <div class="col-sm-5">' +
                 '      <label for="title">Title</label>' +
@@ -31,7 +31,7 @@ define(["jquery", "underscore", "backbone"],
                 '  <div class="row" style="margin-top:3rem;">' +
                 '    <div class="col-sm-12">' +
                 '      <label>Tags&nbsp;</label>' +
-                '      <% _.each(tags, function(tagobject) { %><span class="label label-info"><%= tagobject.tag %></span>&nbsp;<% }); %>' +
+                '      <% _.each(tags, function(tagobject) { %><span class="label label-info"><%= tagobject.name %></span>&nbsp;<% }); %>' +
                 '    </div>' +
                 '  </div>' +
                 '</fieldset>' +
@@ -50,7 +50,7 @@ define(["jquery", "underscore", "backbone"],
                 this.$("button").attr("disabled", "disabled");
             },
             _isEditableField: function (fieldId) {
-                return !_.isEmpty(fieldId) && fieldId !== "seq";
+                return !_.isEmpty(fieldId) && fieldId !== "sequenceNumber";
             },
             _isFieldEligibleForEditing: function ($el) {
                 return this._isEditableField($el.id) && !_($el.value).isEmpty();

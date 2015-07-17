@@ -2,6 +2,7 @@
 /* jshint -W024, -W083, -W106 */
 
 var __ = require('underscore'),
+    httpResponse = require('statuses'),
     mongoose = require('mongoose'),
 
     RQ = require('async-rq'),
@@ -28,7 +29,7 @@ var __ = require('underscore'),
 
     applicationStores = require('./library-application-store-manager'),
     cqrs = require('./cqrs-service-api'),
-    library = require('./library-model'),
+    library = require('./library-model.mongoose'),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,7 +57,7 @@ var __ = require('underscore'),
 
     /**
      * Admin API :: Generate books randomly
-     * (by creating and sending (posting) a "generate" object/resource to the server)
+     * (by creating and sending (posting) a transient "generate" object/resource to the server)
      *
      * CQRS Command
      *
@@ -90,11 +91,11 @@ var __ = require('underscore'),
                 booksWithSequenceNumber = [],
 
                 clientPushMessageThrottlerRequestor = function (numberOfServerPushEmits, startTime, count, index) {
-                    return function requestor(callback, savedStateChange) {
+                    return function requestor(callback, savedBookStateChange) {
                         utils.throttleEvents(numberOfServerPushEmits, count, index, function (progressInPercent) {
                             messageBus.publishClientSide('book-statechangeevent-created', count, startTime, progressInPercent);
                         });
-                        callback(savedStateChange, undefined);
+                        callback(savedBookStateChange, undefined);
                     };
                 };
 
@@ -137,19 +138,20 @@ var __ = require('underscore'),
                                     },
                                     function (callback2, nextSequenceNumber) {
                                         var entityAttributes = randomBooks.createRandomBookAttributes(library.Tag);
-                                        entityAttributes.seq = nextSequenceNumber;
+                                        entityAttributes.sequenceNumber = nextSequenceNumber;
                                         callback2(entityAttributes, undefined);
                                     },
                                     function (callback2, entityAttributes) {
                                         callback2(eventSourcing.createStateChange('CREATE', library.Book, null, entityAttributes, randomBooks.randomUser()), undefined);
                                     },
                                     function (callback2, stateChange) {
-                                        stateChange.save(function (err, savedStateChange) {
-                                            console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
-                                            callback2(savedStateChange, undefined);
+                                        stateChange.save(function (err, savedBookStateChange) {
+                                            callback2(savedBookStateChange, undefined);
                                         });
                                     },
-                                    clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, count, index)
+                                    clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, count, index),
+                                    rq.then(JSON.stringify),
+                                    rq.log(utils.logPreamble() + 'Book CREATE state change event saved ...OK [${args}]')
                                 ])
                             );
                         }
@@ -166,7 +168,7 @@ var __ = require('underscore'),
     /**
      *
      * Admin API :: Generate book loans randomly
-     * (by creating and sending (posting) a "generate" object/resource to the server)
+     * (by creating and sending (posting) a transient "generate" object/resource to the server)
      *
      * CQRS Command
      *
@@ -189,7 +191,7 @@ var __ = require('underscore'),
      *                                "event-replayed"                      (the total number, start timestamp, current progress in percent)
      *                                "all-events-replayed"                 ()
      */
-    _generateVisitsAndLoans = exports.generateLoans =
+    _generateVisitsAndLoans = exports.generateVisitsAndLoans =
         function (request, response) {
             'use strict';
             var totalNumberOfBooks,
@@ -198,23 +200,146 @@ var __ = require('underscore'),
                 numberOfServerPushEmits = 1000,
                 startTime = Date.now(),
                 visitIndex = 0,
-                visitsWithSequenceNumber = [],
-                bookLoans = [],
+                visitRequestors = [],
+            //bookLoanRequestors,// = [],
                 countAllQuery = null,
             // TODO: 'library.Book' shouldn't really be referenced in this file
                 eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery),
 
-                clientPushMessageThrottlerRequestor = function (numberOfServerPushEmits, startTime, count, index) {
-                    return function requestor(callback, savedStateChange) {
+                clientPushMessageThrottlerRequestorFactory = function (numberOfServerPushEmits, startTime, count, index) {
+                    return function requestor(callback, savedVisitStateChange) {
                         utils.throttleEvents(numberOfServerPushEmits, count, index, function (progressInPercent) {
                             messageBus.publishClientSide('visit-statechangeevent-created', count, startTime, progressInPercent);
                         });
-                        callback(savedStateChange, undefined);
+                        callback(savedVisitStateChange, undefined);
                     };
-                };
+                },
 
-            visitsWithSequenceNumber.push(rq.noop); // Just to make the tests compile/go through
-            bookLoans.push(rq.noop); // Just to make the tests compile/go through
+                generateLoansRequestorFactory = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanRequestors) {
+                    return function (callback, savedVisitStateChange) {
+                        console.log(utils.logPreamble() + 'Generating visits and loans: Starting building loan-generating functions ...');
+                        var bookLoanInVisitIndex = 0,
+                            randomOperator = randomBooks.randomUser(),
+
+                            emitConditionalVisitGenerationTermination = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanInVisitIndex, maxBookLoansPerVisit, bookLoans) {
+                                return function requestor(callback, args) {
+                                    if ((bookLoanInVisitIndex + 1) >= maxBookLoansPerVisit) {
+                                        console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
+                                        if ((visitIndex + 1) >= numberOfVisitsToGenerate) {
+                                            messageBus.publishAll('all-visit-statechangeevents-created');
+                                        }
+                                    }
+                                    callback(args, undefined);
+                                };
+                            };
+
+                        bookLoanRequestors = []; // Too avoid requestor sequence failure ... ?
+
+                        // Just to make the tests compile/go through
+                        //bookLoanRequestors.push(rq.noop);
+
+                        // DOES NOT WORK: Mutated!
+                        //console.log(utils.logPreamble() + 'extra: Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
+
+                        for (; bookLoanInVisitIndex < maxBookLoansPerVisit; bookLoanInVisitIndex += 1) {
+                            //var loanEntityAttributes;// = {};
+
+                            // DOES NOT WORK: Mutated!
+                            //console.log(utils.logPreamble() + 'extra2: Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
+
+                            bookLoanRequestors.push(
+                                sequence([
+                                    //rq.log(utils.logPreamble() + '4 Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' of ' + maxBookLoansPerVisit + ', for visit #' + (visitIndex + 1) + ' ...'),
+                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' of ' + maxBookLoansPerVisit + ', for visit #' + (visitIndex + 1) + ' ...'),
+                                    eventSourcing.getRandom(library.Book, totalNumberOfBooks),
+                                    function (callback3, randomBook) {
+                                        if (!randomBook) {
+                                            callback3(undefined, 'Generating visits and loans: Unable to get a random book ...');
+                                        } else {
+                                            callback3(randomBook, undefined);
+                                        }
+                                    },
+                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
+                                    function (callback3, randomBook) {
+                                        var loanEntityAttributes = {};
+                                        loanEntityAttributes.target = randomBook.entityId;
+                                        callback3(loanEntityAttributes, undefined);
+                                    },
+                                    function (callback3, loanEntityAttributes) {
+                                        sequenceNumber.incrementSequenceNumber('loans', function (err, nextSequenceNumber) {
+                                            loanEntityAttributes.sequenceNumber = nextSequenceNumber;
+                                            callback3(loanEntityAttributes, undefined);
+                                        });
+                                    },
+                                    // TODO: Include loan in visit entity (bi-directional reference)?
+                                    function (callback3, loanEntityAttributes) {
+                                        loanEntityAttributes.context = savedVisitStateChange.entityId;
+                                        loanEntityAttributes.date = randomBooks.getRandomLoanReturnDateForVisit(savedVisitStateChange);
+                                        callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, loanEntityAttributes, randomOperator), undefined);
+                                    },
+                                    function (callback3, stateChange2) {
+                                        stateChange2.save(function (err, savedLoanStateChange) {
+                                            //console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedLoanStateChange) + ']');
+                                            callback3(savedLoanStateChange, undefined);
+                                        });
+                                    },
+                                    rq.then(JSON.stringify),
+                                    rq.log(utils.logPreamble() + 'Loan CREATE state change event saved ...OK [${args}]'),
+
+                                    //function (callback3, args) {
+                                    //    // Check index to see if it is the last one ...
+                                    //    //var myVisitIndex = __.clone(visitIndex);
+                                    //    if ((bookLoanInVisitIndex + 1) >= maxBookLoansPerVisit) {
+                                    //        console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
+                                    //        if ((visitIndex + 1) >= numberOfVisitsToGenerate) {
+                                    //            console.log('!! all-visit-statechangeevents-created !!');
+                                    //            rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'));
+                                    //        }
+                                    //    }
+                                    //    callback3(args, undefined);
+                                    //}
+
+                                    // TODO: ...
+                                    emitConditionalVisitGenerationTermination(totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanInVisitIndex, maxBookLoansPerVisit, bookLoanRequestors)
+
+                                    //] // Not good enough!
+                                    //])(rq.run) // OK
+                                ])(function (success, failure) { // Full control ...
+                                    if (failure || !success) {
+                                        //throw new Error('FAILURE :: ' + JSON.stringify(failure));
+                                        if (__.isFunction(failure)) {
+                                            console.warn(utils.logPreamble() + 'FAILURE: ' + failure.call(this));
+
+                                        } else {
+                                            console.warn(utils.logPreamble() + 'FAILURE: ' + JSON.stringify(failure));
+                                        }
+                                        //} else {
+                                        //    console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function executed successfully');
+                                    }
+                                })
+                            );
+                            //console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function #' + bookLoanInVisitIndex + ' pushed to requestor sequence array ...');
+                        }
+                        //console.log(utils.logPreamble() + 'Generating loans: Done! ' + (bookLoans.length - 1) + ' loan-generating functions pushed to requestor sequence array');
+                        callback(savedVisitStateChange, undefined);
+                    };
+                };//,
+
+            //emitConditionalVisitGenerationTermination = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoans) {
+            //    return function requestor(callback, args) {
+            //        console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
+            //        if ((visitIndex + 1) >= numberOfVisitsToGenerate) {
+            //            console.log('!! all-visit-statechangeevents-created !!');
+            //            rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'));
+            //        }
+            //        callback(args, undefined);
+            //    };
+            //};
+
+
+            // Just to make the tests compile/go through
+            visitRequestors.push(rq.noop);
+            //bookLoanRequestors.push(rq.noop);
 
             firstSuccessfulOf([
                 sequence([
@@ -264,9 +389,35 @@ var __ = require('underscore'),
                     rq.then(curry(messageBus.publishAll, 'creating-visit-statechangeevents')),
 
                     function (callback, numberOfVisitsToGenerate) {
+                        //var bookLoans;
+
+                        //// Just to make the tests compile/go through
+                        //bookLoans.push(rq.noop);
+
                         for (; visitIndex < numberOfVisitsToGenerate; visitIndex += 1) {
-                            visitsWithSequenceNumber.push(
+                            //var myVisitIndex = visitIndex;
+
+                            //bookLoanRequestors = [];
+                            var bookLoanRequestors = [];
+                            bookLoanRequestors.push(rq.noop); // To avoid 'TypeError: RQ.sequence requestors' ... ?
+
+                            visitRequestors.push(
                                 sequence([
+                                    // DOES NOT WORK: Mutated!
+                                    //function (callback2, args2) {
+                                    //    console.log(utils.logPreamble() + '1 Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
+                                    //    callback2(args2, undefined);
+                                    //},
+                                    // WORKS!
+                                    //rq.log(utils.logPreamble() + '2 Generating visits and loans: Executing visit-generating function #' + (myVisitIndex + 1) + ' ...'),
+                                    //rq.log(utils.logPreamble() + '3a Generating visits and loans: Executing visit-generating function #' + visitIndex + ' ...'),
+                                    //rq.log(utils.logPreamble() + '3 Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...'),
+                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...'),
+                                    // DOES NOT WORK: Mutated!
+                                    //function (callback2, args2) {
+                                    //    console.log(utils.logPreamble() + '4 Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
+                                    //    callback2(args2, undefined);
+                                    //},
                                     function (callback2, args2) {
                                         sequenceNumber.incrementSequenceNumber('visits', function (err, nextSequenceNumber) {
                                             callback2(nextSequenceNumber, undefined);
@@ -274,8 +425,8 @@ var __ = require('underscore'),
                                     },
                                     function (callback2, nextSequenceNumber) {
                                         var entityAttributes = randomBooks.createRandomVisitAttributes();
-                                        entityAttributes.seq = nextSequenceNumber;
-                                        entityAttributes.period = library.getStandardLoanPeriodInDays();
+                                        entityAttributes.sequenceNumber = nextSequenceNumber;
+                                        entityAttributes.loanPeriodInDays = library.getStandardLoanPeriodInDays();
                                         callback2(entityAttributes, undefined);
                                     },
                                     function (callback2, entityAttributes) {
@@ -283,101 +434,155 @@ var __ = require('underscore'),
                                     },
                                     function (callback2, stateChange) {
                                         stateChange.save(function (err, savedStateChange) {
-                                            console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
+                                            //console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
                                             callback2(savedStateChange, undefined);
                                         });
                                     },
-                                    function (callback2, savedStateChange) {
-                                        console.log(utils.logPreamble() + 'Generating visits and loans: Starting building loan-generating functions ...');
-                                        var bookLoanInVisitIndex = 0,
-                                            randomOperator = randomBooks.randomUser();
+                                    rq.then(JSON.stringify),
+                                    rq.log(utils.logPreamble() + 'Visit CREATE state change event saved ...OK [${args}]'),
+                                    //function (callback2, args) {
+                                    //    //bookLoanRequestors = [];
+                                    //    bookLoanRequestors.push(rq.noop);
+                                    //    callback2(args, undefined);
+                                    //},
+                                    generateLoansRequestorFactory(totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanRequestors),
+                                    /*
+                                     function (callback2, savedStateChange) {
+                                     console.log(utils.logPreamble() + 'Generating visits and loans: Starting building loan-generating functions ...');
+                                     var bookLoanInVisitIndex = 0,
+                                     randomOperator = randomBooks.randomUser();
 
-                                        bookLoans = [];
+                                     bookLoans = [];
 
-                                        bookLoans.push(rq.noop); // Just to make the tests compile/go through
+                                     // Just to make the tests compile/go through
+                                     bookLoans.push(rq.noop);
 
-                                        for (; bookLoanInVisitIndex < maxBookLoansPerVisit; bookLoanInVisitIndex += 1) {
-                                            var loanEntityAttributes = {};
+                                     // DOES NOT WORK: Mutated!
+                                     console.log(utils.logPreamble() + 'extra: Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
 
-                                            bookLoans.push(
-                                                sequence([
-                                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' ...'),
-                                                    eventSourcing.getRandom(library.Book, totalNumberOfBooks),
-                                                    function (callback3, randomBook) {
-                                                        if (!randomBook) {
-                                                            callback3(undefined, 'Generating visits and loans: Unable to get a random book ...');
-                                                        } else {
-                                                            callback3(randomBook, undefined);
-                                                        }
-                                                    },
-                                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
-                                                    function (callback3, randomBook) {
-                                                        loanEntityAttributes.book = randomBook.entityId;
-                                                        callback3(randomBook, undefined);
-                                                    },
-                                                    function (callback3, randomBook) {
-                                                        sequenceNumber.incrementSequenceNumber('loans', function (err, nextSequenceNumber) {
-                                                            callback3(nextSequenceNumber, undefined);
-                                                        });
-                                                    },
-                                                    // TODO: Include loan in visit entity (bi-directional reference)?
-                                                    function (callback3, nextSequenceNumber) {
-                                                        // TODO: Use an object as argument holder here ...
-                                                        loanEntityAttributes.seq = nextSequenceNumber;
-                                                        loanEntityAttributes.visit = savedStateChange.entityId;
-                                                        callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, loanEntityAttributes, randomOperator), undefined);
-                                                    },
-                                                    function (callback3, stateChange2) {
-                                                        stateChange2.save(function (err, savedStateChange2) {
-                                                            console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange2) + ']');
-                                                            callback3('saved', undefined);
-                                                        });
-                                                    }
-                                                    //] // Not good enough!
-                                                    //])(rq.run) // OK
-                                                ])(function (success, failure) { // Full control ...
-                                                    if (failure || !success) {
-                                                        //throw new Error('FAILURE :: ' + JSON.stringify(failure));
-                                                        console.warn(utils.logPreamble() + 'FAILURE: ' + JSON.stringify(failure));
-                                                    }
-                                                    console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function executed successfully');
-                                                })
-                                            );
-                                            //console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function #' + bookLoanInVisitIndex + ' pushed to requestor sequence array ...');
-                                        }
-                                        console.log(utils.logPreamble() + 'Generating loans: Done! ' + (bookLoans.length - 1) + ' loan-generating functions pushed to requestor sequence array');
-                                        callback2(savedStateChange, undefined);
-                                    },
-                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ' + (bookLoans.length - 1) + ' loan-generating functions ...'),
-                                    sequence(bookLoans),
+                                     for (; bookLoanInVisitIndex < maxBookLoansPerVisit; bookLoanInVisitIndex += 1) {
+                                     var loanEntityAttributes = {};
+
+                                     // DOES NOT WORK: Mutated!
+                                     console.log(utils.logPreamble() + 'extra2: Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...');
+
+                                     bookLoans.push(
+                                     sequence([
+                                     // DOES NOT WORK: 'visitIndex' Mutated! ????
+                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' of ' + maxBookLoansPerVisit + ', for visit #' + (visitIndex + 1) + ' ...'),
+
+                                     rq.log(utils.logPreamble() + '5 Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...'),
+
+                                     eventSourcing.getRandom(library.Book, totalNumberOfBooks),
+
+                                     function (callback3, randomBook) {
+                                     if (!randomBook) {
+                                     callback3(undefined, 'Generating visits and loans: Unable to get a random book ...');
+                                     } else {
+                                     callback3(randomBook, undefined);
+                                     }
+                                     },
+                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
+                                     function (callback3, randomBook) {
+                                     loanEntityAttributes.target = randomBook.entityId;
+                                     callback3(randomBook, undefined);
+                                     },
+                                     function (callback3, randomBook) {
+                                     sequenceNumber.incrementSequenceNumber('loans', function (err, nextSequenceNumber) {
+                                     callback3(nextSequenceNumber, undefined);
+                                     });
+                                     },
+                                     // TODO: Include loan in visit entity (bi-directional reference)?
+                                     function (callback3, nextSequenceNumber) {
+                                     // TODO: Use an object as argument holder here ...
+                                     loanEntityAttributes.sequenceNumber = nextSequenceNumber;
+                                     loanEntityAttributes.context = savedStateChange.entityId;
+                                     loanEntityAttributes.date = randomBooks.getRandomLoanReturnDateForVisit(savedStateChange);
+                                     callback3(eventSourcing.createStateChange('CREATE', library.Loan, null, loanEntityAttributes, randomOperator), undefined);
+                                     },
+                                     function (callback3, stateChange2) {
+                                     stateChange2.save(function (err, savedStateChange2) {
+                                     console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange2) + ']');
+                                     callback3('loan saved', undefined);
+                                     });
+                                     },
+                                     function (callback3, args) {
+                                     // Check index to see if it is the last one ...
+                                     //var myVisitIndex = __.clone(visitIndex);
+                                     console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + visitIndex + ' of ' + numberOfVisitsToGenerate + ' ...');
+                                     if (visitIndex >= numberOfVisitsToGenerate) {
+                                     console.log('all-visit-statechangeevents-created !!');
+                                     rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'));
+                                     }
+                                     callback3(args, undefined);
+                                     }
+                                     //] // Not good enough!
+                                     //])(rq.run) // OK
+                                     ])(function (success, failure) { // Full control ...
+                                     if (failure || !success) {
+                                     //throw new Error('FAILURE :: ' + JSON.stringify(failure));
+                                     console.warn(utils.logPreamble() + 'FAILURE: ' + JSON.stringify(failure));
+                                     }
+                                     console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function executed successfully');
+                                     })
+                                     );
+                                     //console.log(utils.logPreamble() + 'Generating visits and loans: Loan-generating function #' + bookLoanInVisitIndex + ' pushed to requestor sequence array ...');
+                                     }
+                                     console.log(utils.logPreamble() + 'Generating loans: Done! ' + (bookLoans.length - 1) + ' loan-generating functions pushed to requestor sequence array');
+                                     callback2(savedStateChange, undefined);
+                                     },
+                                     */
+
+                                    //rq.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ' + (bookLoans.length - 1) + ' loan-generating functions ...'),
+                                    //function (callback2, args2) {
+                                    //    var y = 0;
+                                    //    callback2(args2, undefined);
+                                    //},
+
+                                    sequence(bookLoanRequestors),
+
+                                    // Nope, has to be done inside bookLoans sequence - its async!
+                                    //emitConditionalVisitGenerationTermination(totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoans),
+
+                                    //function (callback2, args2) {
+                                    //    console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + visitIndex + ' of ' + numberOfVisitsToGenerate + ' ...');
+                                    //    if (visitIndex >= numberOfVisitsToGenerate) {
+                                    //        console.log('!! all-visit-statechangeevents-created !!');
+                                    //        rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'));
+                                    //    }
+                                    //    callback2(args2, undefined);
+                                    //},
+
                                     rq.log(utils.logPreamble() + 'Generating visits and loans: Done executing loan-generating function sequence'),
-                                    clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, numberOfVisitsToGenerate, visitIndex)
+                                    clientPushMessageThrottlerRequestorFactory(numberOfServerPushEmits, startTime, numberOfVisitsToGenerate, visitIndex)
                                 ])
                             );
                         }
                         callback(numberOfVisitsToGenerate, undefined);
                     },
 
-                    rq.log(utils.logPreamble() + 'Generating visits: Starting executing ${args} visit-generating functions ...'),
-                    sequence(visitsWithSequenceNumber),
-                    rq.log(utils.logPreamble() + 'Generating visits: Done executing visit-and-loan-generating function sequence'),
+                    rq.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ${args} visit-generating functions ...'),
+                    sequence(visitRequestors),
+                    rq.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-and-loan-generating function sequence')//,
 
-                    rq.log(utils.logPreamble() + 'Generating visits: Hack, waiting a couple of seconds for loan state changes generation to complete ...'),
-                    rq.wait(10000),
-
-                    // TODO: Premature invocation! Generating loans is probably not yet completed ...
-                    // => Move to after loan sequence (line 354) - check index to see if it is the last one ...
-                    rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'))
+                    //// TODO: Premature invocation! Generating loans is probably not yet completed ...
+                    //rq.log(utils.logPreamble() + 'Generating visits and loans: Hack, waiting a couple of seconds for loan state changes generation to complete ...'),
+                    //rq.wait(10000),
+                    //// => Move to after loan sequence (line 354) - check index to see if it is the last one ...
+                    //rq.then(curry(messageBus.publishAll, 'all-visit-statechangeevents-created'))
+                    //// /TODO
                 ]),
                 utils.send500InternalServerErrorResponse(response)
-            ])
-            (rq.run);
+            ])(rq.run);
+            //])(function (success, failure) {
+            //    var i = 7;
+            //});
         },
 
 
     /**
      * Admin API :: Purge the entire application store(s)
-     * (by creating and sending (posting) a "clean" object/resource to the server)
+     * (by creating and sending (posting) a transient "clean" object/resource to the server)
      *
      * CQRS Query / Application Store special command
      *
@@ -410,7 +615,7 @@ var __ = require('underscore'),
 
     /**
      * Library API :: Get total number of books (by creating/posting a count object/resource to the server)
-     * (by creating and sending (posting) a "count" object/resource to the server)
+     * (by creating and sending (posting) a transient "count" object/resource to the server)
      *
      * CQRS Query
      *
@@ -494,7 +699,7 @@ var __ = require('underscore'),
                         //            if (createdLoans.length < 1) {
                         //                return callback({ count: 0 }, undefined);
                         //            }
-                        //            return callback({ count: createdLoans.pop().changes.seq }, undefined);
+                        //            return callback({ count: createdLoans.pop().changes.sequenceNumber }, undefined);
                         //        });
                         //    }
                         //]),
@@ -502,6 +707,7 @@ var __ = require('underscore'),
                         // Event Store: by map-reducing by type and counting
                         eventSourcing.count(library.Book, null)
                     ]),
+                    // Extra: Consistency check of retrieved results from different stores with different techniques
                     function (callback, args) {
                         //if (args[0].count === args[1].count && args[0].count === args[2].count) {
                         if (args[0].count === args[1].count) {
@@ -523,6 +729,7 @@ var __ = require('underscore'),
         },
 
 
+// TODO: Documentation ...
     _countAllVisits = exports.countAllVisits =
         function (request, response) {
             'use strict';
@@ -535,14 +742,8 @@ var __ = require('underscore'),
                     utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
                 ]),
 
-                // TODO: Execute in parallel and compare the results - verification/safe/test mode :-)
-
-                // TODO: Use Sequence collections, silly
-
                 // TODO: Application Store, manually: by using application store internals and invariants
-
                 // TODO: Application Store: by regular counting
-
                 sequence([
                     parallel([
 
@@ -550,9 +751,6 @@ var __ = require('underscore'),
                         sequence([
                             function (callback, args) {
                                 // Using MongoDB API directly due to schema name as id tweak ...
-                                //sequenceNumber.getSequenceNumber('visits', function (err, seq) {
-                                //    callback({ count: seq }, undefined);
-                                //});
                                 sequenceNumber.getNumberOfActiveSequenceNumbers('visits', function (err, numberOfActiveSequenceNumbers) {
                                     callback({ count: numberOfActiveSequenceNumbers }, undefined);
                                 });
@@ -561,9 +759,6 @@ var __ = require('underscore'),
 
                         // Event store, manually: by using event store internals and invariants
                         sequence([
-                            //function (callback, args) {
-                            //    callback(args, undefined);
-                            //},
                             function (callback, args) {
                                 // Find all visits, where type is CREATE, sorted by timestamp descending - pick first one, get sequence number - voila!
                                 eventSourcingModel.StateChange.find({
@@ -573,19 +768,16 @@ var __ = require('underscore'),
                                     if (createdVisits.length < 1) {
                                         return callback({ count: 0 }, undefined);
                                     }
-                                    return callback({ count: createdVisits.pop().changes.seq }, undefined);
+                                    return callback({ count: createdVisits.pop().changes.sequenceNumber }, undefined);
                                 });
-                            }//,
-                            //function (callback, args) {
-                            //    callback(args, undefined);
-                            //},
-                            //utils.send200OkResponseWithArgumentAsBody(response)
+                            }
                         ]),
 
                         // Event Store: by map-reducing by type and counting
                         // TODO: 'library.Visit' shouldn't really be referenced in this file
                         eventSourcing.count(library.Visit, all)
                     ]),
+                    // Extra: Consistency check of retrieved results from different stores with different techniques
                     function (callback, args) {
                         if (args[0].count === args[1].count && args[0].count === args[2].count) {
                             console.log(utils.logPreamble() + 'Consistent visit results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
@@ -605,6 +797,7 @@ var __ = require('underscore'),
         },
 
 
+// TODO: Documentation ...
     _countAllLoans = exports.countAllLoans =
         function (request, response) {
             'use strict';
@@ -621,22 +814,17 @@ var __ = require('underscore'),
                 // TODO: Application Store: by regular counting
                 sequence([
                     parallel([
+
                         // Sequence collections
                         sequence([
                             function (callback, args) {
                                 // Using MongoDB API directly due to schema name as id tweak ...
-                                //sequenceNumber.Sequence.collection.findOne({ _id: 'loans' }, function (err, loansSequence) {
-                                //    return callback({ count: loansSequence.seq }, undefined);
-                                //});
-                                // Using MongoDB API directly due to schema name as id tweak ...
-                                //sequenceNumber.getSequenceNumber('loans', function (err, seq) {
-                                //    callback({ count: seq }, undefined);
-                                //});
                                 sequenceNumber.getNumberOfActiveSequenceNumbers('loans', function (err, numberOfActiveSequenceNumbers) {
                                     callback({ count: numberOfActiveSequenceNumbers }, undefined);
                                 });
                             }
                         ]),
+
                         // Event store, manually: by using event store internals and invariants
                         sequence([
                             function (callback, args) {
@@ -648,13 +836,15 @@ var __ = require('underscore'),
                                     if (createdLoans.length < 1) {
                                         return callback({ count: 0 }, undefined);
                                     }
-                                    return callback({ count: createdLoans.pop().changes.seq }, undefined);
+                                    return callback({ count: createdLoans.pop().changes.sequenceNumber }, undefined);
                                 });
                             }
                         ]),
+
                         // Event Store: by map-reducing by type and counting
                         eventSourcing.count(library.Loan, all)
                     ]),
+                    // Extra: Consistency check of retrieved results from different stores with different techniques
                     function (callback, args) {
                         if (args[0].count === args[1].count && args[0].count === args[2].count) {
                             console.log(utils.logPreamble() + 'Consistent loan results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
@@ -674,54 +864,83 @@ var __ = require('underscore'),
         },
 
 
+// TODO: Documentation ...
     _countLoansForBook = exports.countLoansForBook =
         function (request, response) {
             'use strict';
-            //setTimeout(function () {
-            //    response.json({ count: 234 });
-            //}, 2000);
-
-            var entityId = request.params.entityId,
-            //countAllBookLoans = null,
-                countLoansForBook = { book: entityId },
-            //eventStore_CountAllStateChanges = rqMongooseJsonStateChangeInvocation('count', countAllQuery),
-            // TODO: 'library.Book' shouldn't really be referenced in this file
-                eventStore_CountLoansForBooks = eventSourcing.count(library.Loan, countLoansForBook);
+            var entityId = request.params.entityId;
 
             sequence([
-                // TODO: DRY alert: this is an RQ-essentials function, 'rq.log' or something along those terms
-                //rq.log(utils.logPreamble() + 'Counting loans: For book ' + entityId + ' ...'),
-                rq.value(utils.logPreamble() + 'Counting loans: For book ' + entityId + ' ...'),
-                rq.do(console.log),
-
-                //function (callback, args) {
-                //    callback(args, undefined);
-                //},
-
-                eventStore_CountLoansForBooks,
-
-                //function (callback, args) {
-                //    callback(args, undefined);
-                //},
-
+                rq.log(utils.logPreamble() + 'Counting loans for book ' + entityId + ' ...'),
+                eventSourcing.count(library.Loan, { target: entityId }),
                 utils.send200OkResponseWithArgumentAsBody(response)
-            ])(rq.run);
+            ], 4000)(rq.handleTimeout(request, response));
         },
 
 
-// TODO: Cannot fake this forever ...
+// TODO: Documentation ...
     _isBookOnLoan = exports.isBookOnLoan =
         function (request, response) {
             'use strict';
+
+            // Not implemented:
+            //throw new Error('Not yet implemented'); // => 500
+
+            //response.sendStatus(501); // => 501
+
+            //response.sendStatus(httpResponse['Not Implemented']); // => 501
+
+            //sequence([
+            //    utils.send501NotImplementedServerErrorResponse(response)
+            //])(rq.run); // => 501
+
+            //sequence([
+            //    function (callback, args) {
+            //        setTimeout(function () {
+            //            callback('...', undefined);
+            //        }, 3000);
+            //    }
+            //])(rq.run); // => Hangs forever ...
+
+            //sequence([
+            //    rq.notImplemented
+            ////])(rq.run); // => Hangs forever ...
+            //], 2000)(rq.handleTimeout(request, response)); // => 501
+
+
+            // Fake:
             setTimeout(function () {
+                //response.json({ isOnLoan: false });
                 response.json({ isOnLoan: true });
             }, 1500);
+
+
+            /*
+             // Accurate:
+             // TODO: Get all loans, check if one of the 'returnDate' is null
+             // TODO: 500 Server Error if more than one is null !
+             var entityId = request.params.entityId;
+
+             sequence([
+             rq.log(utils.logPreamble() + 'Checking if book (id=' + entityId + ') is on loan ...'),
+             eventSourcing.find(library.Loan, { book: entityId }),
+             function (callback, bookLoanArray) {
+             var s = 9;
+             callback(bookLoanArray, undefined);
+             },
+             rq.pick('value'),
+             function (callback, bookLoans) {
+             var s = 9;
+             callback(bookLoans, undefined);
+             }
+             ], 4000)(rq.handleTimeout(request, response));
+             */
         },
 
 
     /**
      * Library API :: Get a projection of books
-     * (by creating and sending (posting) a "projection" object/resource to the server)
+     * (by creating and sending (posting) a transient "projection" object/resource to the server)
      *
      * CQRS Query
      *

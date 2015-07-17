@@ -109,7 +109,7 @@ var __ = require('underscore'),
                 }
             }
 
-            //if (change.method === 'CREATE' && change.changes.seq) {
+            //if (change.method === 'CREATE' && change.changes.sequenceNumber) {
             //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', seq=' + change.changes.seq + ', entityId=' + change.entityId + ']');
             //} else {
             //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', entityId=' + change.entityId + ']');
@@ -186,7 +186,7 @@ var __ = require('underscore'),
      * @param entityType Mongoose model type
      * @param conditions Mongoose Query condition object
      */
-    _count = exports.count =
+    count = exports.count =
         function (entityType, conditions) {
             'use strict';
             return function requestor(callback, args) {
@@ -247,6 +247,50 @@ var __ = require('underscore'),
                         then(callback)
                     ]),
                     cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                ])(rq.run);
+            };
+        },
+
+
+    /**
+     * Finds all entities of given type and conditions.
+     *
+     * @param entityType Mongoose model type
+     * @param conditions Mongoose Query condition object
+     */
+    find = exports.find =
+        function (entityType, conditions) {
+            'use strict';
+            return function requestor(callback, args) {
+                var mapReducePrefixedConditions = _addMapReducePrefixTo(conditions),
+                    thenFilterResult = mongooseQueryInvocation('find', mapReducePrefixedConditions);
+
+                return firstSuccessfulOf([
+                    sequence([
+                        mongooseEventSourcingMapreduce.find(entityType),
+
+                        // Handling of failed Mongoose Query
+                        function (callback, mongooseQuery) {
+                            if (!mongooseQuery || __.isEmpty(mongooseQuery)) {
+                                console.log('Audit.js :: Missing Mongoose Query - probably empty database, continuing ...');
+                                var fakeMongooseQuery = {};
+                                fakeMongooseQuery.find = function (conditions, mongooseCallback) {
+                                    return mongooseCallback(undefined, 0);
+                                };
+                                callback(fakeMongooseQuery, undefined);
+                            }
+                            return callback(mongooseQuery, undefined);
+                        },
+                        // /Handling of failed Mongoose Query
+
+                        thenFilterResult,
+
+                        // TODO: Get rid of 'value' property wrapper ...
+                        // => A kind of rebuild with only one state change
+
+                        then(callback)
+                    ]),
+                    cancel(callback, 'Audit.js :: Finding \'' + entityType.modelName + 's\' via map-reducing event store failed!')
                 ])(rq.run);
             };
         },
@@ -350,63 +394,6 @@ var __ = require('underscore'),
         },
 
 
-/**
- * @see http://stackoverflow.com/questions/14644545/random-document-from-a-collection-in-mongoose
- */
-/*
- getRandom = exports.getRandom =
- function (entityType) {
- 'use strict';
- return function requestor(callback, args) {
- firstSuccessfulOf([
- sequence([
- mongooseEventSourcingMapreduce.find(entityType),
- function (callback2, entities) {
- entities.count(function (err, count) {
- var randomIndexBase = Math.floor(Math.random() * count),
- randomBookIndex = randomIndexBase;
-
- // TODO: activate remedy? ...
- //if (randomIndexBase >= count) {
- //    randomBookIndex = count - 1;
- //} else if (randomIndexBase < 0) {
- //    randomBookIndex = 0;
- //}
-
- entities.findOne().skip(randomBookIndex).exec(function (err, entity) {
-
- // TODO: Resolve this frequent error!
- if (err || !entity) {
- callback2(entities, undefined);
- if (err) {
- console.error(utils.logPreamble() + err.message + ' [count=' + count + ', randomBookIndex=' + randomBookIndex + ']');
- callback(undefined, err.message);
- } else {
- console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + count + ', randomBookIndex=' + randomBookIndex + ']');
- var randomEntity = entities.find({ seq: randomBookIndex }, function (err, randomEntities) {
- //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + count + ', randomBookIndex=' + randomBookIndex + ')');
- var numberOfEntitites = randomEntities.length;
- callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + count + ', randomBookIndex=' + randomBookIndex + '] (A second query gave ' + numberOfEntitites + ' entities ...)');
- });
- }
-
- } else {
- callback2(entities, undefined);
- var randomBook = entity.value;
- randomBook.entityId = entity._id;
- callback(randomBook, undefined);
- }
- });
- });
- }
- ]),
- cancel(callback, 'Audit.js :: Getting random \'' + entityType.modelName + ' via map-reducing event store failed!')
- ])(rq.run);
- };
- },
- */
-
-
     /**
      * @see http://stackoverflow.com/questions/14644545/random-document-from-a-collection-in-mongoose
      */
@@ -429,76 +416,76 @@ var __ = require('underscore'),
                             //}
 
                             entities.findOne().skip(randomBookIndex).exec(function (err, entity) {
-                                    var randomBook;
+                                var randomBook;
 
-                                    callback2(entities, undefined);
+                                callback2(entities, undefined);
 
-                                    // TODO: Resolve this frequent error!
-                                    if (err) {
-                                        console.error(utils.logPreamble() + err.message + ' [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
-                                        return callback(undefined, err.message);
-                                    }
-
-                                    if (!entity) {
-                                        //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
-                                        entities.findOne({ seq: randomBookIndex }, function (err, randomEntity) {
-                                            //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ')');
-                                            if (randomEntity) {
-                                                //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
-                                                console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
-                                                randomBook = randomEntity.value;
-                                                randomBook.entityId = randomEntity._id;
-
-                                                return callback(randomBook, undefined);
-                                            } else {
-                                                //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
-                                                console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
-                                                sequence([
-                                                    mongooseEventSourcingMapreduce.find(entityType),
-                                                    function (callback2, mapReducedEntityQuery) {
-                                                        mapReducedEntityQuery.exec(function (err, entities2) {
-                                                            if (entities2 && entities2.length > 0) {
-                                                                console.warn(utils.logPreamble() + 'getRandom: Using first available entity as "random" ...)');
-                                                                var firstEntity = entities2.pop();
-                                                                randomBook = firstEntity.value;
-                                                                randomBook.entityId = firstEntity._id;
-
-                                                                return callback(randomBook, undefined);
-
-                                                            } else {
-                                                                console.warn(utils.logPreamble() + 'getRandom: Once again, NO map-reduced entities found ...)');
-
-                                                                return callback(undefined, 'I give up!');
-
-                                                                // TODO: Reuse a cached book from previous successful execution ...
-
-                                                            }
-                                                        });
-                                                    }
-                                                ])(rq.run);
-                                            }
-                                        });
-
-                                    } else {
-                                        randomBook = entity.value;
-                                        randomBook.entityId = entity._id;
-
-                                        return callback(randomBook, undefined);
-                                    }
+                                // TODO: Resolve this frequent error!
+                                if (err) {
+                                    console.error(utils.logPreamble() + err.message + ' [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
+                                    //callback2(entities, undefined);
+                                    return callback(undefined, err.message);
                                 }
-                            );
+
+                                if (!entity) {
+                                    //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
+                                    entities.findOne({ seq: randomBookIndex }, function (err, randomEntity) {
+                                        //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ')');
+                                        if (randomEntity) {
+                                            //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
+                                            console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
+                                            randomBook = randomEntity.value;
+                                            randomBook._id = randomEntity._id;
+                                            randomBook.entityId = randomEntity._id;
+
+                                            //callback2(entities, undefined);
+                                            return callback(randomBook, undefined);
+
+                                        } else {
+                                            //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
+                                            console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
+                                            sequence([
+                                                mongooseEventSourcingMapreduce.find(entityType),
+                                                function (callback2, mapReducedEntityQuery) {
+                                                    mapReducedEntityQuery.exec(function (err, entities2) {
+                                                        if (entities2 && entities2.length > 0) {
+                                                            console.warn(utils.logPreamble() + 'getRandom: Using first available entity as "random" ...)');
+                                                            var firstEntity = entities2.pop();
+                                                            randomBook = firstEntity.value;
+                                                            randomBook._id = firstEntity._id;
+                                                            randomBook.entityId = firstEntity._id;
+
+                                                            //callback2(entities, undefined);
+                                                            return callback(randomBook, undefined);
+
+                                                        } else {
+                                                            console.warn(utils.logPreamble() + 'getRandom: Once again, NO map-reduced entities found ...)');
+
+                                                            //callback2(entities, undefined);
+                                                            return callback(undefined, 'I give up!');
+
+                                                            // TODO: Reuse a cached book from previous successful execution ...
+
+                                                        }
+                                                    });
+                                                }
+                                            ])(rq.run);
+                                        }
+                                    });
+
+                                } else {
+                                    randomBook = entity.value;
+                                    randomBook._id = entity._id;
+                                    randomBook.entityId = entity._id;
+
+                                    //callback2(entities, undefined);
+                                    return callback(randomBook, undefined);
+                                }
+                            });
+                            return callback2(entities, undefined);
                         }
                     ]),
                     cancel(callback, 'Audit.js :: Getting random \'' + entityType.modelName + ' via map-reducing event store failed!')
                 ])(rq.run);
             };
         };
-
-
-//console.warn('Audit.JS getRandom :: Using entity with seq=1 as "random" ...)');
-//entities.findOne({ seq: 1 }, function (err, firstEntity) {
-//    randomBook = firstEntity.value;
-//    randomBook.entityId = firstEntity._id;
-
-//    return callback(randomBook, undefined);
-//});

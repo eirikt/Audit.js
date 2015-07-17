@@ -48,6 +48,8 @@ define(['underscore', 'backbone'],
                 if (!this.get('totalCount')) {
                     this.set('totalCount', totalCount, { silent: true });
                 }
+                // /Late to the party
+
                 this.set('inProgress', true, { silent: true });
                 this.set('progressValueInPercent', progressInPercent, { silent: true });
 

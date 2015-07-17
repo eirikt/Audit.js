@@ -38,7 +38,7 @@ var sinon = require('sinon'),
         './mongodb.mapreduce-emitter': mongodbMapReduceStatisticsEmitterStub,
         './library-application-store-manager': applicationStoresStub,
         './cqrs-service-api': cqrsServiceStub,
-        './library-model': libraryModelStub
+        './library-model.mongoose': libraryModelStub
     });
 
 
@@ -551,13 +551,12 @@ describe('Library service API specification\'s', function () {
                     }
                 };
 
-            // TODO: Should not be necessary - but needed for 'should update application store if applicable, and when completed, publish \'book-updated\' message' spec below to work ...
-            //cqrsServiceStub.isEnabled = function () {
-            //    return true;
-            //};
-
             libraryService.updateBook(request, response);
         });
+
+
+        // TODO: ...
+        //it('should increase the active sequence number count');
 
 
         it('should publish \'book-updated\' message', function (done) {
@@ -579,11 +578,6 @@ describe('Library service API specification\'s', function () {
                     }
                 },
                 recreatedMongooseIdObject = mongooseEventSourcingModelsStub.createMongooseIdObject(stateChange1.changes._id);
-
-            // Update application store
-            libraryModelStub.Book.update = sinon.spy(function (callback, stateChange) {
-                return callback(stateChange, undefined);
-            });
 
             messageBusStub.publishAll = sinon.spy(messageBus.publishAll);
 
@@ -786,11 +780,8 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should decrease the active sequence number count', function () {
-            //sequenceNumberStub.incrementUnusedSequenceNumbers = sinon.spy(function (schemaName, callback) {
-            //     callback(null, 0);
-            //});
-        });
+        // TODO: ...
+        //it('should decrease the active sequence number count');
 
 
         it('should publish \'book-removed\' message', function (done) {

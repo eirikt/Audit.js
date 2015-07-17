@@ -70,23 +70,42 @@ var __ = require('underscore'),
         },
 
     createRandomBookAttributes = exports.createRandomBookAttributes =
-        function (TagType) {
+        function (Tag) {
             'use strict';
+
+            // Create at most two unique tags from prefabricated array of possible tags
+            var tagArray = [],
+                tagStringArray = [randomTag()],
+                lastRandomTag = randomTag();
+
+            if (tagStringArray[0] !== lastRandomTag) {
+                tagStringArray.push(lastRandomTag);
+            }
+            tagStringArray.forEach(function (tagString) {
+                tagArray.push(new Tag({ name: tagString }));
+            });
+
             return {
                 title: randomBookTitle(),
                 author: randomName(),
-                tags: [
-                    new TagType({ tag: randomTag() }),
-                    new TagType({ tag: randomTag() })
-                ]
+                tags: tagArray
             };
         },
 
     createRandomVisitAttributes = exports.createRandomVisitAttributes =
         function () {
             'use strict';
+            var visitDate = randomPassedDateFromThisYear();
             return {
-                user: randomName(),
-                fromDate: randomPassedDateFromThisYear()
+                fromDate: visitDate,
+                toDate: visitDate,
+                resources: randomName(),
+                location: null
             };
+        },
+
+    getRandomLoanReturnDateForVisit = exports.getRandomLoanReturnDateForVisit =
+        function (visit) {
+            'use strict';
+            return new Date();
         };

@@ -89,7 +89,13 @@ define([
             ),
             initialize: function () {
                 console.log('\'BookLoanCountView::initialize\'');
-                this.listenTo(this.model, 'change', this.render);
+
+                //_.bind(this.render, this);
+                //this.on(this.model, 'change', this.render);
+
+                //this.on(this.model, 'change', _.bind(this.render, this));
+
+                this.listenTo(this.model, 'change', _.bind(this.render, this));
             },
             render: function () {
                 console.log('\'BookLoanCountView::render\'');
@@ -110,13 +116,13 @@ define([
         var BookIsOnLoan = Backbone.Model.extend({
             defaults: {
                 entityId: '',
-                onLoan: false
+                isOnLoan: null
             },
             initialize: function () {
                 this.entityId = arguments[0].entityId;
             },
             url: function () {
-                return '/library/books/' + this.entityId + '/loans/active';
+                return '/library/books/' + this.entityId + '/loans/isonloan';
             }
         });
 
@@ -129,17 +135,21 @@ define([
             ),
             initialize: function () {
                 console.log('\'BookIsOnLoanView::initialize\'');
-                this.listenTo(this.model, 'change', this.render);
+
+                //_.bind(this.render, this);
+                //this.on(this.model, 'change', this.render);
+
+                this.listenTo(this.model, 'change', _.bind(this.render, this));
             },
             _transformBool2VisualChecksIcons: function (model) {
                 var checked = '<span class="icon-check" style="font-size:larger;"></span>',
                     notChecked = '',
-                    chosen = model.get('isOnLoan') === true ? checked : notChecked;
-                model.set('isOnLoan', chosen, { silent: true });
+                    selected = model.get('isOnLoan') === true ? checked : notChecked;
+                model.set('isOnLoan', selected, { silent: true });
             },
             render: function () {
                 console.log('\'BookIsOnLoanView::render\'');
-                if (this.model.get('isOnLoan')) {
+                if (this.model.get('isOnLoan') || _.isBoolean(this.model.get('isOnLoan'))) {
                     var clonedModel = this.model.clone();
                     this._transformBool2VisualChecksIcons(clonedModel);
                     this.$el.html(clonedModel.get('isOnLoan'));
@@ -156,15 +166,17 @@ define([
         var BookInfoTableRowView = Backbone.View.extend({
             tagName: 'tr',
             template: _.template('' +
-                '<td><small><%= args.seq %></small></td>' +
+                '<td><small><%= args.sequenceNumber %></small></td>' +
                 '<td><small><a href="#/library/books/<%= args._id %>"><%- args.title %></a></small></td>' +
                 '<td><small><%- args.author %></small></td>' +
-                '<td><% _.each(args.tags, function(tagObj) { %><span class="tag"><%= tagObj.tag %></span><% }); %></td>' +
+                '<td><% _.each(args.tags, function(tagObj) { %><span class="tag"><%= tagObj.name %></span><% }); %></td>' +
                 '<td style="text-align:center;"><small><span id="loanCount_<%= args._id %>"></span></small></td>' +
                 '<td style="text-align:center;"><small><span id="isOnLoan_<%= args._id %>"></span></small></td>',
                 { variable: 'args' }
             ),
             render: function () {
+                var self = this;
+
                 //var clonedModel = this.model.clone();
                 //this._transformBool2VisualChecksIcons(clonedModel);
                 //this.$el.html(this.template(clonedModel.toJSON()));
@@ -179,16 +191,24 @@ define([
                 //var bookLoanCountJqueryElementId = bookLoanCountView.getParentElementId(); // => '#loan_' + this.model.id;
                 this.$(bookLoanCountJqueryElementId).append(bookLoanCountView.render().el);
 
-                bookLoanCount.fetch();
+                bookLoanCount.fetch({
+                    error: function () {
+                        self.$(bookLoanCountJqueryElementId).empty().append('<span class="wage">?</span>');
+                    }
+                });
 
 
                 var bookIsOnLoan = new BookIsOnLoan({ entityId: this.model.id });
                 var bookIsOnLoanView = new BookIsOnLoanView({ model: bookIsOnLoan });
 
                 var bookIsOnLoanJqueryElementId = '#isOnLoan_' + this.model.id;
-                this.$(bookIsOnLoanJqueryElementId).append(bookIsOnLoanView.render().el);
+                this.$(bookIsOnLoanJqueryElementId).empty().append(bookIsOnLoanView.render().el);
 
-                bookIsOnLoan.fetch();
+                bookIsOnLoan.fetch({
+                    error: function () {
+                        self.$(bookIsOnLoanJqueryElementId).empty().append('<span class="wage">?</span>');
+                    }
+                });
 
 
                 return this;

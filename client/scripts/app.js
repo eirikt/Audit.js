@@ -87,6 +87,7 @@ require([
 
             // Attach views to the DOM
             $('#stateChangeAdmin').append(App.stateChangeAdminView.el);
+            $('#userAdmin').append(App.userAdminView.el);
             $('#libraryAdmin').append(App.libraryAdminView.el);
             $('#libraryOverview').append(App.bookCountView.el);
             $('#book').append(App.bookView.el);

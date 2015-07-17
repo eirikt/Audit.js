@@ -127,13 +127,10 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
                 finalize: _mapReduceFinalize_roundUpNonReducedSingleStateChangeEventObjects,
 
                 //out: { replace: 'filteredEntities', inline: 1 } // Not good enough
-                // TODO: Good enough? Or should a requence/random temp collection be introduced ...
+                // TODO: Good enough? Or should a request/random temp collection be introduced ...
                 //out: { inline: 1 }
                 out: { replace: 'filteredEntities_' + entityType.modelName, inline: 1 }
-                //out: { reduce: 'filteredEntities_' + entityType.modelName }
-                //out: { merge: 'filteredEntities_' + entityType.modelName }
-                //out: { replace: 'filteredEntities_' + entityType.modelName + '_' + Math.random() }
-                //out: 'filteredEntities_' + entityType.modelName
+                //out: { replace: 'filteredEntities_' + entityType.modelName + '_' + Math.random(), inline: 1 }
             };
         },
 
@@ -152,7 +149,6 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
         function (entityType) {
             'use strict';
             return function requestor(callback, args) {
-                //console.log("_mapreducefind :: start entityType=" + entityType.modelName);
                 mongooseEventSourcingModels.StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
                     if (err) {
                         if (err.message === "ns doesn't exist") {
@@ -167,22 +163,6 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
                     // TODO: how to filter out null objects in mapreduce step?
                     // Removing deleted entities => value set to null in reduce step above
                     return callback(results.find({ value: { '$ne': null } }), undefined);
-
-                    // Instrumentation ...
-                    //var retVal = results.find({ value: { '$ne': null } });
-                    ////console.log("_mapreducefind :: entityType=" + entityType.modelName + ", retVal=" + retVal.value);
-                    //console.log("_mapreducefind :: entityType=" + entityType.modelName + ", retVal=Mongoose Query");
-                    //retVal.count(null, function (err, result) {
-                    //    console.log("_mapreducefind entityType=" + entityType.modelName + ", retVal=" + result);
-                    //    if (err) {
-                    //        console.error(err);
-                    //        throw new Error(err);
-                    //    }
-                    //    var jsonResult = {};
-                    //    jsonResult.count = result;
-                    //    callback(jsonResult, undefined);
-                    //});
-                    //return callback(retVal, undefined);
                 });
             };
         };
