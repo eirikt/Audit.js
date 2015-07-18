@@ -30,13 +30,14 @@ var mongoose = require('mongoose'),
 
     /**
      * Context base properties.
-     * If these properties are applicable for the entity, they must be present in the event store (master data).
+     * If these properties are applicable for the entity, they MUST be present in the event store (master data).
      *
      * The <em>subject</em> in a subject-verb-object structure.
      * Contexts are <em>completely generic models</em> on their own; resources on a specific location at a point in time.
      * Stuff like sourcing (mobilization), resource approvals, and description of objectives (standards and documentation) are most likely <em>application-specific</em> sub models.
      *
      * sequenceNumber : Regular sequence number (optional)
+     * name           : The main name of this context (optional)
      * originator     : The parent context which caused this context to be created in the first place (optional)
      * children       : All child contexts in a hierarchical context structure (optional) (removed, replaced by 'oneToManyRelationshipModelDescriptor')
      * fromDate       : The starting date or timestamp (mandatory)
@@ -44,7 +45,7 @@ var mongoose = require('mongoose'),
      * locations      : The geographical whereabouts (mandatory)
      * resources      : References to all involved resources, both personnel and equipment (mandatory)
      */
-    contextModelDescriptor = ['sequenceNumber', 'originator', 'fromDate', 'toDate', 'location', 'resources'],
+    contextModelDescriptor = ['sequenceNumber', 'name', 'originator', 'fromDate', 'toDate', 'location', 'resources'],
 
     /**
      * Action base properties.
@@ -54,25 +55,27 @@ var mongoose = require('mongoose'),
      * The <em>verb</em> in a subject-verb-object structure.
      *
      * sequenceNumber : Regular sequence number (optional)
+     * name           : The main name of this action (optional)
      * originator     : The parent action which caused this action to be created in the first place (optional)
      * context        : The context of this action (mandatory)
      * target         : The target of this action (mandatory)
      * children       : All child actions in a hierarchical action structure (optional) (removed, replaced by 'oneToManyRelationshipModelDescriptor')
      * date           : The date or timestamp of this action (mandatory)
      */
-    actionModelDescriptor = ['sequenceNumber', 'originator', 'context', 'target', 'date'],
+    actionModelDescriptor = ['sequenceNumber', 'name', 'originator', 'context', 'target', 'date'],
 
     /**
      * Target (object) base properties.
-     * If these properties are applicable for the entity, they must be present in the event store (master data).
+     * If these properties are applicable for the entity, they MUST be present in the event store (master data).
      * All properties (except 'sequenceNumber') may be either a reference or an embedded (copied) object.
      *
      * The <em>object</em> in a subject-verb-object structure.
      *
      * sequenceNumber : Regular sequence number (optional)
+     * name           : The main name of this target (optional)
      * children       : All child targets in a hierarchical target structure (optional) (removed, replaced by 'oneToManyRelationshipModelDescriptor')
      */
-    targetModelDescriptor = ['sequenceNumber'],
+    targetModelDescriptor = ['sequenceNumber', 'name'],
 
     /**
      * One-to-many relationship ('association'/'aggregation'?) between parent and children.
@@ -81,10 +84,12 @@ var mongoose = require('mongoose'),
      * The nodes will mostly be target entities, but also contexts and actions may be structured as trees, I guess.
      * Entities may form multiple trees (may be called 'tree types'), which superimposed, forms a graph of entities.
      *
-     * parent   : The parent ('predecessor'?) (optional, null if root node)
-     * children : The children ('successors'?) (optional, null if leaf node)
+     * sequenceNumber : Regular sequence number (optional)
+     * name           : The main name of this relationship (optional)
+     * parent         : The parent ('predecessor'?) (optional, null if root node)
+     * children       : The children ('successors'?) (optional, null if leaf node)
      */
-    oneToManyRelationshipModelDescriptor = ['parent', 'children'],
+    oneToManyRelationshipModelDescriptor = ['sequenceNumber', 'name', 'parent', 'children'],
 
 
 ///////////////////////////////////////////////////////////////////////////////

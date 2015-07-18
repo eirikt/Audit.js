@@ -12,7 +12,7 @@ var __ = require('underscore'),
 
 //targetModelDescriptor = ['sequenceNumber'],
 //bookCoreModelDescriptor = cloneAndExtendArray(targetModelDescriptor, ['title', 'author', 'tags']),
-    BookMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableBook(Number, String, String, [TagMongooseSchema])),
+    BookMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableBook(Number, String, String, String, [TagMongooseSchema])),
 //BookMongooseSchema = new mongoose.Schema(new ImmutableBook(
 //    // TODO: Check out detailed configuration: http://mongoosejs.com/docs/guide.html
 //    { type: Number, index: true, required: true },
@@ -23,7 +23,7 @@ var __ = require('underscore'),
 
 //contextModelDescriptor = ['sequenceNumber', 'originator', 'fromDate', 'toDate', 'location', 'resources'],
 //libraryVisitCoreModelDescriptor = cloneAndExtendArray(contextModelDescriptor, ['user', 'loanPeriodInDays']),
-    VisitMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableVisit(Number, mongoose.Schema.ObjectId, Date, Date, String, String, String, Number)),
+    VisitMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableVisit(Number, String, mongoose.Schema.ObjectId, Date, Date, String, String, String, Number)),
 //    VisitMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableVisit(
 //        { type: Number, index: true, required: true },
 //        { type: String, index: true, required: true },
@@ -35,17 +35,25 @@ var __ = require('underscore'),
 
 //actionModelDescriptor = ['sequenceNumber', 'context', 'target', 'originator', 'date'],
 //bookLoanCoreModelDescriptor = cloneAndExtendArray(actionModelDescriptor, ['book', 'libraryVisit', 'returnDate']),
-    LoanMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableLoan(Number, {
-        type: mongoose.Schema.ObjectId,
-        ref: 'VisitMongooseSchema',
-        index: true,
-        required: true
-    }, {
-        type: mongoose.Schema.ObjectId,
-        ref: 'BookMongooseSchema',
-        index: true,
-        required: true
-    }, mongoose.Schema.ObjectId, String, Date, Date)),
+    LoanMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableLoan(
+        Number,
+        {
+            type: mongoose.Schema.ObjectId,
+            ref: 'VisitMongooseSchema',
+            index: true,
+            required: true
+        },
+        String,
+        {
+            type: mongoose.Schema.ObjectId,
+            ref: 'BookMongooseSchema',
+            index: true,
+            required: true
+        },
+        mongoose.Schema.ObjectId,
+        String,
+        Date,
+        Date)),
 //LoanMongooseSchema = new mongoose.Schema(new libraryModels.ImmutableLoan(
 //    { type: Number, index: true, required: true },
 //    { type: mongoose.Schema.ObjectId, ref: 'BookMongooseSchema', index: true, required: true },

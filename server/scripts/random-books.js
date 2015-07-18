@@ -55,18 +55,51 @@ var __ = require('underscore'),
             return pickRandomElementFrom(tags);
         },
 
+    randomDateAfter = exports.randomDateAfter =
+        function (earliestDate, dayInterval) {
+            'use strict';
+            var randomDayOfThisYearSoFar = __.random(1, dayInterval),
+                earliestDateClone = new Date(earliestDate.valueOf());
+
+            earliestDateClone.setDate(earliestDateClone.getDate() + randomDayOfThisYearSoFar);
+
+            return earliestDateClone;
+        },
+
     /** Random date between start of this year and today ... */
     randomPassedDateFromThisYear =
         function () {
             'use strict';
             var now = new Date(),
-                todayDayOfYear = moment(now).dayOfYear(),
-                randomDayOfThisYearSoFar = __.random(1, todayDayOfYear),
+                firstDateThisYear = new Date(now.getFullYear(), 1, 1),
+                todayDayOfYear = moment(now).dayOfYear();
 
-                minimumDate = new Date(now.getFullYear(), 1, 1),
-                randomDateThisYearSoFar = minimumDate.setDate(randomDayOfThisYearSoFar);
+            return randomDateAfter(firstDateThisYear, todayDayOfYear);
+        },
 
-            return new Date(randomDateThisYearSoFar);
+    /** A rather library domain-specific utility functions ... */
+    getRandomLoanReturnDateForVisit = exports.getRandomLoanReturnDateForVisit =
+        function (visit) {
+            'use strict';
+            //return randomDateAfter(visit.changes.fromDate, visit.changes.loanPeriodInDays);
+
+            var today = new Date(),
+                randomDateInLoanPeriod = randomDateAfter(visit.changes.fromDate, visit.changes.loanPeriodInDays),
+                rand = Math.random();
+
+            // 50% chance of returning null if (visit.changes.fromDate + visit.changes.loanPeriodInDays) is after today's date
+            if (randomDateInLoanPeriod.valueOf() > today.valueOf()) {
+                if (rand > 0.5) {
+                    return null;
+                }
+            }
+
+            // 10% chance of returning null if (visit.changes.fromDate + visit.changes.loanPeriodInDays) is BEFORE today's date
+            if (rand > 0.9) {
+                return null;
+            }
+
+            return randomDateInLoanPeriod;
         },
 
     createRandomBookAttributes = exports.createRandomBookAttributes =
@@ -102,10 +135,4 @@ var __ = require('underscore'),
                 resources: randomName(),
                 location: null
             };
-        },
-
-    getRandomLoanReturnDateForVisit = exports.getRandomLoanReturnDateForVisit =
-        function (visit) {
-            'use strict';
-            return new Date();
         };

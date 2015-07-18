@@ -87,6 +87,7 @@ describe('Library service API specification\'s', function () {
 
 
     describe('\'generateBooks\' resource function', function () {
+
         it('should exist as a function', function () {
             expect(libraryService.generateBooks).to.exist;
             expect(libraryService.generateBooks).to.be.a('function');
@@ -115,6 +116,7 @@ describe('Library service API specification\'s', function () {
             libraryService.generateBooks(request, response);
         });
 
+
         it('should send response status code 400 Bad Request when missing body parameter \'numberOfBooks\'', function (done) {
             var request = {
                     method: 'POST',
@@ -137,6 +139,7 @@ describe('Library service API specification\'s', function () {
             libraryService.generateBooks(request, response);
         });
 
+
         it('should send response status code 400 Bad Request when body parameter \'numberOfBooks\' is not a number', function (done) {
             var request = {
                     method: 'POST',
@@ -158,6 +161,7 @@ describe('Library service API specification\'s', function () {
 
             libraryService.generateBooks(request, response);
         });
+
 
         // TODO: More ... ?
         /*

@@ -181,7 +181,7 @@ var __ = require('underscore'),
 
 
     /**
-     * Counts all entities of given type.
+     * Counts all entities of given type and conditions.
      *
      * @param entityType Mongoose model type
      * @param conditions Mongoose Query condition object
@@ -191,19 +191,10 @@ var __ = require('underscore'),
             'use strict';
             return function requestor(callback, args) {
                 var mapReducePrefixedConditions = _addMapReducePrefixTo(conditions),
-                    thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);//,
-                //thenFilterResult = mongooseQueryInvocation('count', null);
-
-                //console.log("Counting " + entityType.modelName);
+                    thenFilterResult = mongooseQueryInvocation('count', mapReducePrefixedConditions);
 
                 return firstSuccessfulOf([
                     sequence([
-
-                        //function (callback, args) {
-                        //    console.log("Counting 1 " + entityType.modelName);
-                        //    callback(args, undefined);
-                        //},
-
                         mongooseEventSourcingMapreduce.find(entityType),
 
                         // Handling of failed Mongoose Queries
@@ -220,30 +211,7 @@ var __ = require('underscore'),
                         },
                         // /Handling of failed Mongoose Queries
 
-                        //function (callback, mongooseQuery) {
-                        //    console.log("Counting 2 " + entityType.modelName);
-                        //    callback(mongooseQuery, undefined);
-                        //},
-
                         thenFilterResult,
-                        //function (callback, mongooseQuery) {
-                        //    mongooseQuery.count(null, function (err, result) {
-                        //        //console.log("Counting 3 " + entityType.modelName + " " + result);
-                        //        if (err) {
-                        //            console.error(err);
-                        //            return callback(undefined, err);
-                        //        }
-                        //        var jsonResult = {};
-                        //        jsonResult.count = result;
-                        //        callback(jsonResult, undefined);
-                        //    });
-                        //},
-
-                        //function (callback, jsonResult) {
-                        //    console.log("Counting 4 " + entityType.modelName + ", " + jsonResult.count + " found ...");
-                        //    callback(jsonResult, undefined);
-                        //},
-
                         then(callback)
                     ]),
                     cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
@@ -284,10 +252,7 @@ var __ = require('underscore'),
                         // /Handling of failed Mongoose Query
 
                         thenFilterResult,
-
-                        // TODO: Get rid of 'value' property wrapper ...
-                        // => A kind of rebuild with only one state change
-
+                        //rq.pick('find'), // Wait with this ... Do as count function above
                         then(callback)
                     ]),
                     cancel(callback, 'Audit.js :: Finding \'' + entityType.modelName + 's\' via map-reducing event store failed!')
