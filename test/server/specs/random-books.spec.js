@@ -9,8 +9,8 @@ describe('Random books utilities', function () {
     describe('Create random dates', function () {
 
         it('should return random date after given date, max days included', function () {
-            var someDate = new Date(2015, (7 - 1), 18),
-                fourDaysAfter = new Date(2015, (7 - 1), 22),
+            var someDate = new Date(2015, 7 - 1, 18),
+                fourDaysAfter = new Date(2015, 7 - 1, 22),
                 randomDay = randomBooksUtils.randomDateAfter(someDate, 3);
 
             //expect(randomDay.valueOf()).to.be.above(someDate.valueOf()); // Later, that is

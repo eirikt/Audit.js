@@ -32,6 +32,86 @@ var __ = require('underscore'),
     },
 
 
+///////////////////////////////////////////////////////////////////////////////
+// Higher-order stuff
+// TODO: Find some decent third-party lib for these things ...
+///////////////////////////////////////////////////////////////////////////////
+
+    /** Exhausting higher-order negation */
+    _not = exports.not =
+        function (condition) {
+            'use strict';
+            return function (args) {
+                while (_fun.isFunction(condition)) {
+                    condition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
+                }
+                return !condition;
+            };
+        },
+
+    /** Higher-order _.isNumber */
+    _isNumber = exports.isNumber =
+        function (numberObj) {
+            'use strict';
+            return function () {
+                return __.isNumber(numberObj);
+            };
+        },
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Predicate factories / higher-order functions
+// Generic curry-friendly helper (higher order) functions
+///////////////////////////////////////////////////////////////////////////////
+
+    _isHttpMethod = exports.isHttpMethod =
+        function (httpMethod, request) {
+            'use strict';
+            return function () {
+                return request.method === httpMethod;
+            };
+        },
+
+    _isNotHttpMethod = exports.isNotHttpMethod =
+        function (httpMethod, request) {
+            'use strict';
+            return function () {
+                return request.method !== httpMethod;
+            };
+        },
+
+    /**
+     * Meant for serialized/over-the-wire-sent data ...
+     */
+    _isMissing = exports.isMissing =
+        function (valueOrArray) {
+            'use strict';
+            return function () {
+                if (!valueOrArray && valueOrArray !== 0) {
+                    return true;
+                }
+                return !!(_fun.isString(valueOrArray) && valueOrArray.trim() === '');
+            };
+        },
+
+    /**
+     * Meant for runtime objects ...
+     */
+    _isEmpty = exports.isEmpty =
+        function (objectOrArray) {
+            'use strict';
+            return function () {
+                if (_fun.isArray(objectOrArray)) {
+                    return objectOrArray.length < 1;
+                }
+                if (_fun.isObject(objectOrArray)) {
+                    return Object.keys(objectOrArray).length === 0;
+                }
+                return _isMissing(objectOrArray)();
+            };
+        },
+
+
 // TODO: Move to 'app.config.js'? Or to RQ-essentials Express stuff
 ///////////////////////////////////////////////////////////////////////////////
 // Some curried Express requestors
@@ -128,16 +208,10 @@ var __ = require('underscore'),
         function (httpParameterName, request, response) {
             'use strict';
             return RQ.fallback([
-                _ensureHttpParameter('numberOfBooks', request, response),
+                _ensureHttpParameter(httpParameterName, request, response),
                 RQ.sequence([
                     rq.value(request.params[httpParameterName]),
-                    function (callback, args) {
-                        callback(args, undefined);
-                    },
                     rq.if(_not(_isNumber)),
-                    function (callback, args) {
-                        callback(args, undefined);
-                    },
                     rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is not a number'),
                     _send400BadRequestResponseWithArgumentAsBody(response)
                 ])
@@ -243,6 +317,33 @@ var __ = require('underscore'),
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Predicates ...
+// TODO: Find some decent third-party predicate lib ...
+///////////////////////////////////////////////////////////////////////////////
+
+    _predicates = exports.predicates = {
+        equals: function (b) {
+            'use strict';
+            return function (a) {
+                return a === b;
+            };
+        },
+        lessThan: function (b) {
+            'use strict';
+            return function (a) {
+                return a < b;
+            };
+        },
+        greaterThan: function (b) {
+            'use strict';
+            return function (a) {
+                return a > b;
+            };
+        }
+    },
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Generic helper functions
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -341,111 +442,4 @@ var __ = require('underscore'),
                 }
             }
             return true;
-        },
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Predicate factories / higer-order functions
-// Generic curry-friendly helper (higher order) functions
-///////////////////////////////////////////////////////////////////////////////
-
-    _isHttpMethod = exports.isHttpMethod =
-        function (httpMethod, request) {
-            'use strict';
-            return function () {
-                return request.method === httpMethod;
-            };
-        },
-
-    _isNotHttpMethod = exports.isNotHttpMethod =
-        function (httpMethod, request) {
-            'use strict';
-            return function () {
-                return request.method !== httpMethod;
-            };
-        },
-
-    /**
-     * Meant for serialized/over-the-wire-sent data ...
-     */
-    _isMissing = exports.isMissing =
-        function (valueOrArray) {
-            'use strict';
-            return function () {
-                if (!valueOrArray && valueOrArray !== 0) {
-                    return true;
-                }
-                return !!(_fun.isString(valueOrArray) && valueOrArray.trim() === '');
-            };
-        },
-
-    /**
-     * Meant for runtime objects ...
-     */
-    _isEmpty = exports.isEmpty =
-        function (objectOrArray) {
-            'use strict';
-            return function () {
-                if (_fun.isArray(objectOrArray)) {
-                    return objectOrArray.length < 1;
-                }
-                if (_fun.isObject(objectOrArray)) {
-                    return Object.keys(objectOrArray).length === 0;
-                }
-                return _isMissing(objectOrArray)();
-            };
-        },
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Higher-order stuff
-// TODO: Find some decent third-party lib for these things ...
-///////////////////////////////////////////////////////////////////////////////
-
-    /** Exhausting higher-order negation */
-    _not = exports.not =
-        function (condition) {
-            'use strict';
-            return function (args) {
-                while (_fun.isFunction(condition)) {
-                    condition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
-                }
-                return !condition;
-            };
-        },
-
-    /** Higher-order _.isNumber */
-    _isNumber = exports.isNumber =
-        function (numberObj) {
-            'use strict';
-            return function () {
-                return __.isNumber(numberObj);
-            };
-        },
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Predicates ...
-// TODO: Find some decent third-party predicate lib ...
-///////////////////////////////////////////////////////////////////////////////
-
-    _predicates = exports.predicates = {
-        equals: function (b) {
-            'use strict';
-            return function (a) {
-                return a === b;
-            };
-        },
-        lessThan: function (b) {
-            'use strict';
-            return function (a) {
-                return a < b;
-            };
-        },
-        greaterThan: function (b) {
-            'use strict';
-            return function (a) {
-                return a > b;
-            };
-        }
-    };
+        };

@@ -209,9 +209,9 @@ var __ = require('underscore'),
 
                             emitConditionalVisitGenerationTermination = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanInVisitIndex, maxBookLoansPerVisit, bookLoans) {
                                 return function requestor(callback, args) {
-                                    if ((bookLoanInVisitIndex + 1) >= maxBookLoansPerVisit) {
+                                    if (bookLoanInVisitIndex + 1 >= maxBookLoansPerVisit) {
                                         console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
-                                        if ((visitIndex + 1) >= numberOfVisitsToGenerate) {
+                                        if (visitIndex + 1 >= numberOfVisitsToGenerate) {
                                             messageBus.publishAll('all-visit-statechangeevents-created');
                                         }
                                     }
@@ -709,7 +709,7 @@ var __ = require('underscore'),
                     firstSuccessfulOf([
                         sequence([
                             rq.if(function (bookLoanArray) {
-                                return (bookLoanArray.length < 1);
+                                return bookLoanArray.length < 1;
                             }),
                             rq.return(notOnLoan),
                             utils.send200OkResponseWithArgumentAsBody(response)
