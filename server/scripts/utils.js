@@ -1,8 +1,14 @@
+/* global JSON:false */
+/* jshint -W024 */
+
 var __ = require('underscore'),
     moment = require('moment'),
-    _fun = require('./fun'),
+    RQ = require('async-rq'),
     rq = require('RQ-essentials'),
-    curry = require('./fun').curry,
+
+    _fun = require('./fun'),
+    curry = _fun.curry,
+
 
 // TODO: Move to 'app.config.js'?
     doLog = exports.doLog = rq.doLog,
@@ -26,7 +32,7 @@ var __ = require('underscore'),
     },
 
 
-// TODO: Move to 'app.config.js'?
+// TODO: Move to 'app.config.js'? Or to RQ-essentials Express stuff
 ///////////////////////////////////////////////////////////////////////////////
 // Some curried Express requestors
 // Just add response object, then use them in RQ pipelines
@@ -45,7 +51,115 @@ var __ = require('underscore'),
     _send404NotFoundResponseWithArgumentAsBody = exports.send404NotFoundResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 404),
     _send405MethodNotAllowedResponseWithArgumentAsBody = exports.send405MethodNotAllowedResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 405),
     _send500InternalServerErrorResponse = exports.send500InternalServerErrorResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 500),
+    _send500InternalServerErrorResponseWithArgumentAsBody = exports.send500InternalServerErrorResponseWithArgumentAsBody = curry(rq.dispatchResponseWithScalarBody, doNotLog, 500),
     _send501NotImplementedServerErrorResponse = exports.send501NotImplementedServerErrorResponse = curry(rq.dispatchResponseStatusCode, doNotLog, 501),
+
+
+    _ensureHttpGet = exports.ensureHttpGet =
+        function (request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.if(_not(_isHttpMethod('GET', request))),
+                rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
+                _send405MethodNotAllowedResponseWithArgumentAsBody(response)
+            ]);
+        },
+    _ensureHttpPost = exports.ensureHttpPost =
+        function (request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.if(_not(_isHttpMethod('POST', request))),
+                rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
+                _send405MethodNotAllowedResponseWithArgumentAsBody(response)
+            ]);
+        },
+    _ensureHttpPut = exports.ensureHttpPut =
+        function (request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.if(_not(_isHttpMethod('PUT', request))),
+                rq.value('URI \'' + request.originalUrl + '\' supports PUT requests only'),
+                _send405MethodNotAllowedResponseWithArgumentAsBody(response)
+            ]);
+        },
+    _ensureHttpDelete = exports.ensureHttpDelete =
+        function (request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.if(_not(_isHttpMethod('DELETE', request))),
+                rq.value('URI \'' + request.originalUrl + '\' supports DELETE requests only'),
+                _send405MethodNotAllowedResponseWithArgumentAsBody(response)
+            ]);
+        },
+
+    _ensure = exports.ensure =
+        function (valueOrArray, request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.if(_isMissing(valueOrArray)),
+                rq.value('Mandatory resource element is missing'),
+                _send400BadRequestResponseWithArgumentAsBody(response)
+            ]);
+        },
+
+    _ensureHttpResourceElement = exports.ensureHttpResourceElement =
+        function (resourceElementName, request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.value(request.params[resourceElementName]),
+                rq.if(_isMissing),
+                rq.value('Mandatory resource element \'' + resourceElementName + '\' is missing'),
+                _send400BadRequestResponseWithArgumentAsBody(response)
+            ]);
+        },
+
+    _ensureHttpParameter = exports.ensureHttpParameter =
+        function (httpParameterName, request, response) {
+            'use strict';
+            return RQ.sequence([
+                rq.value(request.params[httpParameterName]),
+                rq.if(_isMissing),
+                rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is missing'),
+                _send400BadRequestResponseWithArgumentAsBody(response)
+            ]);
+        },
+
+    _ensureNumericHttpParameter = exports.ensureNumericHttpParameter =
+        function (httpParameterName, request, response) {
+            'use strict';
+            return RQ.fallback([
+                _ensureHttpParameter('numberOfBooks', request, response),
+                RQ.sequence([
+                    rq.value(request.params[httpParameterName]),
+                    function (callback, args) {
+                        callback(args, undefined);
+                    },
+                    rq.if(_not(_isNumber)),
+                    function (callback, args) {
+                        callback(args, undefined);
+                    },
+                    rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is not a number'),
+                    _send400BadRequestResponseWithArgumentAsBody(response)
+                ])
+            ]);
+        },
+
+    _ensureHttpRequestBody = exports.ensureHttpRequestBody =
+        function (request, response) {
+            'use strict';
+            return RQ.fallback([
+                RQ.sequence([
+                    rq.if(_isMissing(request.body)),
+                    rq.value('Mandatory request body is missing'),
+                    _send400BadRequestResponseWithArgumentAsBody(response)
+                ]),
+                RQ.sequence([
+                    rq.if(_isEmpty(request.body)),
+                    rq.value('Mandatory request body is not valid'),
+                    _send400BadRequestResponseWithArgumentAsBody(response)
+                ])
+            ]);
+        },
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,13 +402,15 @@ var __ = require('underscore'),
 // TODO: Find some decent third-party lib for these things ...
 ///////////////////////////////////////////////////////////////////////////////
 
-    /** Higher-order negation */
+    /** Exhausting higher-order negation */
     _not = exports.not =
         function (condition) {
             'use strict';
             return function (args) {
-                var executedCondition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
-                return !executedCondition;
+                while (_fun.isFunction(condition)) {
+                    condition = _fun.isFunction(condition) ? condition.call(this, args) : condition;
+                }
+                return !condition;
             };
         },
 
@@ -314,8 +430,22 @@ var __ = require('underscore'),
 ///////////////////////////////////////////////////////////////////////////////
 
     _predicates = exports.predicates = {
-        lessThanOne: function (arg) {
+        equals: function (b) {
             'use strict';
-            return arg < 1;
+            return function (a) {
+                return a === b;
+            };
+        },
+        lessThan: function (b) {
+            'use strict';
+            return function (a) {
+                return a < b;
+            };
+        },
+        greaterThan: function (b) {
+            'use strict';
+            return function (a) {
+                return a > b;
+            };
         }
     };

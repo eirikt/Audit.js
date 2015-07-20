@@ -2,7 +2,6 @@
 /* jshint -W024, -W083, -W106 */
 
 var __ = require('underscore'),
-    httpResponse = require('statuses'),
     mongoose = require('mongoose'),
 
     RQ = require('async-rq'),
@@ -16,11 +15,11 @@ var __ = require('underscore'),
     curry = require('./fun').curry,
     utils = require('./utils'),
     not = utils.not,
-    isHttpMethod = utils.isHttpMethod,
-    isMissing = utils.isMissing,
     isEmpty = utils.isEmpty,
     isNumber = utils.isNumber,
-    emptyArray = utils.predicates.emptyArray,
+    equals = utils.predicates.equals,
+    greaterThan = utils.predicates.greaterThan,
+    lessThan = utils.predicates.lessThan,
 
     messageBus = require("./messaging"),
     sequenceNumber = require("./mongoose.sequence-number"),
@@ -84,7 +83,7 @@ var __ = require('underscore'),
         function (request, response) {
             'use strict';
 
-            var totalNumberOfBooksToGenerate = request.body.numberOfBooks,
+            var totalNumberOfBooksToGenerate = request.params.numberOfBooks,
                 numberOfServerPushEmits = 1000,
                 startTime = Date.now(),
                 count,
@@ -103,21 +102,8 @@ var __ = require('underscore'),
             booksWithSequenceNumber.push(rq.noop); // Just to make the tests compile/go through
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(isMissing(totalNumberOfBooksToGenerate)),
-                    rq.value('Mandatory body parameter \'numberOfBooks\' is missing'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(not(isNumber(totalNumberOfBooksToGenerate))),
-                    rq.value('Mandatory body parameter \'numberOfBooks\' is not a number'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
+                utils.ensureNumericHttpParameter('numberOfBooks', request, response),
                 sequence([
                     utils.send202AcceptedResponse(response),
                     rq.value(parseInt(totalNumberOfBooksToGenerate, 10)),
@@ -285,11 +271,7 @@ var __ = require('underscore'),
             visitRequestors.push(rq.noop);
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
                 sequence([
                     rq.if(not(isNumber(maxBookLoansPerVisit))),
                     rq.value('Optional body parameter \'maxBookLoansPerVisit\' is not a number'),
@@ -394,11 +376,7 @@ var __ = require('underscore'),
         function (request, response) {
             'use strict';
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
                 sequence([
                     rq.if(cqrs.isDisabled),
                     rq.value('URI \'library/books/clean\' posted when no application store in use'),
@@ -431,11 +409,7 @@ var __ = require('underscore'),
                 eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery);
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
                 /*
                  sequence([
                  rq.if(cqrs.isEnabled),
@@ -525,18 +499,26 @@ var __ = require('underscore'),
         },
 
 
-// TODO: Documentation ...
+    /**
+     * Library API :: Get total number of library visits (by creating/posting a count object/resource to the server)
+     * (by creating and sending (posting) a transient "count" object/resource to the server)
+     *
+     * CQRS Query
+     *
+     * HTTP method                  : POST
+     * Resource properties incoming : -
+     * Status codes                 : 200 OK
+     *                                405 Method Not Allowed    (not a POST)
+     * Resource properties outgoing : "count"                   (total number of visit entities)
+     * Event messages emitted       : -
+     */
     _countAllVisits = exports.countAllVisits =
         function (request, response) {
             'use strict';
             var all = null;
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
 
                 // TODO: Application Store, manually: by using application store internals and invariants
                 // TODO: Application Store: by regular counting
@@ -593,18 +575,26 @@ var __ = require('underscore'),
         },
 
 
-// TODO: Documentation ...
+    /**
+     * Library API :: Get total number of book loans (by creating/posting a count object/resource to the server)
+     * (by creating and sending (posting) a transient "count" object/resource to the server)
+     *
+     * CQRS Query
+     *
+     * HTTP method                  : POST
+     * Resource properties incoming : -
+     * Status codes                 : 200 OK
+     *                                405 Method Not Allowed    (not a POST)
+     * Resource properties outgoing : "count"                   (total number of book loan entities)
+     * Event messages emitted       : -
+     */
     _countAllLoans = exports.countAllLoans =
         function (request, response) {
             'use strict';
             var all = null;
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('POST', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPost(request, response),
 
                 // TODO: Application Store, manually: by using application store internals and invariants
                 // TODO: Application Store: by regular counting
@@ -660,7 +650,19 @@ var __ = require('underscore'),
         },
 
 
-// TODO: Documentation ...
+    /**
+     * Library API :: Get number of loans for book (by creating/posting a count object/resource to the server)
+     * (by creating and sending (posting) a transient "count" object/resource to the server)
+     *
+     * CQRS Query
+     *
+     * HTTP method                  : POST
+     * Resource properties incoming : -
+     * Status codes                 : 200 OK
+     *                                405 Method Not Allowed    (not a POST)
+     * Resource properties outgoing : "count"                   (total number of book loan entities)
+     * Event messages emitted       : -
+     */
     _countLoansForBook = exports.countLoansForBook =
         function (request, response) {
             'use strict';
@@ -675,92 +677,73 @@ var __ = require('underscore'),
         },
 
 
-// TODO: Documentation ...
-// TODO: Rewrite using RQ, extract out generic requestors - more ...
+    /**
+     * Library API :: Checks if a book is on loan (if one of the loan return dates is null)
+     *
+     * CQRS Query
+     *
+     * HTTP method                  : GET
+     * Resource properties incoming : "entityId"                (the entity id of the book)
+     * Status codes                 : 200 OK
+     *                                400 Bad Request           (missing "entityType" resource element)
+     *                                405 Method Not Allowed    (not a GET)
+     * Resource properties outgoing : "isOnLoan"                (true if book with given entity id is on loan/not returned)
+     * Event messages emitted       : -
+     */
     _isBookOnLoan = exports.isBookOnLoan =
         function (request, response) {
             'use strict';
-
-            // Not implemented:
-            //throw new Error('Not yet implemented'); // => 500
-
-            //response.sendStatus(501); // => 501
-
-            //response.sendStatus(httpResponse['Not Implemented']); // => 501
-
-            //sequence([
-            //    utils.send501NotImplementedServerErrorResponse(response)
-            //])(rq.run); // => 501
-
-            //sequence([
-            //    function (callback, args) {
-            //        setTimeout(function () {
-            //            callback('...', undefined);
-            //        }, 3000);
-            //    }
-            //])(rq.run); // => Hangs forever ...
-
-            //sequence([
-            //    rq.notImplemented
-            ////])(rq.run); // => Hangs forever ...
-            //], 2000)(rq.handleTimeoutAndStatusCode(request, response)); // => 501
-
-
-            // Fake:
-            //setTimeout(function () {
-            //    //response.json({ isOnLoan: false });
-            //    response.json({ isOnLoan: true });
-            //}, 1500);
-
-
-            // TODO: Application Store checkin'
-            // Accurate:
-            var entityId = request.params.entityId;
-
-            console.log(utils.logPreamble() + 'Checking if book (id=' + entityId + ') is on loan ...');
+            var entityId = request.params.entityId,
+                onLoan = { isOnLoan: true },
+                notOnLoan = { isOnLoan: false };
 
             firstSuccessfulOf([
+                utils.ensureHttpGet(request, response),
+                utils.ensureHttpResourceElement('entityId', request, response),
 
+                // TODO: Application Store checkin'
                 sequence([
-                    rq.if(not(isHttpMethod('GET', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
-
-                sequence([
-                    rq.if(isMissing(entityId)),
-                    rq.value('Mandatory resource element \'entityId\' is missing'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
-
-                sequence([
+                    rq.log(utils.logPreamble() + 'Checking if book (id=' + entityId + ') is on loan ...'),
                     eventSourcing.find(library.Loan, { target: entityId }),
-                    function (callback, queryResult) {
-                        var bookLoanArray = queryResult.find,
-                            numberOfMissingReturnDates = 0;
-
-                        if (bookLoanArray.length < 1) {
-                            response.status(200).json({ isOnLoan: false });
-
-                        } else {
-                            bookLoanArray.forEach(function (bookLoan) {
-                                if (!bookLoan.value.returnDate) {
-                                    numberOfMissingReturnDates += 1;
-                                }
-                            });
-
-                            if (numberOfMissingReturnDates > 1) {
-                                response.status(500).send('Book [id=' + entityId + '] has more than one [' + numberOfMissingReturnDates + '] active loans');
-                            } else if (numberOfMissingReturnDates === 1) {
-                                response.status(200).json({ isOnLoan: true });
-                            } else {
-                                response.status(200).json({ isOnLoan: false });
-                            }
-                        }
-
-                        callback(queryResult, undefined);
-                    }
-                ])
+                    rq.pick('find'),
+                    firstSuccessfulOf([
+                        sequence([
+                            rq.if(function (bookLoanArray) {
+                                return (bookLoanArray.length < 1);
+                            }),
+                            rq.return(notOnLoan),
+                            utils.send200OkResponseWithArgumentAsBody(response)
+                        ]),
+                        sequence([
+                            function (callback, bookLoanQueryResult) {
+                                var numberOfMissingReturnDates = 0;
+                                bookLoanQueryResult.forEach(function (bookLoanResult) {
+                                    if (!bookLoanResult.value.returnDate) {
+                                        numberOfMissingReturnDates += 1;
+                                    }
+                                });
+                                callback(numberOfMissingReturnDates, undefined);
+                            },
+                            firstSuccessfulOf([
+                                sequence([
+                                    rq.if(greaterThan(1)),
+                                    rq.value('Book [id=' + entityId + '] has more than one [$args] active loans'),
+                                    utils.send500InternalServerErrorResponseWithArgumentAsBody(response)
+                                ]),
+                                sequence([
+                                    rq.if(equals(1)),
+                                    rq.return(onLoan),
+                                    utils.send200OkResponseWithArgumentAsBody(response)
+                                ]),
+                                sequence([
+                                    rq.return(notOnLoan),
+                                    utils.send200OkResponseWithArgumentAsBody(response)
+                                ])
+                            ])
+                        ])
+                    ])
+                ]),
+                utils.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -881,26 +864,10 @@ var __ = require('underscore'),
             var entityId = request.params.entityId;
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('PUT', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports PUT requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(isMissing(entityId)),
-                    rq.value('Mandatory resource element \'entityId\' is missing'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(isMissing(request.body)),
-                    rq.value('Mandatory request body is missing'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(isEmpty(request.body)),
-                    rq.value('Mandatory request body is not valid'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpPut(request, response),
+                //utils.ensure(entityId, request, response),
+                utils.ensureHttpResourceElement('entityId', request, response),
+                utils.ensureHttpRequestBody(request, response),
                 sequence([
                     eventSourcing.getStateChangesByEntityId(entityId),
                     rq.push,
@@ -942,16 +909,8 @@ var __ = require('underscore'),
             var entityId = request.params.entityId;
 
             firstSuccessfulOf([
-                sequence([
-                    rq.if(not(isHttpMethod('DELETE', request))),
-                    rq.value('URI \'' + request.originalUrl + '\' supports DELETE requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
-                ]),
-                sequence([
-                    rq.if(isMissing(entityId)),
-                    rq.value('Mandatory resource element \'entityId\' is missing'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
-                ]),
+                utils.ensureHttpDelete(request, response),
+                utils.ensureHttpResourceElement('entityId', request, response),
                 sequence([
                     eventSourcing.getStateChangesByEntityId(entityId),
                     rq.push,

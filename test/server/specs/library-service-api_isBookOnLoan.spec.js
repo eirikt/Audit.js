@@ -3,11 +3,6 @@
 
 var sinon = require('sinon'),
     expect = require('chai').expect,
-    httpResponse = require('statuses'),
-
-    messageBus = require('../../../server/scripts/messaging'),
-
-    rq = require('RQ-essentials'),
 
     proxyquire = require('proxyquire').noCallThru(),
 
@@ -44,40 +39,6 @@ var sinon = require('sinon'),
 
 describe('Library service API specification\'s', function () {
     'use strict';
-
-    var stateChange1 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'CREATE',
-            type: 'Book',
-            entityId: '55542f4556a413fc0b7fa066',
-            changes: {
-                _id: '55542f4556a413fc0b7fa066',
-                author: '?',
-                title: 'In the Dust of ... something',
-                tags: []
-            }
-        },
-        stateChange2 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'UPDATE',
-            type: 'Book',
-            entityId: '55542f4556a413fc0b7fa066',
-            changes: {
-                author: 'Eugene Thacker'
-            }
-        },
-        stateChange3 = {
-            user: 'user',
-            timestamp: Date.now(),
-            method: 'UPDATE',
-            type: 'Book',
-            entityId: '55542f4556a413fc0b7fa066',
-            changes: {
-                title: 'In the Dust of this Planet'
-            }
-        };
 
 
     describe('\'isBookOnLoan\' function', function () {
@@ -143,7 +104,7 @@ describe('Library service API specification\'s', function () {
                 response = {
                     status: function (responseStatusCode) {
                         return {
-                            send: function (responseBody) {
+                            json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(500);
 
                                 done();
@@ -206,76 +167,76 @@ describe('Library service API specification\'s', function () {
 
             libraryService.isBookOnLoan(request, response);
         });
-    });
 
 
-    it('should send response status code 200 OK and body element \'isOnLoan\' set to false if no loans exists', function (done) {
-        var request = {
-                method: 'GET',
-                originalUrl: 'library/books/55542f4556a413fc0b7fa066/loans/isonloan',
-                params: { entityId: '55542f4556a413fc0b7fa066' }
-            },
-            response = {
-                status: function (responseStatusCode) {
-                    return {
-                        json: function (responseBody) {
-                            expect(responseStatusCode).to.equal(200);
-                            expect(responseBody).to.exist;
-                            expect(responseBody.isOnLoan).to.be.false;
+        it('should send response status code 200 OK and body element \'isOnLoan\' set to false if no loans exists', function (done) {
+            var request = {
+                    method: 'GET',
+                    originalUrl: 'library/books/55542f4556a413fc0b7fa066/loans/isonloan',
+                    params: { entityId: '55542f4556a413fc0b7fa066' }
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(200);
+                                expect(responseBody).to.exist;
+                                expect(responseBody.isOnLoan).to.be.false;
 
-                            done();
-                        }
-                    };
-                }
-            };
+                                done();
+                            }
+                        };
+                    }
+                };
 
-        eventSourcingStub.find = sinon.spy(function (entityId) {
-            return function requestor(callback, args) {
-                var bookLoanArray = [],
-                    queryResult = { find: bookLoanArray };
+            eventSourcingStub.find = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var bookLoanArray = [],
+                        queryResult = { find: bookLoanArray };
 
-                return callback(queryResult, undefined);
-            };
+                    return callback(queryResult, undefined);
+                };
+            });
+
+            libraryService.isBookOnLoan(request, response);
         });
 
-        libraryService.isBookOnLoan(request, response);
-    });
 
+        it('should send response status code 200 OK and body element \'isOnLoan\' set to false if all return dates exist', function (done) {
+            var request = {
+                    method: 'GET',
+                    originalUrl: 'library/books/55542f4556a413fc0b7fa066/loans/isonloan',
+                    params: { entityId: '55542f4556a413fc0b7fa066' }
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(200);
+                                expect(responseBody).to.exist;
+                                expect(responseBody.isOnLoan).to.be.false;
 
-    it('should send response status code 200 OK and body element \'isOnLoan\' set to false if all return dates exist', function (done) {
-        var request = {
-                method: 'GET',
-                originalUrl: 'library/books/55542f4556a413fc0b7fa066/loans/isonloan',
-                params: { entityId: '55542f4556a413fc0b7fa066' }
-            },
-            response = {
-                status: function (responseStatusCode) {
-                    return {
-                        json: function (responseBody) {
-                            expect(responseStatusCode).to.equal(200);
-                            expect(responseBody).to.exist;
-                            expect(responseBody.isOnLoan).to.be.false;
+                                done();
+                            }
+                        };
+                    }
+                };
 
-                            done();
-                        }
-                    };
-                }
-            };
+            eventSourcingStub.find = sinon.spy(function (entityId) {
+                return function requestor(callback, args) {
+                    var bookLoanArray = [],
+                        queryResult = { find: bookLoanArray },
+                        bookLoan1 = { value: { returnDate: new Date() } },
+                        bookLoan2 = { value: { returnDate: new Date() } };
 
-        eventSourcingStub.find = sinon.spy(function (entityId) {
-            return function requestor(callback, args) {
-                var bookLoanArray = [],
-                    queryResult = { find: bookLoanArray },
-                    bookLoan1 = { value: { returnDate: new Date() } },
-                    bookLoan2 = { value: { returnDate: new Date() } };
+                    bookLoanArray.push(bookLoan1);
+                    bookLoanArray.push(bookLoan2);
 
-                bookLoanArray.push(bookLoan1);
-                bookLoanArray.push(bookLoan2);
+                    return callback(queryResult, undefined);
+                };
+            });
 
-                return callback(queryResult, undefined);
-            };
+            libraryService.isBookOnLoan(request, response);
         });
-
-        libraryService.isBookOnLoan(request, response);
     });
 });

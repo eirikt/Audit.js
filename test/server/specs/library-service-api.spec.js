@@ -98,7 +98,7 @@ describe('Library service API specification\'s', function () {
             var request = {
                     method: 'GET',
                     originalUrl: 'library/books/generate',
-                    body: {}
+                    params: {}
                 },
                 response = {
                     status: function (responseStatusCode) {
@@ -117,18 +117,18 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should send response status code 400 Bad Request when missing body parameter \'numberOfBooks\'', function (done) {
+        it('should send response status code 400 Bad Request when missing HTTP parameter \'numberOfBooks\'', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/generate',
-                    body: {}
+                    params: {}
                 },
                 response = {
                     status: function (responseStatusCode) {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
-                                expect(responseBody).to.equal('Mandatory body parameter \'numberOfBooks\' is missing');
+                                expect(responseBody).to.equal('Mandatory HTTP parameter \'numberOfBooks\' is missing');
 
                                 done();
                             }
@@ -140,18 +140,18 @@ describe('Library service API specification\'s', function () {
         });
 
 
-        it('should send response status code 400 Bad Request when body parameter \'numberOfBooks\' is not a number', function (done) {
+        it('should send response status code 400 Bad Request when HTTP parameter \'numberOfBooks\' is not a number', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/generate',
-                    body: { numberOfBooks: 'yo' }
+                    params: { numberOfBooks: 'yo' }
                 },
                 response = {
                     status: function (responseStatusCode) {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
-                                expect(responseBody).to.equal('Mandatory body parameter \'numberOfBooks\' is not a number');
+                                expect(responseBody).to.equal('Mandatory HTTP parameter \'numberOfBooks\' is not a number');
 
                                 done();
                             }
