@@ -144,6 +144,7 @@ var __ = require('underscore'),
                 _send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]);
         },
+
     _ensureHttpPost = exports.ensureHttpPost =
         function (request, response) {
             'use strict';
@@ -153,6 +154,7 @@ var __ = require('underscore'),
                 _send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]);
         },
+
     _ensureHttpPut = exports.ensureHttpPut =
         function (request, response) {
             'use strict';
@@ -162,6 +164,7 @@ var __ = require('underscore'),
                 _send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]);
         },
+
     _ensureHttpDelete = exports.ensureHttpDelete =
         function (request, response) {
             'use strict';
@@ -188,7 +191,7 @@ var __ = require('underscore'),
             return RQ.sequence([
                 rq.value(request.params[resourceElementName]),
                 rq.if(_isMissing),
-                rq.value('Mandatory resource element \'' + resourceElementName + '\' is missing'),
+                rq.value('Mandatory HTTP URL element \'' + resourceElementName + '\' is missing'),
                 _send400BadRequestResponseWithArgumentAsBody(response)
             ]);
         },
@@ -197,10 +200,41 @@ var __ = require('underscore'),
         function (httpParameterName, request, response) {
             'use strict';
             return RQ.sequence([
-                rq.value(request.params[httpParameterName]),
-                rq.if(_isMissing),
-                rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is missing'),
-                _send400BadRequestResponseWithArgumentAsBody(response)
+                RQ.parallel([
+                    function (callback, args) {
+                        if (request && request.body && __.isObject(request.body)) {
+                            callback(request.body[httpParameterName], undefined);
+                        } else {
+                            callback(undefined, undefined);
+                        }
+                    },
+                    rq.value(request.params[httpParameterName])
+                ]),
+                RQ.fallback([
+                    RQ.sequence([
+                        rq.if(function (args) {
+                            return args.length > 1 && args[0] && args[1];
+                        }),
+                        rq.value('HTTP parameter \'' + httpParameterName + '\' present in both body and URL'),
+                        _send400BadRequestResponseWithArgumentAsBody(response)
+                    ]),
+                    RQ.sequence([
+                        function (callback, args) {
+                            var bodyParam = args[0],
+                                urlParam = args[1];
+
+                            if (bodyParam) {
+                                callback(bodyParam, undefined);
+
+                            } else {
+                                callback(urlParam, undefined);
+                            }
+                        },
+                        rq.if(_isMissing),
+                        rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is missing'),
+                        _send400BadRequestResponseWithArgumentAsBody(response)
+                    ])
+                ])
             ]);
         },
 
@@ -209,8 +243,33 @@ var __ = require('underscore'),
             'use strict';
             return RQ.fallback([
                 _ensureHttpParameter(httpParameterName, request, response),
+                // TODO: If failed requestors could pass arguments to the next requestor in the fallback pipeline ...
+                // => Save a lot of boilerplate code (no need to retrieve stuff all over again) ...
+                // => Aggregation of failure messages ...
                 RQ.sequence([
-                    rq.value(request.params[httpParameterName]),
+                    RQ.parallel([
+                        function (callback, args) {
+                            if (request && request.body && __.isObject(request.body)) {
+                                callback(request.body[httpParameterName], undefined);
+                            } else {
+                                callback(undefined, undefined);
+                            }
+                        },
+                        rq.value(request.params[httpParameterName])
+                    ]),
+                    RQ.fallback([
+                        function (callback, args) {
+                            var bodyParam = args[0],
+                                urlParam = args[1];
+
+                            if (bodyParam) {
+                                callback(bodyParam, undefined);
+
+                            } else {
+                                callback(urlParam, undefined);
+                            }
+                        }
+                    ]),
                     rq.if(_not(_isNumber)),
                     rq.value('Mandatory HTTP parameter \'' + httpParameterName + '\' is not a number'),
                     _send400BadRequestResponseWithArgumentAsBody(response)
@@ -218,7 +277,7 @@ var __ = require('underscore'),
             ]);
         },
 
-    _ensureHttpRequestBody = exports.ensureHttpRequestBody =
+    _ensureHttpBody = exports.ensureHttpBody =
         function (request, response) {
             'use strict';
             return RQ.fallback([

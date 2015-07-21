@@ -83,7 +83,7 @@ describe('Library service API specification\'s', function () {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
-                                expect(responseBody).to.equal('Mandatory resource element \'entityId\' is missing');
+                                expect(responseBody).to.equal('Mandatory HTTP URL element \'entityId\' is missing');
 
                                 done();
                             }

@@ -98,6 +98,7 @@ describe('Library service API specification\'s', function () {
             var request = {
                     method: 'GET',
                     originalUrl: 'library/books/generate',
+                    body: {},
                     params: {}
                 },
                 response = {
@@ -121,6 +122,7 @@ describe('Library service API specification\'s', function () {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/generate',
+                    body: {},
                     params: {}
                 },
                 response = {
@@ -140,11 +142,36 @@ describe('Library service API specification\'s', function () {
         });
 
 
+        it('should send response status code 400 Bad Request when HTTP parameter \'numberOfBooks\' is present in both URL and request body', function (done) {
+            var request = {
+                    method: 'POST',
+                    originalUrl: 'library/books/generate',
+                    body: { numberOfBooks: 12 },
+                    params: { numberOfBooks: 13 }
+                },
+                response = {
+                    status: function (responseStatusCode) {
+                        return {
+                            json: function (responseBody) {
+                                expect(responseStatusCode).to.equal(400);
+                                expect(responseBody).to.equal('HTTP parameter \'numberOfBooks\' present in both body and URL');
+
+                                done();
+                            }
+                        };
+                    }
+                };
+
+            libraryService.generateBooks(request, response);
+        });
+
+
         it('should send response status code 400 Bad Request when HTTP parameter \'numberOfBooks\' is not a number', function (done) {
             var request = {
                     method: 'POST',
                     originalUrl: 'library/books/generate',
-                    params: { numberOfBooks: 'yo' }
+                    body: { numberOfBooks: 'yo' },
+                    params: {}
                 },
                 response = {
                     status: function (responseStatusCode) {
@@ -395,7 +422,7 @@ describe('Library service API specification\'s', function () {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
-                                expect(responseBody).to.equal('Mandatory resource element \'entityId\' is missing');
+                                expect(responseBody).to.equal('Mandatory HTTP URL element \'entityId\' is missing');
 
                                 done();
                             }
@@ -705,7 +732,7 @@ describe('Library service API specification\'s', function () {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(400);
-                                expect(responseBody).to.equal('Mandatory resource element \'entityId\' is missing');
+                                expect(responseBody).to.equal('Mandatory HTTP URL element \'entityId\' is missing');
 
                                 done();
                             }

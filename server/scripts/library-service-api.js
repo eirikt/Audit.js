@@ -83,10 +83,8 @@ var __ = require('underscore'),
         function (request, response) {
             'use strict';
 
-            var totalNumberOfBooksToGenerate = request.params.numberOfBooks,
-                numberOfServerPushEmits = 1000,
+            var numberOfServerPushEmits = 1000,
                 startTime = Date.now(),
-                count,
                 index = 0,
                 booksWithSequenceNumber = [],
 
@@ -106,15 +104,10 @@ var __ = require('underscore'),
                 utils.ensureNumericHttpParameter('numberOfBooks', request, response),
                 sequence([
                     utils.send202AcceptedResponse(response),
-                    rq.value(parseInt(totalNumberOfBooksToGenerate, 10)),
-                    // TODO: How to generify this one?
-                    function (callback, totalNumberOfBooksToGenerate) {
-                        count = totalNumberOfBooksToGenerate;
-                        callback(totalNumberOfBooksToGenerate, undefined);
-                    },
+                    rq.value(parseInt(request.body.numberOfBooks, 10)),
                     rq.then(curry(messageBus.publishAll, 'creating-book-statechangeevents')),
                     function (callback, args) {
-                        for (; index < count; index += 1) {
+                        for (; index < args; index += 1) {
                             booksWithSequenceNumber.push(
                                 // TODO: Move this to 'mongoose.event-sourcing.js' or somewhere else
                                 sequence([
@@ -136,8 +129,7 @@ var __ = require('underscore'),
                                             callback2(savedBookStateChange, undefined);
                                         });
                                     },
-                                    clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, count, index),
-                                    rq.then(JSON.stringify),
+                                    clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, args, index),
                                     rq.log(utils.logPreamble() + 'Book CREATE state change event saved ...OK [${args}]')
                                 ])
                             );
@@ -727,7 +719,7 @@ var __ = require('underscore'),
                             firstSuccessfulOf([
                                 sequence([
                                     rq.if(greaterThan(1)),
-                                    rq.value('Book [id=' + entityId + '] has more than one [$args] active loans'),
+                                    rq.value('Book [id=' + entityId + '] has more than one [${args}] active loans'),
                                     utils.send500InternalServerErrorResponseWithArgumentAsBody(response)
                                 ]),
                                 sequence([
@@ -867,7 +859,7 @@ var __ = require('underscore'),
                 utils.ensureHttpPut(request, response),
                 //utils.ensure(entityId, request, response),
                 utils.ensureHttpResourceElement('entityId', request, response),
-                utils.ensureHttpRequestBody(request, response),
+                utils.ensureHttpBody(request, response),
                 sequence([
                     eventSourcing.getStateChangesByEntityId(entityId),
                     rq.push,
