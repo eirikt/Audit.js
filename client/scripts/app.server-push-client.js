@@ -1,5 +1,4 @@
 /* global define:false, JSON:false */
-
 define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
 
     function (SocketIo, _, Backbone, App, Book) {
@@ -40,11 +39,14 @@ define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
 
             /** Generic push event subscription */
             listenForPushEvent: function (eventId, callback) {
-                var self = this;
+                var self = this,
+                    slice = Array.prototype.slice;
+
                 this.get('socket').on(eventId, function () {
                     // http://stackoverflow.com/questions/960866/converting-the-arguments-object-to-an-array-in-javascript
-                    var args = Array.prototype.slice.call(arguments, 0),
+                    var args = slice.call(arguments, 0),
                         marshalledArgs;
+
                     //args = args.sort(); // Screw things up somehow ...
                     args.unshift(eventId);
                     marshalledArgs = _.map(args, function (arg) {
@@ -71,6 +73,24 @@ define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
                     console.log('Already connected to ' + this.get('serverUrl') + ' ... not re-trying');
                 }
 
+
+                // Socket.IO client events
+                this.listenForPushEvent('connect', function () {
+                    this.set('connected', true);
+                    this.trigger('onconnected');
+                });
+                this.listenForPushEvent('disconnect', function () {
+                    this.set('connected', false);
+                    this.trigger('ondisconnected');
+                });
+                this.listenForPushEvent('reconnecting', function () {
+                    this.set('connected', false);
+                    this.trigger('ondisconnected');
+                });
+                // /Socket.IO client events
+
+
+                // Application events
                 this.listenForPushEvent('number-of-connections');
 
                 this.listenForPushEvent('cqrs', App.refreshViews);
@@ -112,6 +132,7 @@ define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
                     // TODO: collapse view (if expanded))
                     //App.bookView.collapse();
                 });
+                // /Application events
             }
         });
     }

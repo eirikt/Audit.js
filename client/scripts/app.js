@@ -1,11 +1,11 @@
 /* global require: false, define: false */
 require([
         'underscore', 'backbone', 'jquery', 'jquery.bootstrap',
-        'app', 'app.server-push-client', 'app.router',
+        'app', 'app.server-push-client', 'backbone.network-status', 'backbone.status-view', 'app.router',
         'backbone.progressbar', 'backbone.bootstrap.multi-progressbar-view', 'app.statechange-admin-view', 'app.library-admin-view', 'app.user-admin-view',
         'app.library', 'app.book-count-view', 'app.book-composite-view', 'app.book-table-view'],
 
-    function (_, Backbone, $, Bootstrap, App, PushClient, Router, Progressbar, BootstrapModalMultipleProgressbarView, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
+    function (_, Backbone, $, Bootstrap, App, PushClient, NetworkStatus, NetworkStatusView, Router, Progressbar, BootstrapModalMultipleProgressbarView, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
         'use strict';
 
         /**
@@ -15,7 +15,18 @@ require([
 
             console.log('DOM ready! Starting ...');
 
+            // Preload offline image ...
+            $('<img/>')[0].src = '/images/led_circle_yellow.png';
+            $('<img/>')[0].src = '/images/led_circle_red.png';
+
+
             // Models
+
+            // Connect to server for HTTP server push
+            // Dependant on SOME models, all views dependant on this
+            App.pushClient = new PushClient({ serverUrl: App.SERVER_URL });
+            App.networkStatus = new NetworkStatus({ pushClient: App.pushClient });
+
             var StateChangeCount = Backbone.Model.extend({
                 defaults: {
                     totalCount: 0,
@@ -60,12 +71,6 @@ require([
                 }
             };
 
-
-            // Connect to server for HTTP server push
-            // Dependant on SOME models, all views dependant on this
-            App.pushClient = new PushClient({ serverUrl: App.SERVER_URL });
-
-
             var UserCount = Backbone.Model.extend({
                 defaults: { numberOfUsers: 0 },
                 initialize: function () {
@@ -75,9 +80,14 @@ require([
                 }
             });
             App.userCount = new UserCount();
+            // /Models
 
 
             // Views
+            NetworkStatusView.prototype.className = 'navbar-brand'; // Bootstrap accordions ...
+            NetworkStatusView.prototype.style = 'margin-left:2rem;font-size:12px;vertical-align:middle;';
+            App.networkStatusView = new NetworkStatusView({ model: App.networkStatus });
+
             App.stateChangeAdminView = new StateChangeAdminView({ model: App.stateChangeCount });
             App.libraryAdminView = new LibraryAdminView();
             App.userAdminView = new UserAdminView({ model: App.userCount });
@@ -86,6 +96,7 @@ require([
             App.bookListView = new BookListTableView({ collection: App.library });
 
             // Attach views to the DOM
+            $('#networkStatus').append(App.networkStatusView.el);
             $('#stateChangeAdmin').append(App.stateChangeAdminView.el);
             $('#userAdmin').append(App.userAdminView.el);
             $('#libraryAdmin').append(App.libraryAdminView.el);
@@ -95,6 +106,8 @@ require([
 
             // Initial view rendering
             App.refreshViews();
+            // /Views
+
 
             // 'Out-of-view' DOM events: Toggle book listing
             $('#bookListLink').on('click', function (event) {
@@ -105,6 +118,7 @@ require([
                     App.library.fetch();
                 }
             });
+
 
             // Start listening for URI hash changes
             App.router = new Router();
