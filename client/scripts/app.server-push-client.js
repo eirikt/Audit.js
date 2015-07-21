@@ -76,16 +76,25 @@ define(['socket.io', 'underscore', 'backbone', 'app', 'app.book'],
 
                 // Socket.IO client events
                 this.listenForPushEvent('connect', function () {
-                    this.set('connected', true);
                     this.trigger('onconnected');
+                    this.set('connected', true);
                 });
+
                 this.listenForPushEvent('disconnect', function () {
                     this.set('connected', false);
-                    this.trigger('ondisconnected');
                 });
-                this.listenForPushEvent('reconnecting', function () {
-                    this.set('connected', false);
-                    this.trigger('ondisconnected');
+
+                this.listenForPushEvent('reconnecting', function (attemptIndex) {
+                    if (attemptIndex >= 3) {
+                        if (this.get('connected')) {
+                            this.trigger('onconnected');
+                        } else {
+                            this.trigger('ondisconnected');
+                        }
+
+                    } else {
+                        this.trigger('onslowconnection');
+                    }
                 });
                 // /Socket.IO client events
 
