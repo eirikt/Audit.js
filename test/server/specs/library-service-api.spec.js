@@ -260,7 +260,7 @@ describe('Library service API specification\'s', function () {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.equal(202);
                                 expect(responseBody).to.exist;
-                                expect(responseBody).to.be.equal('URI \'library/books/clean\' posted when no application store in use');
+                                expect(responseBody).to.be.equal('URI \'' + request.originalUrl + '\' posted when no application store in use');
 
                                 done();
                             }

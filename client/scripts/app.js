@@ -1,4 +1,5 @@
 /* global require: false, define: false */
+
 require([
         'underscore', 'backbone', 'jquery', 'jquery.bootstrap',
         'app', 'app.server-push-client', 'backbone.network-status', 'backbone.status-view', 'app.router',
@@ -22,10 +23,23 @@ require([
 
             preloadOfflineImages();
 
+
+            // On demand: Update state change count and book count
+            App.refreshViews = function () {
+                App.stateChangeCount.fetch();
+
+                //App.bookCount.save();
+                App.bookCountView.renderChildViews();
+
+                if (App.bookListView.isVisible()) {
+                    App.library.fetch();
+                }
+            };
+
+
             // Models
 
             // Connect to server for HTTP server push
-            // Dependant on SOME models, all views dependant on this
             App.pushClient = new PushClient({ serverUrl: App.SERVER_URL });
             App.networkStatus = new NetworkStatus({ pushClient: App.pushClient });
 
@@ -46,32 +60,7 @@ require([
             });
             App.stateChangeCount = new StateChangeCount();
 
-            /*
-             var BookCount = Backbone.Model.extend({
-             defaults: {
-             titleSubstring: '',
-             authorSubstring: '',
-             tags: null,
-             count: 0
-             },
-             url: '/library/books/count'
-             });
-             App.bookCount = new BookCount();
-             */
-
             App.library = new Library({ pagination: true, filtering: true });
-
-            // On demand: Update state change count and book count
-            App.refreshViews = function () {
-                App.stateChangeCount.fetch();
-
-                //App.bookCount.save();
-                App.bookCountView.renderChildViews();
-
-                if (App.bookListView.isVisible()) {
-                    App.library.fetch();
-                }
-            };
 
             var UserCount = Backbone.Model.extend({
                 defaults: { numberOfUsers: 0 },
@@ -91,10 +80,15 @@ require([
             App.networkStatusView = new NetworkStatusView({ model: App.networkStatus });
 
             App.stateChangeAdminView = new StateChangeAdminView({ model: App.stateChangeCount });
+
             App.libraryAdminView = new LibraryAdminView();
+
             App.userAdminView = new UserAdminView({ model: App.userCount });
+
             App.bookCountView = new BookCountView();
+
             App.bookView = new BookCompositeView();
+
             App.bookListView = new BookListTableView({ collection: App.library });
 
             // Attach views to the DOM
@@ -105,9 +99,6 @@ require([
             $('#libraryOverview').append(App.bookCountView.el);
             $('#book').append(App.bookView.el);
             $('#bookList').append(App.bookListView.el);
-
-            // Initial view rendering
-            App.refreshViews();
             // /Views
 
 
@@ -122,6 +113,10 @@ require([
             });
 
 
+            // Initial view rendering
+            App.refreshViews();
+
+
             // Start listening for URI hash changes
             App.router = new Router();
             Backbone.history.start();
@@ -130,6 +125,7 @@ require([
 );
 
 
+// The definition of the 'App' object, required by the above application bootstrapper function
 define([], function () {
         'use strict';
 

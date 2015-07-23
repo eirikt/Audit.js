@@ -25,9 +25,9 @@ define(['underscore', 'backbone'],
                 redStatusCaption: 'offline'
             },
 
-            initialize: function () {
+            initialize: function (attributes) {
                 var self = this,
-                    networkSniffer = this.get('pushClient');
+                    networkSniffer = attributes.pushClient;
 
                 this.set('statusImagePath', this.get('unknownStatusImagePath'), { silent: true });
                 this.set('statusCaption', this.get('unknownStatusCaption'));
