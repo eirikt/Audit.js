@@ -6,11 +6,11 @@ var RQ = require('async-rq'),
     firstSuccessfulOf = RQ.fallback,
 
     rq = require('RQ-essentials'),
+    not = rq.predicates.not,
+    isHttpMethod = rq.predicates.isHttpMethod,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
-    not = utils.not,
-    isHttpMethod = utils.isHttpMethod,
 
     messenger = require('./messaging'),
 
@@ -78,16 +78,15 @@ var RQ = require('async-rq'),
             'use strict';
             firstSuccessfulOf([
                 sequence([
-                    //rq.if(utils.isNotHttpMethod('GET', request)), // Works
-                    rq.if(not(isHttpMethod('GET', request))),
+                    rq.express.ensureHttpGet(request, response),
                     rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+                    rq.express.send405MethodNotAllowedResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
                     rq.value(_getCqrsStatus),
-                    utils.send200OkResponseWithArgumentAsBody(response)
+                    rq.express.send200OkResponseWithArgumentAsBody(response)
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -122,14 +121,14 @@ var RQ = require('async-rq'),
                 sequence([
                     rq.if(not(isHttpMethod('POST', request))),
                     rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                    utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+                    rq.express.send405MethodNotAllowedResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
                     rq.do(toggleCqrsStatus),
                     rq.value(_getCqrsStatus),
-                    utils.send200OkResponseWithArgumentAsBody(response),
+                    rq.express.send200OkResponseWithArgumentAsBody(response),
                     rq.then(curry(messenger.publishAll, 'cqrs'))
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         };

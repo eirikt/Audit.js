@@ -8,11 +8,12 @@ var RQ = require('async-rq'),
     race = RQ.race,
 
     rq = require('RQ-essentials'),
+    not = rq.predicates.not,
+    isMissing = rq.predicates.isMissing,
+    isEmpty = rq.predicates.isEmpty,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
-    not = utils.not,
-    isHttpMethod = utils.isHttpMethod,
 
     messenger = require('./messaging'),
 
@@ -61,9 +62,9 @@ var RQ = require('async-rq'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(not(isHttpMethod('POST', request))),
+                rq.express.ensureHttpPost(request, response),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+                rq.express.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
             sequence([
                 parallel([
@@ -80,7 +81,7 @@ var RQ = require('async-rq'),
                     });
                 })
             ]),
-            utils.send500InternalServerErrorResponse(response)
+            rq.express.send500InternalServerErrorResponse(response)
         ])(rq.run);
     },
 
@@ -105,20 +106,20 @@ var RQ = require('async-rq'),
 
         firstSuccessfulOf([
             sequence([
-                rq.if(not(isHttpMethod('GET', request))),
+                rq.express.ensureHttpGet(request, response),
                 rq.value('URI \'' + request.originalUrl + '\' supports GET requests only'),
-                utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+                rq.express.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                rq.if(utils.isMissing(entityId)),
+                rq.if(isMissing(entityId)),
                 rq.value('Mandatory parameter \'entityId\' is missing'),
-                utils.send400BadRequestResponseWithArgumentAsBody(response)
+                rq.express.send400BadRequestResponseWithArgumentAsBody(response)
             ]),
             sequence([
                 eventSourcing.getStateChangesByEntityId(entityId),
-                utils.send200OkResponseWithArgumentAsBody(response)
+                rq.express.send200OkResponseWithArgumentAsBody(response)
             ]),
-            utils.send500InternalServerErrorResponse(response)
+            rq.express.send500InternalServerErrorResponse(response)
         ])(rq.run);
     },
 
@@ -151,19 +152,19 @@ var RQ = require('async-rq'),
         'use strict';
         firstSuccessfulOf([
             sequence([
-                rq.if(not(isHttpMethod('POST', request))),
+                rq.express.ensureHttpPost(request, response),
                 rq.value('URI \'' + request.originalUrl + '\' supports POST requests only'),
-                utils.send405MethodNotAllowedResponseWithArgumentAsBody(response)
+                rq.express.send405MethodNotAllowedResponseWithArgumentAsBody(response)
             ]),
             sequence([
                 rq.if(cqrsService.isDisabled),
                 rq.value('URI \'' + request.originalUrl + '\' posted when no application store in use (CQRS not activated)'),
-                utils.send403ForbiddenResponseWithArgumentAsBody(response)
+                rq.express.send403ForbiddenResponseWithArgumentAsBody(response)
             ]),
             sequence([
-                utils.send202AcceptedResponse(response),
+                rq.express.send202AcceptedResponse(response),
                 rq.then(curry(messenger.publishAll, 'replay-all-events'))
             ]),
-            utils.send500InternalServerErrorResponse(response)
+            rq.express.send500InternalServerErrorResponse(response)
         ])(rq.run);
     };

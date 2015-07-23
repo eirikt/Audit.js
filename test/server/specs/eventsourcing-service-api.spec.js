@@ -273,19 +273,23 @@ describe('Event Sourcing service API specification\'s', function () {
         it('should accept HTTP GET only', function (done) {
             var request = {
                     method: 'POST',
-                    originalUrl: '/stateChanges',
+                    originalUrl: 'event',
                     params: { entityId: -1 }
                 },
+                responseStatusSpy = sinon.spy(function (statusCode) {
+                    return {
+                        json: assert
+                    };
+                }),
                 response = {
-                    status: function (statusCode) {
-                        expect(statusCode).to.equal(405);
-                        return {
-                            json: function (responseBody) {
-                                expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports GET requests only');
-                                done();
-                            }
-                        };
-                    }
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
+                    expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports GET requests only');
+
+                    done();
                 };
 
             eventSourcingService.stateChanges(request, response);
@@ -442,21 +446,25 @@ describe('Event Sourcing service API specification\'s', function () {
         it('should accept HTTP POST only', function (done) {
             var request = {
                     method: 'GET',
-                    originalUrl: '/event/replay'
+                    originalUrl: 'events/replay'
                 },
+                responseStatusSpy = sinon.spy(function (statusCode) {
+                    return {
+                        json: assert
+                    };
+                }),
                 response = {
-                    status: function (statusCode) {
-                        expect(statusCode).to.equal(405);
-                        return {
-                            json: function (responseBody) {
-                                expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports POST requests only');
-                                done();
-                            }
-                        };
-                    }
+                    status: responseStatusSpy
+                },
+                assert = function (responseBody) {
+                    expect(responseStatusSpy.calledOnce).to.be.true;
+                    expect(responseStatusSpy.alwaysCalledWithExactly(405)).to.be.true;
+                    expect(responseBody).to.equal('URI \'' + request.originalUrl + '\' supports POST requests only');
+
+                    done();
                 };
 
-            eventSourcingService.replay(request, response);
+            eventSourcingService.count(request, response);
         });
 
 

@@ -11,12 +11,12 @@ var __ = require('underscore'),
     race = RQ.race,
 
     rq = require('RQ-essentials'),
+    not = rq.predicates.not,
+    isEmpty = rq.predicates.isEmpty,
+    isNumber = rq.predicates.isNumber,
 
     curry = require('./fun').curry,
     utils = require('./utils'),
-    not = utils.not,
-    isEmpty = utils.isEmpty,
-    isNumber = utils.isNumber,
     equals = utils.predicates.equals,
     greaterThan = utils.predicates.greaterThan,
     lessThan = utils.predicates.lessThan,
@@ -27,6 +27,7 @@ var __ = require('underscore'),
     eventSourcingModel = require("./mongoose.event-sourcing.model"),
     randomBooks = require("./random-books"),
 
+    app = require('./app.config'),
     applicationStores = require('./library-application-store-manager'),
     cqrs = require('./cqrs-service-api'),
     library = require('./library-model.mongoose'),
@@ -100,10 +101,10 @@ var __ = require('underscore'),
             booksWithSequenceNumber.push(rq.noop); // Just to make the tests compile/go through
 
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
-                utils.ensureNumericHttpParameter('numberOfBooks', request, response),
+                rq.express.ensureHttpPost(request, response),
+                rq.express.ensureNumericHttpParameter('numberOfBooks', request, response),
                 sequence([
-                    utils.send202AcceptedResponse(response),
+                    rq.express.send202AcceptedResponse(response),
                     rq.value(parseInt(request.body.numberOfBooks, 10)),
                     rq.then(curry(messageBus.publishAll, 'creating-book-statechangeevents')),
                     function (callback, args) {
@@ -130,7 +131,7 @@ var __ = require('underscore'),
                                         });
                                     },
                                     clientPushMessageThrottlerRequestor(numberOfServerPushEmits, startTime, args, index),
-                                    rq.log(utils.logPreamble() + 'Book CREATE state change event saved ...OK [${args}]')
+                                    rq.log(app.config.logPreamble() + 'Book CREATE state change event saved ...OK [${args}]')
                                 ])
                             );
                         }
@@ -139,7 +140,7 @@ var __ = require('underscore'),
                     sequence(booksWithSequenceNumber),
                     rq.then(curry(messageBus.publishAll, 'all-book-statechangeevents-created'))
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -195,14 +196,14 @@ var __ = require('underscore'),
 
                 generateLoansRequestorFactory = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanRequestors) {
                     return function (callback, savedVisitStateChange) {
-                        console.log(utils.logPreamble() + 'Generating visits and loans: Starting building loan-generating functions ...');
+                        console.log(app.config.logPreamble() + 'Generating visits and loans: Starting building loan-generating functions ...');
                         var bookLoanInVisitIndex = 0,
                             randomOperator = randomBooks.randomUser(),
 
                             emitConditionalVisitGenerationTermination = function (totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanInVisitIndex, maxBookLoansPerVisit, bookLoans) {
                                 return function requestor(callback, args) {
                                     if (bookLoanInVisitIndex + 1 >= maxBookLoansPerVisit) {
-                                        console.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
+                                        console.log(app.config.logPreamble() + 'Generating visits and loans: Done executing visit-generating function #' + (visitIndex + 1) + ' of ' + numberOfVisitsToGenerate + ' ...');
                                         if (visitIndex + 1 >= numberOfVisitsToGenerate) {
                                             messageBus.publishAll('all-visit-statechangeevents-created');
                                         }
@@ -217,7 +218,7 @@ var __ = require('underscore'),
 
                             bookLoanRequestors.push(
                                 sequence([
-                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' of ' + maxBookLoansPerVisit + ', for visit #' + (visitIndex + 1) + ' ...'),
+                                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Executing loan-generating function #' + (bookLoanInVisitIndex + 1) + ' of ' + maxBookLoansPerVisit + ', for visit #' + (visitIndex + 1) + ' ...'),
                                     eventSourcing.getRandom(library.Book, totalNumberOfBooks),
                                     function (callback3, randomBook) {
                                         if (!randomBook) {
@@ -226,7 +227,7 @@ var __ = require('underscore'),
                                             callback3(randomBook, undefined);
                                         }
                                     },
-                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
+                                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Random book retrieved: ${args}'),
                                     function (callback3, randomBook) {
                                         var loanEntityAttributes = {};
                                         loanEntityAttributes.target = randomBook.entityId;
@@ -250,7 +251,7 @@ var __ = require('underscore'),
                                             callback3(savedLoanStateChange, undefined);
                                         });
                                     },
-                                    rq.log(utils.logPreamble() + 'Loan CREATE state change event saved ...OK [${args}]'),
+                                    rq.log(app.config.logPreamble() + 'Loan CREATE state change event saved ...OK [${args}]'),
                                     emitConditionalVisitGenerationTermination(totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanInVisitIndex, maxBookLoansPerVisit, bookLoanRequestors)
                                 ])(rq.run)
                             );
@@ -259,18 +260,18 @@ var __ = require('underscore'),
                     };
                 };
 
-            // Just to make the tests compile/go through
+            // Just to make the tests compile/go through ...
             visitRequestors.push(rq.noop);
 
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
+                rq.express.ensureHttpPost(request, response),
                 sequence([
                     rq.if(not(isNumber(maxBookLoansPerVisit))),
                     rq.value('Optional body parameter \'maxBookLoansPerVisit\' is not a number'),
-                    utils.send400BadRequestResponseWithArgumentAsBody(response)
+                    rq.express.send400BadRequestResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
-                    utils.send202AcceptedResponse(response),
+                    rq.express.send202AcceptedResponse(response),
 
                     // TODO: Consider skipping application store querying here ...
                     // TODO: Use smarter counting - see _'countAllBooks' below ...
@@ -286,12 +287,12 @@ var __ = require('underscore'),
                         ])(function (success, failure) {
                             if (success) {
                                 totalNumberOfBooks = success.count;
-                                console.log(utils.logPreamble() + 'Generating visits and loans: ' + totalNumberOfBooks + ' books found to generate loans for ...');
+                                console.log(app.config.logPreamble() + 'Generating visits and loans: ' + totalNumberOfBooks + ' books found to generate loans for ...');
                                 return callback(totalNumberOfBooks, undefined);
                             }
                             if (failure) {
                                 // TODO: Handle failure?
-                                console.error(utils.logPreamble() + 'Resource \'' + request.originalUrl + '\' failed!');
+                                console.error(app.config.logPreamble() + 'Resource \'' + request.originalUrl + '\' failed!');
                                 callback(undefined, failure);
                             }
                         });
@@ -311,7 +312,7 @@ var __ = require('underscore'),
 
                             visitRequestors.push(
                                 sequence([
-                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...'),
+                                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Executing visit-generating function #' + (visitIndex + 1) + ' ...'),
                                     function (callback2, args2) {
                                         sequenceNumber.incrementSequenceNumber('visits', function (err, nextSequenceNumber) {
                                             callback2(nextSequenceNumber, undefined);
@@ -331,21 +332,21 @@ var __ = require('underscore'),
                                             callback2(savedStateChange, undefined);
                                         });
                                     },
-                                    rq.log(utils.logPreamble() + 'Visit CREATE state change event saved ...OK [${args}]'),
+                                    rq.log(app.config.logPreamble() + 'Visit CREATE state change event saved ...OK [${args}]'),
                                     generateLoansRequestorFactory(totalNumberOfBooks, numberOfVisitsToGenerate, visitIndex, bookLoanRequestors),
                                     sequence(bookLoanRequestors),
-                                    rq.log(utils.logPreamble() + 'Generating visits and loans: Done executing loan-generating function sequence'),
+                                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Done executing loan-generating function sequence'),
                                     clientPushMessageThrottlerRequestorFactory(numberOfServerPushEmits, startTime, numberOfVisitsToGenerate, visitIndex)
                                 ])
                             );
                         }
                         callback(numberOfVisitsToGenerate, undefined);
                     },
-                    rq.log(utils.logPreamble() + 'Generating visits and loans: Starting executing ${args} visit-generating functions ...'),
+                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Starting executing ${args} visit-generating functions ...'),
                     sequence(visitRequestors),
-                    rq.log(utils.logPreamble() + 'Generating visits and loans: Done executing visit-and-loan-generating function sequence')//,
+                    rq.log(app.config.logPreamble() + 'Generating visits and loans: Done executing visit-and-loan-generating function sequence')//,
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -368,14 +369,14 @@ var __ = require('underscore'),
         function (request, response) {
             'use strict';
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
+                rq.express.ensureHttpPost(request, response),
                 sequence([
                     rq.if(cqrs.isDisabled),
                     rq.value('URI \'library/books/clean\' posted when no application store in use'),
-                    utils.send202AcceptedResponseWithArgumentAsBody(response)
+                    rq.express.send202AcceptedResponseWithArgumentAsBody(response)
                 ]),
                 applicationStores.removeAllBooks
-            ], 6000)(rq.handleTimeoutAndStatusCode(request, response));
+            ], 6000)(rq.express.handleTimeoutAndStatusCode(request, response));
         },
 
 
@@ -401,12 +402,12 @@ var __ = require('underscore'),
                 eventStore_CountAllBooks = eventSourcing.count(library.Book, countAllQuery);
 
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
+                rq.express.ensureHttpPost(request, response),
                 /*
                  sequence([
                  rq.if(cqrs.isEnabled),
                  applicationStores.countAllBooks,
-                 utils.send200OkResponseWithArgumentAsBody(response)
+                 rq.express.send200OkResponseWithArgumentAsBody(response)
                  ]),
                  */
                 // Just a demo, not particular useful ...
@@ -418,7 +419,7 @@ var __ = require('underscore'),
                  rq.pick('count'),
                  rq.continueIf(lessThanOne),
                  rq.pop,
-                 utils.send200OkResponseWithArgumentAsBody(response)
+                 rq.express.send200OkResponseWithArgumentAsBody(response)
                  ]),
                  */
                 /*
@@ -428,9 +429,9 @@ var __ = require('underscore'),
                  //eventSourcing.count(library.Book, null),
                  eventStore_CountAllBooks,
                  //rq.return({ count: 23 }),
-                 utils.send200OkResponseWithArgumentAsBody(response)
+                 rq.express.send200OkResponseWithArgumentAsBody(response)
                  ]),
-                 utils.send500InternalServerErrorResponse(response)
+                 rq.express.send500InternalServerErrorResponse(response)
                  */
 
                 // TODO: Application Store, manually: by using application store internals and invariants
@@ -473,21 +474,21 @@ var __ = require('underscore'),
                     function (callback, args) {
                         //if (args[0].count === args[1].count && args[0].count === args[2].count) {
                         if (args[0].count === args[1].count) {
-                            console.log(utils.logPreamble() + 'Consistent book results: ' + JSON.stringify(args[0]) + ' (2 calculations)');
+                            console.log(app.config.logPreamble() + 'Consistent book results: ' + JSON.stringify(args[0]) + ' (2 calculations)');
                             callback(args[0], undefined);
                         } else {
-                            console.error(utils.logPreamble() + 'Inconsistent book results:');
+                            console.error(app.config.logPreamble() + 'Inconsistent book results:');
                             console.error('    ' + JSON.stringify(args[0]));
                             console.error('    ' + JSON.stringify(args[1]));
                             //console.error('    ' + JSON.stringify(args[2]));
                             callback(undefined, 'Inconsistent book results');
                         }
                     },
-                    utils.send200OkResponseWithArgumentAsBody(response)
+                    rq.express.send200OkResponseWithArgumentAsBody(response)
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
 
-            ], 60000)(rq.handleTimeoutAndStatusCode(request, response));
+            ], 60000)(rq.express.handleTimeoutAndStatusCode(request, response));
         },
 
 
@@ -510,7 +511,7 @@ var __ = require('underscore'),
             var all = null;
 
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
+                rq.express.ensureHttpPost(request, response),
 
                 // TODO: Application Store, manually: by using application store internals and invariants
                 // TODO: Application Store: by regular counting
@@ -550,20 +551,20 @@ var __ = require('underscore'),
                     // Extra: Consistency check of retrieved results from different stores with different techniques
                     function (callback, args) {
                         if (args[0].count === args[1].count && args[0].count === args[2].count) {
-                            console.log(utils.logPreamble() + 'Consistent visit results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
+                            console.log(app.config.logPreamble() + 'Consistent visit results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
                             callback(args[0], undefined);
                         } else {
-                            console.error(utils.logPreamble() + 'Inconsistent visit results:');
+                            console.error(app.config.logPreamble() + 'Inconsistent visit results:');
                             console.error('    ' + JSON.stringify(args[0]));
                             console.error('    ' + JSON.stringify(args[1]));
                             console.error('    ' + JSON.stringify(args[2]));
                             callback(undefined, 'Inconsistent visit results');
                         }
                     },
-                    utils.send200OkResponseWithArgumentAsBody(response)
+                    rq.express.send200OkResponseWithArgumentAsBody(response)
                 ]),
-                utils.send500InternalServerErrorResponse(response)
-            ], 60000)(rq.handleTimeoutAndStatusCode(request, response));
+                rq.express.send500InternalServerErrorResponse(response)
+            ], 60000)(rq.express.handleTimeoutAndStatusCode(request, response));
         },
 
 
@@ -586,7 +587,7 @@ var __ = require('underscore'),
             var all = null;
 
             firstSuccessfulOf([
-                utils.ensureHttpPost(request, response),
+                rq.express.ensureHttpPost(request, response),
 
                 // TODO: Application Store, manually: by using application store internals and invariants
                 // TODO: Application Store: by regular counting
@@ -625,20 +626,20 @@ var __ = require('underscore'),
                     // Extra: Consistency check of retrieved results from different stores with different techniques
                     function (callback, args) {
                         if (args[0].count === args[1].count && args[0].count === args[2].count) {
-                            console.log(utils.logPreamble() + 'Consistent loan results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
+                            console.log(app.config.logPreamble() + 'Consistent loan results: ' + JSON.stringify(args[0]) + ' (3 calculations)');
                             callback(args[0], undefined);
                         } else {
-                            console.error(utils.logPreamble() + 'Inconsistent loan results:');
+                            console.error(app.config.logPreamble() + 'Inconsistent loan results:');
                             console.error('    ' + JSON.stringify(args[0]));
                             console.error('    ' + JSON.stringify(args[1]));
                             console.error('    ' + JSON.stringify(args[2]));
                             callback(undefined, 'Inconsistent loan results');
                         }
                     },
-                    utils.send200OkResponseWithArgumentAsBody(response)
+                    rq.express.send200OkResponseWithArgumentAsBody(response)
                 ]),
-                utils.send500InternalServerErrorResponse(response)
-            ], 60000)(rq.handleTimeoutAndStatusCode(request, response));
+                rq.express.send500InternalServerErrorResponse(response)
+            ], 60000)(rq.express.handleTimeoutAndStatusCode(request, response));
         },
 
 
@@ -662,10 +663,10 @@ var __ = require('underscore'),
 
             // TODO: Application Store counting
             sequence([
-                rq.log(utils.logPreamble() + 'Counting loans for book ' + entityId + ' ...'),
+                rq.log(app.config.logPreamble() + 'Counting loans for book ' + entityId + ' ...'),
                 eventSourcing.count(library.Loan, { target: entityId }),
-                utils.send200OkResponseWithArgumentAsBody(response)
-            ], 4000)(rq.handleTimeoutAndStatusCode(request, response));
+                rq.express.send200OkResponseWithArgumentAsBody(response)
+            ], 4000)(rq.express.handleTimeoutAndStatusCode(request, response));
         },
 
 
@@ -690,26 +691,26 @@ var __ = require('underscore'),
                 notOnLoan = { isOnLoan: false };
 
             firstSuccessfulOf([
-                utils.ensureHttpGet(request, response),
-                utils.ensureHttpResourceElement('entityId', request, response),
+                rq.express.ensureHttpGet(request, response),
+                rq.express.ensureHttpResourceElement('entityId', request, response),
 
                 // TODO: Application Store checkin'
                 sequence([
-                    rq.log(utils.logPreamble() + 'Checking if book (id=' + entityId + ') is on loan ...'),
+                    rq.log(app.config.logPreamble() + 'Checking if book (id=' + entityId + ') is on loan ...'),
                     eventSourcing.find(library.Loan, { target: entityId }),
                     rq.pick('find'),
                     firstSuccessfulOf([
                         sequence([
-                            rq.if(function (bookLoanArray) {
-                                return bookLoanArray.length < 1;
+                            rq.if(function (bookLoanQueryResultArray) {
+                                return bookLoanQueryResultArray.length < 1;
                             }),
                             rq.return(notOnLoan),
-                            utils.send200OkResponseWithArgumentAsBody(response)
+                            rq.express.send200OkResponseWithArgumentAsBody(response)
                         ]),
                         sequence([
-                            function (callback, bookLoanQueryResult) {
+                            function (callback, bookLoanQueryResultArray) {
                                 var numberOfMissingReturnDates = 0;
-                                bookLoanQueryResult.forEach(function (bookLoanResult) {
+                                bookLoanQueryResultArray.forEach(function (bookLoanResult) {
                                     if (!bookLoanResult.value.returnDate) {
                                         numberOfMissingReturnDates += 1;
                                     }
@@ -720,22 +721,22 @@ var __ = require('underscore'),
                                 sequence([
                                     rq.if(greaterThan(1)),
                                     rq.value('Book [id=' + entityId + '] has more than one [${args}] active loans'),
-                                    utils.send500InternalServerErrorResponseWithArgumentAsBody(response)
+                                    rq.express.send500InternalServerErrorResponseWithArgumentAsBody(response)
                                 ]),
                                 sequence([
                                     rq.if(equals(1)),
                                     rq.return(onLoan),
-                                    utils.send200OkResponseWithArgumentAsBody(response)
+                                    rq.express.send200OkResponseWithArgumentAsBody(response)
                                 ]),
                                 sequence([
                                     rq.return(notOnLoan),
-                                    utils.send200OkResponseWithArgumentAsBody(response)
+                                    rq.express.send200OkResponseWithArgumentAsBody(response)
                                 ])
                             ])
                         ])
                     ])
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -821,9 +822,9 @@ var __ = require('underscore'),
                 sequence([
                     // TODO: 'library.Book' shouldn't really be referenced in this file
                     eventSourcing.projectBooks(library.Book, findQuery, sortQuery, skip, limit),
-                    utils.send200OkResponseWithArgumentAsBody(response)
+                    rq.express.send200OkResponseWithArgumentAsBody(response)
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -856,27 +857,27 @@ var __ = require('underscore'),
             var entityId = request.params.entityId;
 
             firstSuccessfulOf([
-                utils.ensureHttpPut(request, response),
-                //utils.ensure(entityId, request, response),
-                utils.ensureHttpResourceElement('entityId', request, response),
-                utils.ensureHttpBody(request, response),
+                rq.express.ensureHttpPut(request, response),
+                //rq.express.ensure(entityId, request, response),
+                rq.express.ensureHttpResourceElement('entityId', request, response),
+                rq.express.ensureHttpBody(request, response),
                 sequence([
                     eventSourcing.getStateChangesByEntityId(entityId),
                     rq.push,
                     rq.if(not(eventSourcingModel.entityExists)),
                     rq.value('No entity with entityId=\'' + entityId + '\' found'),
-                    utils.send404NotFoundResponseWithArgumentAsBody(response)
+                    rq.express.send404NotFoundResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
                     rq.pop,
                     // TODO: 'library.Book' shouldn't really be referenced in this file
                     eventSourcing.createAndSaveStateChange('UPDATE', library.Book, entityId, request.body, randomBooks.randomUser()),
-                    utils.send201CreatedResponseWithBodyConsistingOf(['entityId', 'changes'], response),
+                    rq.express.send201CreatedResponseWithBodyConsistingOf(['entityId', 'changes'], response),
                     eventSourcing.getStateChangesByEntityId(entityId),
                     eventSourcing.rebuildEntity(library.Book, entityId),
                     rq.then(curry(messageBus.publishAll, 'book-updated'))
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         },
 
@@ -901,14 +902,14 @@ var __ = require('underscore'),
             var entityId = request.params.entityId;
 
             firstSuccessfulOf([
-                utils.ensureHttpDelete(request, response),
-                utils.ensureHttpResourceElement('entityId', request, response),
+                rq.express.ensureHttpDelete(request, response),
+                rq.express.ensureHttpResourceElement('entityId', request, response),
                 sequence([
                     eventSourcing.getStateChangesByEntityId(entityId),
                     rq.push,
                     rq.if(not(eventSourcingModel.entityExists)),
                     rq.value('No entity with entityId=' + entityId + ' found'),
-                    utils.send404NotFoundResponseWithArgumentAsBody(response)
+                    rq.express.send404NotFoundResponseWithArgumentAsBody(response)
                 ]),
                 sequence([
                     rq.pop,
@@ -919,10 +920,10 @@ var __ = require('underscore'),
                             callback(stateChange, undefined);
                         });
                     },
-                    utils.send201CreatedResponseWithArgumentAsBody(response),
+                    rq.express.send201CreatedResponseWithArgumentAsBody(response),
                     rq.pick('entityId'),
                     rq.then(curry(messageBus.publishAll, 'book-removed'))
                 ]),
-                utils.send500InternalServerErrorResponse(response)
+                rq.express.send500InternalServerErrorResponse(response)
             ])(rq.run);
         };

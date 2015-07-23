@@ -1,11 +1,14 @@
-/* global root:false */
-
 ///////////////////////////////////////////////////////////////////////////////
 // Library application / micro service
 ///////////////////////////////////////////////////////////////////////////////
 
+var moment = require('moment'),
+    rq = require('RQ-essentials'),
+    app = require('./app.config');
+
+
 // Library database configurations
-require("./mongodb.config");
+require('./mongodb.config');
 
 // Library resources, route declarations => services configurations
 require('./library-routes.express');
@@ -16,13 +19,6 @@ require('./library-routes.express');
 require('./library-application-store-manager');
 
 
-// Application configuration
-root.app = {};
-root.app.config = {
-    // ...
-};
-
-
 // Message bus testing ...
 var messageBus = require('./messaging'),
     utils = require('./utils');
@@ -31,5 +27,5 @@ var messageBus = require('./messaging'),
 //messageBus.subscribe(['naive-inmemory.consistent'], function (message) {
 messageBus.subscribe(['naive-inmemory_consistent'], function (message) {
     'use strict';
-    console.log(utils.logPreamble() + 'Application store \'naive-inmemory.consistent=' + message + '\' subscription message received');
+    console.log(app.config.logPreamble + 'Application store \'naive-inmemory.consistent=' + message + '\' subscription message received');
 });

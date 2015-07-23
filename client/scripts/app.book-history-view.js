@@ -1,17 +1,17 @@
 /* global define:false, JSON:false */
-define(["jquery", "underscore", "backbone", "moment"],
+define(['jquery', 'underscore', 'backbone', 'moment'],
 
     function ($, _, Backbone, Moment) {
-        "use strict";
+        'use strict';
 
         var BookHistoryEventView = Backbone.View.extend({
-            tagName: "tr",
+            tagName: 'tr',
             template: _.template('' +
                 '<td><span class="tiny"><%= sequenceNumber %></span></td>' +
                 '<td>' +
                 '  <span class="tiny">' +
                 '    <% if (!currentState) { %>' +
-                '    <a href="#" class="state" data-seq="<%= sequenceNumber %>"><%= timestamp %></a>' +
+                '    <a href="#" class="state" data-sequenceNumber="<%= sequenceNumber %>"><%= timestamp %></a>' +
                 '    <% } else { %>' +
                 '    <%= timestamp %>' +
                 '    <% } %>' +
@@ -36,7 +36,7 @@ define(["jquery", "underscore", "backbone", "moment"],
                 // Only "create"/"update" events have "changes" content
                 if (this.model.isCreate() || this.model.isUpdate()) {
 
-                    // Remove the book sequence number "seq" (internal, not human readable)
+                    // Remove the book's sequence number (internal, not human readable)
                     delete clonedAttributes.changes.sequenceNumber;
 
                     // Make the tag property human readable (recursive flattening/"stringification")
@@ -75,13 +75,13 @@ define(["jquery", "underscore", "backbone", "moment"],
                 '</table>'
             ),
             events: {
-                "click .state": "replayToState"
+                'click .state': 'replayToState'
             },
             render: function () {
                 this.$el.html(this.template({}));
                 this.model.history.each(function (stateChange) {
                     var bookView = new BookHistoryEventView({ model: stateChange });
-                    this.$("tbody").prepend(bookView.render().el);
+                    this.$('tbody').prepend(bookView.render().el);
                 }, this);
                 return this;
             },
@@ -90,8 +90,7 @@ define(["jquery", "underscore", "backbone", "moment"],
             },
             replayToState: function (event) {
                 event.preventDefault();
-                var elementDataSet = event.target.dataset;
-                this.model.rewind(elementDataSet.sequenceNumber);
+                this.model.rewind(event.target.getAttribute('data-sequenceNumber'));
             }
         });
     }

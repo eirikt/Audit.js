@@ -8,17 +8,19 @@ require([
     function (_, Backbone, $, Bootstrap, App, PushClient, NetworkStatus, NetworkStatusView, Router, Progressbar, BootstrapModalMultipleProgressbarView, StateChangeAdminView, LibraryAdminView, UserAdminView, Library, BookCountView, BookCompositeView, BookListTableView) {
         'use strict';
 
+        var preloadOfflineImages = function () {
+            $('<img/>')[0].src = '/images/led_circle_grey.png';
+            $('<img/>')[0].src = '/images/led_circle_yellow.png';
+            $('<img/>')[0].src = '/images/led_circle_red.png';
+        };
+
         /**
          * Application starting point (when DOM is ready ...)
          */
         $(function () {
-
             console.log('DOM ready! Starting ...');
 
-            // Preload offline image ...
-            $('<img/>')[0].src = '/images/led_circle_yellow.png';
-            $('<img/>')[0].src = '/images/led_circle_red.png';
-
+            preloadOfflineImages();
 
             // Models
 

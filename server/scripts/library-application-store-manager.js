@@ -20,12 +20,12 @@ var __ = require('underscore'),
     curry = require('./fun').curry,
     utils = require('./utils'),
 
-    //clientSidePublisher = require('./socketio.config').serverPush,
     messageBus = require('./messaging'),
-    //eventSourcing = require('./mongoose.event-sourcing'),
-    //eventSourcingModel = require('./mongoose.event-sourcing.model'),
+    eventSourcing = require('./mongoose.event-sourcing'),
+    eventSourcingModel = require('./mongoose.event-sourcing.model'),
     mongooseEventSourcingMapreduce = require("./mongoose.event-sourcing.mapreduce"),
 
+    app = require('./app.config'),
     mongoDbAppStore = require('./library-application-store.mongodb'),
     naiveInMemoryAppStore = require('./library-application-store.naive-inmemory'),
     cqrs = require('./cqrs-service-api'),
@@ -38,17 +38,17 @@ var __ = require('underscore'),
 ///////////////////////////////////////////////////////////////////////////////
 
 // Event Store (MongoDB)
-    //rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
+    rqMongooseJsonStateChangeInvocation = curry(rq.mongooseJson, eventSourcingModel.StateChange),
 
 // Application Store (In-memory)
-    //rqInMemoryBookInvocation = null,
-    //rqInMemoryJsonBookInvocation = null,
-    //rqInMemoryFindBookInvocation = null,
+    rqInMemoryBookInvocation = null,
+    rqInMemoryJsonBookInvocation = null,
+    rqInMemoryFindBookInvocation = null,
 
 // Application Store (MongoDB)
-    //rqMongooseBookInvocation = curry(rq.mongoose, utils.doNotLog, library.Book),
+    rqMongooseBookInvocation = curry(rq.mongoose, utils.doNotLog, library.Book),
     rqMongooseJsonBookInvocation = curry(rq.mongooseJson, utils.doNotLog, library.Book),
-    //rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
+    rqMongooseFindBookInvocation = curry(rq.mongooseFindInvocation, library.Book),
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,7 +116,7 @@ var __ = require('underscore'),
                     }
                     // TODO: More response codes, I guess ...
 
-                    console.error(utils.logPreamble() + 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
+                    console.error(app.config.logPreamble() + 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                     callback(undefined, 'Application Store Manager :: Remove all books failed! (Unknown status codes combinations returned from application stores');
                 }
             ])(rq.run);
@@ -132,9 +132,7 @@ var __ = require('underscore'),
 messageBus.subscribe(['cqrs', 'all-book-statechangeevents-created', 'all-visit-statechangeevents-created', 'replay-all-events'], function (message) {
     'use strict';
     sequence([
-        rq.do(function () {
-            console.log(utils.logPreamble() + 'Application Store Manager :: \'cqrs\' | \'all-book-statechangeevents-created\' | \'all-visit-statechangeevents-created\' | \'replay-all-events\' :: subscription message received');
-        }),
+        rq.log(app.config.logPreamble() + 'Application Store Manager :: \'cqrs\' | \'all-book-statechangeevents-created\' | \'all-visit-statechangeevents-created\' | \'replay-all-events\' :: subscription message received'),
         rq.continueIf(cqrs.isEnabled),
         mongooseEventSourcingMapreduce.find(library.Book),
 
@@ -148,9 +146,7 @@ messageBus.subscribe(['cqrs', 'all-book-statechangeevents-created', 'all-visit-s
 messageBus.subscribe(['book-updated'], function (updatedBook) {
     'use strict';
     sequence([
-        rq.do(function () {
-            console.log(utils.logPreamble() + 'Application Store Manager :: \'book-updated\' :: subscription message received');
-        }),
+        rq.log(app.config.logPreamble() + 'Application Store Manager :: \'book-updated\' :: subscription message received'),
         rq.continueIf(cqrs.isEnabled),
         rq.value(updatedBook),
         parallel([
@@ -164,9 +160,7 @@ messageBus.subscribe(['book-updated'], function (updatedBook) {
 messageBus.subscribe(['book-removed'], function (entityId) {
     'use strict';
     sequence([
-        rq.do(function () {
-            console.log(utils.logPreamble() + 'Application Store Manager :: \'book-removed\' :: subscription message received');
-        }),
+        rq.log(app.config.logPreamble() + 'Application Store Manager :: \'book-removed\' :: subscription message received'),
         rq.continueIf(cqrs.isEnabled),
         rq.value(entityId),
         parallel([

@@ -1,9 +1,14 @@
 /* global JSON:false, emit:false */
 /* jshint -W106 */
 
-var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
-
+var moment = require('moment'),
+    mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
     utils = require('./utils'),
+
+    logPreamble = function () {
+        'use strict';
+        return '[' + moment().format('YYYY-MM-DD HH:mm:ss') + '] Mongoose.EventSourcing.MapReduce :: ';
+    },
 
 
 //////////////////////////////////////
@@ -152,7 +157,7 @@ var mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
                 mongooseEventSourcingModels.StateChange.mapReduce(_getMapReduceConfigOfType(entityType), function (err, results) {
                     if (err) {
                         if (err.message === "ns doesn't exist") {
-                            console.log(utils.logPreamble() + err.name + ': ' + err.message + ' - probably empty database, continuing ...');
+                            console.log(logPreamble() + err.name + ': ' + err.message + ' - probably empty database, continuing ...');
                             // Special treatment: empty cursor means empty database ...
                             return callback({}, undefined);
                         } else {

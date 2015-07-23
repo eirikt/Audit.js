@@ -2,6 +2,7 @@
 /* jshint -W106 */
 
 var __ = require('underscore'),
+    moment = require('moment'),
 
     RQ = require('async-rq'),
     sequence = RQ.sequence,
@@ -16,9 +17,14 @@ var __ = require('underscore'),
 
     utils = require('./utils.js'),
 
-//sequenceNumber = require('./mongoose.sequence-number'),
+    sequenceNumber = require('./mongoose.sequence-number'),
     mongooseEventSourcingMapreduce = require('./mongoose.event-sourcing.mapreduce'),
     mongooseEventSourcingModels = require('./mongoose.event-sourcing.model'),
+
+    logPreamble = function () {
+        'use strict';
+        return '[' + moment().format('YYYY-MM-DD HH:mm:ss') + '] Mongoose.EventSourcing :: ';
+    },
 
 
     /**
@@ -110,10 +116,10 @@ var __ = require('underscore'),
             }
 
             //if (change.method === 'CREATE' && change.changes.sequenceNumber) {
-            //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', seq=' + change.changes.seq + ', entityId=' + change.entityId + ']');
+            //console.log(logPreamble() + 'State change event created [method=' + change.method + ', type=' + change.type + ', seq=' + change.changes.seq + ', entityId=' + change.entityId + ']');
             //} else {
-            //console.log('State change event created [method=' + change.method + ', type=' + change.type + ', entityId=' + change.entityId + ']');
-            //    console.log('State change event created [' + JSON.stringify(change) + ']');
+            //console.log(logPreamble() + 'State change event created [method=' + change.method + ', type=' + change.type + ', entityId=' + change.entityId + ']');
+            //    console.log(logPreamble() + 'State change event created [' + JSON.stringify(change) + ']');
             //}
 
             return change;
@@ -136,8 +142,8 @@ var __ = require('underscore'),
             return function requestor(callback, args) {
                 _createStateChange(method, entityType, entityId, stateChanges, user)
                     .save(function (err, savedStateChange) {
-                        //console.log('State change event saved ...OK [entityId=' + savedStateChanges.entityId + ']');
-                        console.log(utils.logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
+                        //console.log(logPreamble() + 'State change event saved ...OK [entityId=' + savedStateChanges.entityId + ']');
+                        console.log(logPreamble() + 'State change event saved ...OK [' + JSON.stringify(savedStateChange) + ']');
                         return callback(savedStateChange, undefined);
                     });
             };
@@ -200,7 +206,7 @@ var __ = require('underscore'),
                         // Handling of failed Mongoose Queries
                         function (callback, mongooseQuery) {
                             if (!mongooseQuery || __.isEmpty(mongooseQuery)) {
-                                //console.log('Audit.js :: Missing Mongoose Query - probably empty database, continuing ...');
+                                //console.log(logPreamble() + 'Missing Mongoose Query - probably empty database, continuing ...');
                                 var fakeMongooseQuery = {};
                                 fakeMongooseQuery.count = function (conditions, mongooseCallback) {
                                     return mongooseCallback(undefined, 0);
@@ -214,7 +220,7 @@ var __ = require('underscore'),
                         thenFilterResult,
                         then(callback)
                     ]),
-                    cancel(callback, 'Audit.js :: Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                    cancel(callback, logPreamble() + 'Counting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
                 ])(rq.run);
             };
         },
@@ -240,7 +246,7 @@ var __ = require('underscore'),
                         // Handling of failed Mongoose Query
                         function (callback, mongooseQuery) {
                             if (!mongooseQuery || __.isEmpty(mongooseQuery)) {
-                                console.log('Audit.js :: Missing Mongoose Query - probably empty database, continuing ...');
+                                console.log(logPreamble() + 'Missing Mongoose Query - probably empty database, continuing ...');
                                 var fakeMongooseQuery = {};
                                 fakeMongooseQuery.find = function (conditions, mongooseCallback) {
                                     return mongooseCallback(undefined, 0);
@@ -255,7 +261,7 @@ var __ = require('underscore'),
                         //rq.pick('find'), // Wait with this ... Do as count function above
                         then(callback)
                     ]),
-                    cancel(callback, 'Audit.js :: Finding \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                    cancel(callback, logPreamble + 'Finding \'' + entityType.modelName + 's\' via map-reducing event store failed!')
                 ])(rq.run);
             };
         },
@@ -269,11 +275,11 @@ var __ = require('underscore'),
                     sortParams = _addMapReducePrefixTo(sortConditions),
 
                     totalCountRequestor = function requestor(callback, args) {
-                        //console.log('totalCountRequestor');
+                        //console.log(logPreamble() + 'totalCountRequestor');
                         return args.cursor
                             .count(function (err, totalMapReducedResultCount) {
                                 if (err) {
-                                    console.error(utils.logPreamble() + err.name + ' :: ' + err.message);
+                                    console.error(logPreamble() + err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
                                 args.totalCount = totalMapReducedResultCount;
@@ -281,12 +287,12 @@ var __ = require('underscore'),
                             });
                     },
                     countRequestor = function requestor(callback, args) {
-                        //console.log('countRequestor');
+                        //console.log(logPreamble() + 'countRequestor');
                         return args.cursor
                             .count(mapReducePrefixedConditions)
                             .exec(function (err, projectedResultCount) {
                                 if (err) {
-                                    console.error(utils.logPreamble() + err.name + ' :: ' + err.message);
+                                    console.error(logPreamble() + err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
                                 args.count = projectedResultCount;
@@ -294,7 +300,7 @@ var __ = require('underscore'),
                             });
                     },
                     entitiesRequestor = function requestor(callback, args) {
-                        //console.log('booksRequestor');
+                        //console.log(logPreamble() + 'booksRequestor');
                         return args.cursor
                             .find(mapReducePrefixedConditions)
                             .sort(sortParams)
@@ -302,7 +308,7 @@ var __ = require('underscore'),
                             .limit(limitValue)
                             .exec(function (err, paginatedResult) {
                                 if (err) {
-                                    console.error(utils.logPreamble() + err.name + ' :: ' + err.message);
+                                    console.error(logPreamble() + err.name + ' :: ' + err.message);
                                     return callback(undefined, err);
                                 }
                                 args.books = paginatedResult.map(_buildObject);
@@ -353,7 +359,7 @@ var __ = require('underscore'),
                             return callback(args, undefined);
                         }
                     ]),
-                    cancel(callback, 'Audit.js :: Projecting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
+                    cancel(callback, logPreamble - 'Projecting \'' + entityType.modelName + 's\' via map-reducing event store failed!')
                 ])(rq.run);
             };
         },
@@ -387,18 +393,18 @@ var __ = require('underscore'),
 
                                 // TODO: Resolve this frequent error!
                                 if (err) {
-                                    console.error(utils.logPreamble() + err.message + ' [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
+                                    console.error(logPreamble() + err.message + ' [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
                                     //callback2(entities, undefined);
                                     return callback(undefined, err.message);
                                 }
 
                                 if (!entity) {
-                                    //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
+                                    //console.error(logPreamble() + 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ']');
                                     entities.findOne({ seq: randomBookIndex }, function (err, randomEntity) {
-                                        //console.error(utils.logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ')');
+                                        //console.error(logPreamble() + 'Audit.JS getRandom :: No random entity found, (count=' + upperBound + ', randomBookIndex=' + randomBookIndex + ')');
                                         if (randomEntity) {
                                             //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
-                                            console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
+                                            console.warn(logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query found an entity though ...)');
                                             randomBook = randomEntity.value;
                                             randomBook._id = randomEntity._id;
                                             randomBook.entityId = randomEntity._id;
@@ -408,13 +414,13 @@ var __ = require('underscore'),
 
                                         } else {
                                             //callback(undefined, 'Audit.JS getRandom :: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
-                                            console.warn(utils.logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
+                                            console.warn(logPreamble() + 'getRandom: No random entity found [count=' + upperBound + ', randomBookIndex=' + randomBookIndex + '] (A second query also gave NO entities ...)');
                                             sequence([
                                                 mongooseEventSourcingMapreduce.find(entityType),
                                                 function (callback2, mapReducedEntityQuery) {
                                                     mapReducedEntityQuery.exec(function (err, entities2) {
                                                         if (entities2 && entities2.length > 0) {
-                                                            console.warn(utils.logPreamble() + 'getRandom: Using first available entity as "random" ...)');
+                                                            console.warn(logPreamble() + 'getRandom: Using first available entity as "random" ...)');
                                                             var firstEntity = entities2.pop();
                                                             randomBook = firstEntity.value;
                                                             randomBook._id = firstEntity._id;
@@ -424,7 +430,7 @@ var __ = require('underscore'),
                                                             return callback(randomBook, undefined);
 
                                                         } else {
-                                                            console.warn(utils.logPreamble() + 'getRandom: Once again, NO map-reduced entities found ...)');
+                                                            console.warn(logPreamble() + 'getRandom: Once again, NO map-reduced entities found ...)');
 
                                                             //callback2(entities, undefined);
                                                             return callback(undefined, 'I give up!');
@@ -450,7 +456,7 @@ var __ = require('underscore'),
                             return callback2(entities, undefined);
                         }
                     ]),
-                    cancel(callback, 'Audit.js :: Getting random \'' + entityType.modelName + ' via map-reducing event store failed!')
+                    cancel(callback, logPreamble + 'Getting random \'' + entityType.modelName + ' via map-reducing event store failed!')
                 ])(rq.run);
             };
         };

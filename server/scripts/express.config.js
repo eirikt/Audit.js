@@ -10,24 +10,26 @@ var clientResourceRoot = '../../client',
     express = require('express'),
     utils = require('./utils'),
 
+    app = require('./app.config'),
+
 // Establish Express "app server" (routing, parsing, ...)
     port = exports.port = 4711,
-    app,
+    appServer,
     server;
 
-app = express();
-app.use(bodyParser.json());                                              // To support JSON-encoded bodies
-app.use(bodyParser.urlencoded({ extended: true }));                      // To support URL-encoded bodies
-app.use(express.static(path.join(applicationRoot, clientResourceRoot)));
+appServer = express();
+appServer.use(bodyParser.json());                                              // To support JSON-encoded bodies
+appServer.use(bodyParser.urlencoded({ extended: true }));                      // To support URL-encoded bodies
+appServer.use(express.static(path.join(applicationRoot, clientResourceRoot)));
 
-exports.appServer = app;
+exports.appServer = appServer;
 
 
 // Establish and start Express HTTP server
-server = exports.httpServer = http.createServer(app);
+server = exports.httpServer = http.createServer(appServer);
 server.listen(port, function () {
     'use strict';
-    console.log(utils.logPreamble() + 'Express server listening on port %d', port);
+    console.log(app.config.logPreamble() + 'Express server listening on port %d', port);
 });
 
 

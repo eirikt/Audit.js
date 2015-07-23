@@ -1,4 +1,4 @@
-/* global describe:false, it:false, before:false, after:false, beforeEach:false, afterEach:false, JSON:false */
+/* global root:false, JSON:false, describe:false, it:false, before:false, after:false, beforeEach:false, afterEach:false */
 /* jshint -W024, -W030, -W106 */
 
 var sinon = require('sinon'),
@@ -299,7 +299,7 @@ describe('Library service API specification\'s', function () {
             };
 
             applicationStoresStub.removeAllBooks = function (callback, args) {
-                callback(httpResponse['Reset Content'], undefined);
+                return callback(httpResponse['Reset Content'], undefined);
             };
 
             libraryService.removeAllBooksFromCache(request, response);
@@ -394,7 +394,7 @@ describe('Library service API specification\'s', function () {
                         return {
                             json: function (responseBody) {
                                 expect(responseStatusCode).to.be.equal(405);
-                                expect(responseBody).to.be.equal('URI \'library/books/55542f4556a413fc0b7fa066\' supports PUT requests only');
+                                expect(responseBody).to.be.equal('URI \'' + request.originalUrl + '\' supports PUT requests only');
 
                                 done();
                             }
